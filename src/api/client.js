@@ -1,6 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
-import { DeviceEventEmitter } from "react-native";
 import { API_BASE_URL } from "../constants/config";
 
 const apiClient = axios.create({
@@ -40,9 +39,8 @@ apiClient.interceptors.response.use(
   async (error) => {
     if (error.response && error.response.status === 401) {
       console.warn("Global Interceptor: Token expired! Logging user out.");
-      await AsyncStorage.removeItem("jwt_token");
-
-      DeviceEventEmitter.emit("UNAUTHORIZED_LOGOUT");
+      await AsyncStorage.clear();
+      router.replace("/");
     }
     return Promise.reject(error);
   },

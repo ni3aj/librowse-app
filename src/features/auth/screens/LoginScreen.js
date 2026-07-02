@@ -37,10 +37,8 @@ export default function LoginScreen() {
       return Alert.alert("Error", "Enter 10-digit number.");
     setLoading(true);
     try {
-      const response = await apiClient.post("/auth/send-otp", {
-        phone,
-        role: "student",
-      });
+      await AsyncStorage.clear();
+      const response = await apiClient.post("/auth/send-otp", { phone });
       if (response.data.success) setStep(2);
     } catch (error) {
       Alert.alert("Error", error.response?.data?.error || "Failed to send OTP");
@@ -60,7 +58,20 @@ export default function LoginScreen() {
       });
       if (response.data.success) {
         await AsyncStorage.setItem("jwt_token", response.data.token);
-        router.replace("/setup-mpin");
+        if (response.data.hasMpin) {
+          await AsyncStorage.setItem("mpin_configured", "true");
+        } else {
+          router.replace("/setup-mpin");
+        }
+        if (!response.data.isProfileComplete) {
+          router.replace("/setup-profile");
+        } else {
+          if (response.data.user.role === "owner") {
+            router.replace("/(owner)/dashboard");
+          } else {
+            router.replace("/(student)/home");
+          }
+        }
       }
     } catch (error) {
       Alert.alert("Login Failed", "Invalid OTP");
@@ -127,7 +138,6 @@ export default function LoginScreen() {
 
             <Input
               label="Phone Number"
-              placeholder="9876543210"
               keyboardType="number-pad"
               maxLength={10}
               value={phone}
@@ -148,12 +158,13 @@ export default function LoginScreen() {
           <View className="w-full">
             <Input
               label="Enter 6-Digit OTP"
-              placeholder="------"
               keyboardType="number-pad"
               maxLength={6}
               secureTextEntry
               value={otp}
               onChangeText={setOtp}
+              textContentType="oneTimeCode"
+              autoComplete="sms-otp"
             />
             <Button
               title="Verify"

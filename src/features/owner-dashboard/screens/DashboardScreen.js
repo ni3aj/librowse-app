@@ -4,13 +4,13 @@ import { COLORS } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -35,9 +35,12 @@ export default function DashboardScreen() {
       if (response.data.success && response.data.libraries.length > 0) {
         setLibraries(response.data.libraries);
         setSelectedLibrary(response.data.libraries[0]);
+      } else {
+        setLoading(false);
       }
     } catch (error) {
       Alert.alert("Error", "Failed to load your libraries.");
+      setLoading(false);
     }
   };
 
@@ -53,6 +56,55 @@ export default function DashboardScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAcceptRequest = async (enrollmentId) => {
+    try {
+      // Using your standard apiClient prefix
+      const response = await apiClient.patch(
+        `/owner/requests/${enrollmentId}/approve`,
+      );
+
+      if (response.data.success) {
+        Alert.alert("Success", "Student approved! They can now pay.");
+        // Instantly refresh the dashboard to update metrics and clear the card
+        fetchDashboardStats(selectedLibrary.id);
+      }
+    } catch (error) {
+      Alert.alert(
+        "Error",
+        error.response?.data?.error || "Failed to approve student.",
+      );
+    }
+  };
+
+  const handleDenyRequest = async (enrollmentId) => {
+    Alert.alert(
+      "Deny Request",
+      "Are you sure you want to reject this student?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Yes, Reject",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const response = await apiClient.patch(
+                `/owner/requests/${enrollmentId}/reject`,
+              );
+              if (response.data.success) {
+                fetchDashboardStats(selectedLibrary.id);
+              }
+            } catch (error) {
+              Alert.alert(
+                "Error",
+                error.response?.data?.error || "Failed to reject student.",
+              );
+            }
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -120,20 +172,37 @@ export default function DashboardScreen() {
                     title="Accept"
                     variant="primary"
                     className="py-2 px-6 mr-2"
+                    onPress={() => handleAcceptRequest(req.id)}
                   />
                   <Button
                     title="Deny"
                     variant="outline"
                     className="py-2 px-6"
+                    onPress={() => handleDenyRequest(req.id)}
                   />
                 </View>
               </View>
             ))}
           </>
         ) : (
-          <Text className="text-center font-m text-textLight mt-10">
-            No library selected.
-          </Text>
+          <View className="mt-20 items-center bg-white p-8 rounded-3xl border border-borderLight shadow-sm">
+            <Text className="text-4xl mb-4">🏢</Text>
+            <Text className="text-xl font-m-bold text-textDark mb-2 text-center">
+              No Libraries Yet
+            </Text>
+            <Text className="text-textLight font-m text-center mb-6">
+              You haven't added any libraries to your account yet. Let's get
+              started!
+            </Text>
+            <Button
+              title="Add a Library"
+              variant="primary"
+              onPress={() =>
+                Alert.alert("Coming Soon", "Redirect to Add Library Screen")
+              }
+              className="w-full"
+            />
+          </View>
         )}
       </ScrollView>
 

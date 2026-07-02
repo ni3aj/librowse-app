@@ -37,7 +37,11 @@ export default function SetupMpinScreen() {
           "Your MPIN is set. You can use it next time for faster login.",
         );
         await AsyncStorage.setItem("mpin_configured", "true");
-        router.replace("/(student)/home");
+        const targetRoute =
+          response.data.role === "owner"
+            ? "(owner)/dashboard"
+            : "/(student)/home";
+        router.replace(targetRoute);
       }
     } catch (error) {
       console.log("CRITICAL ERROR:", error);

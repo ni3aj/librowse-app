@@ -1,4 +1,5 @@
+import { Slot } from "expo-router";
 
 export default function OwnerLayout() {
-  //return <Tabs screenOptions={{ headerShown: false }} />;
+  return <Slot />;
 }
