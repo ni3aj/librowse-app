@@ -1,9 +1,5 @@
-import { Text, View } from "react-native";
+import OwnerProfileScreen from "@/features/owner/screens/OwnerProfileScreen";
 
-export default function PlaceholderScreen() {
-  return (
-    <View className="flex-1 justify-center items-center bg-white">
-      <Text className="text-xl font-m-bold">Placeholder Screen</Text>
-    </View>
-  );
+export default function OwnerProfileRoute() {
+  return <OwnerProfileScreen />;
 }

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "302235480024",
+    "project_id": "librowse",
+    "storage_bucket": "librowse.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:302235480024:android:3a9670d7d282d7e0f60cad",
+        "android_client_info": {
+          "package_name": "com.yourname.librowse"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAMgw8MxxZb7WI-Z-ocjrr-hAgzZQR-8D0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

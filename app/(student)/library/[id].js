@@ -1,4 +1,4 @@
-import LibraryDetailScreen from "@/features/explore/screens/LibraryDetailScreen";
+import LibraryDetailScreen from "@/features/shared/screens/LibraryDetailScreen";
 
 export default function LibraryDetailRoute() {
   return <LibraryDetailScreen />;

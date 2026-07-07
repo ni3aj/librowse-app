@@ -17,6 +17,10 @@ export default function HomeScreen() {
     fetchLibraries();
   }, []);
 
+  const handlePullToRefresh = async () => {
+    fetchLibraries();
+  };
+
   const fetchLibraries = async () => {
     try {
       const response = await apiClient.get("/student/libraries", {

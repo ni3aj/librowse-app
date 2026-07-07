@@ -11,12 +11,12 @@ export default function Input({
   return (
     <View className="mb-6 w-full">
       {label && (
-        <Text className="text-sm font-m-semi text-textDark mb-2 ml-1">
+        <Text className="text-lg font-l-semi text-textDark mb-2 ml-1">
           {label}
         </Text>
       )}
       <TextInput
-        className="w-full h-16 bg-white px-5 rounded-2xl text-lg text-textDark border border-borderLight"
+        className="w-full h-16 bg-white px-5 rounded-2xl text-xl text-textDark border border-borderLight"
         placeholder={placeholder}
         placeholderTextColor={COLORS.textLight}
         value={value}

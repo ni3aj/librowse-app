@@ -2,10 +2,12 @@ import apiClient from "@/api/client";
 import BackgroundBlobs from "@/components/ui/BackgroundBlobs";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import { fetchCurrentUserStatus } from "@/features/auth/api"; //
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Keyboard,
   Text,
@@ -20,24 +22,94 @@ export default function LoginScreen() {
   const [hasExistingSession, setHasExistingSession] = useState(false);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
       const checkSession = async () => {
+        setIsChecking(true);
         const token = await AsyncStorage.getItem("jwt_token");
-        const mpinConfigured = await AsyncStorage.getItem("mpin_configured");
-        setHasExistingSession(!!token && mpinConfigured === "true");
+        if (!token) {
+          setHasExistingSession(false);
+          setIsChecking(false);
+          return;
+        }
+        const { success, data, error, isUnauthorized } =
+          await fetchCurrentUserStatus();
+        if (!success) {
+          if (isUnauthorized) {
+            console.log("Token expired. Wiping storage.");
+            await AsyncStorage.clear();
+          } else {
+            console.log("Network error. Keeping token safe in wallet.", error);
+          }
+          setHasExistingSession(false);
+          setIsChecking(false);
+          return;
+        }
+        if (data.token) {
+          await AsyncStorage.setItem("jwt_token", data.token);
+        }
+        if (!data.isProfileComplete) {
+          router.replace("/setup-profile");
+        } else if (!data.hasMpin) {
+          router.replace("/setup-mpin");
+        } else if (data.user.role === "owner" && !data.hasLibrary) {
+          router.replace("/create-library-wizard");
+        } else {
+          if (data.hasMpin) {
+            await AsyncStorage.setItem("mpin_configured", "true");
+            setHasExistingSession(true);
+          } else {
+            setHasExistingSession(false);
+          }
+          setIsChecking(false);
+        }
       };
       checkSession();
     }, []),
   );
+
+  if (isChecking) {
+    return (
+      <View className="flex-1 bg-background justify-center items-center">
+        <ActivityIndicator size="large" color="#C13383" />
+      </View>
+    );
+  }
+
+  const handleForgotMpin = async () => {
+    Alert.alert(
+      "Reset MPIN",
+      "You will be securely logged out. You must verify your phone number via OTP to set a new MPIN.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Proceed",
+          style: "destructive",
+          onPress: async () => {
+            // 1. Wipe their current broken session
+            await AsyncStorage.removeItem("jwt_token");
+            await AsyncStorage.removeItem("mpin_configured");
+
+            // 2. 📌 Drop the breadcrumb!
+            await AsyncStorage.setItem("force_mpin_reset", "true");
+
+            // 3. Flip the UI back to the Phone Number entry screen
+            setHasExistingSession(false);
+            setStep(1);
+          },
+        },
+      ],
+    );
+  };
 
   const handleSendOtp = async () => {
     if (phone.length !== 10)
       return Alert.alert("Error", "Enter 10-digit number.");
     setLoading(true);
     try {
-      await AsyncStorage.clear();
+      //await AsyncStorage.clear();
       const response = await apiClient.post("/auth/send-otp", { phone });
       if (response.data.success) setStep(2);
     } catch (error) {
@@ -54,19 +126,32 @@ export default function LoginScreen() {
       const response = await apiClient.post("/auth/verify-otp", {
         phone,
         otp,
-        role: "student",
       });
       if (response.data.success) {
         await AsyncStorage.setItem("jwt_token", response.data.token);
-        if (response.data.hasMpin) {
-          await AsyncStorage.setItem("mpin_configured", "true");
-        } else {
-          router.replace("/setup-mpin");
-        }
-        if (!response.data.isProfileComplete) {
+        // 2. 📌 THE STRICT ALGORITHM (Identical to boot logic)
+        const { data } = response;
+        const needsReset = await AsyncStorage.getItem("force_mpin_reset");
+        console.log("🟢 1. User has MPIN in DB?:", data.hasMpin);
+        console.log("🟢 2. Did they click Forgot MPIN?:", needsReset);
+        if (!data.isProfileComplete) {
           router.replace("/setup-profile");
+        } else if (!data.hasMpin || needsReset === "true") {
+          if (needsReset) await AsyncStorage.removeItem("force_mpin_reset");
+          router.replace("/setup-mpin");
+        } else if (data.user?.role === "owner" && !data.hasLibrary) {
+          router.replace("/create-library-wizard");
         } else {
-          if (response.data.user.role === "owner") {
+          // They are fully onboarded! Save their local flags and let them in.
+          if (data.hasMpin)
+            await AsyncStorage.setItem("mpin_configured", "true");
+          if (data.libraryId)
+            await AsyncStorage.setItem("libraryId", data.libraryId);
+          await AsyncStorage.setItem(
+            "hasInventory",
+            data.hasInventory ? "true" : "false",
+          );
+          if (data.user?.role === "owner") {
             router.replace("/(owner)/dashboard");
           } else {
             router.replace("/(student)/home");
@@ -111,7 +196,7 @@ export default function LoginScreen() {
             LiBrowse 📚
           </Text>
           <Text className="text-base text-textLight">
-            Browse. Enroll. Bloom.
+            Your Perfect Desk, Waiting.
           </Text>
         </View>
 
@@ -202,7 +287,7 @@ export default function LoginScreen() {
             <Button
               title="Forgot MPIN? Use OTP"
               variant="primary"
-              onPress={() => setStep(1)}
+              onPress={handleForgotMpin}
             />
           </View>
         )}

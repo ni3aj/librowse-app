@@ -1,16 +1,18 @@
 import apiClient from "@/api/client";
 import Button from "@/components/ui/Button";
+import RefreshableScrollView from "@/components/ui/RefreshableScrollView";
 import { COLORS } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Modal,
-  ScrollView,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -21,13 +23,33 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
 
+  // 📌 NEW: Tracks if the user has completed the "Add Seats" onboarding step
+  const [hasInventory, setHasInventory] = useState(true);
+
   useEffect(() => {
     fetchMyLibraries();
+    checkSetupStatus();
   }, []);
 
   useEffect(() => {
     if (selectedLibrary) fetchDashboardStats(selectedLibrary.id);
   }, [selectedLibrary]);
+
+  const handlePullToRefresh = async () => {
+    if (selectedLibrary) {
+      await fetchDashboardStats(selectedLibrary.id);
+    } else {
+      await fetchMyLibraries();
+    }
+  };
+
+  // 📌 NEW: Check AsyncStorage to see if they bypassed seat creation
+  const checkSetupStatus = async () => {
+    const inventoryFlag = await AsyncStorage.getItem("hasInventory");
+    if (inventoryFlag === "false") {
+      setHasInventory(false);
+    }
+  };
 
   const fetchMyLibraries = async () => {
     try {
@@ -60,14 +82,12 @@ export default function DashboardScreen() {
 
   const handleAcceptRequest = async (enrollmentId) => {
     try {
-      // Using your standard apiClient prefix
       const response = await apiClient.patch(
         `/owner/requests/${enrollmentId}/approve`,
       );
 
       if (response.data.success) {
         Alert.alert("Success", "Student approved! They can now pay.");
-        // Instantly refresh the dashboard to update metrics and clear the card
         fetchDashboardStats(selectedLibrary.id);
       }
     } catch (error) {
@@ -112,18 +132,20 @@ export default function DashboardScreen() {
       {/* --- HEADER --- */}
       <View className="flex-row justify-between items-center px-6 pt-4 pb-6">
         <Text className="text-2xl font-m-extra text-textDark">Dashboard</Text>
-        <TouchableOpacity
-          onPress={() => setModalVisible(true)}
-          className="flex-row items-center bg-white border border-borderLight rounded-full px-4 py-2 shadow-sm"
-        >
-          <Text className="text-textDark font-m-bold text-sm mr-2">
-            {selectedLibrary?.name || "Select"}
-          </Text>
-          <Ionicons name="chevron-down" size={16} color={COLORS.textDark} />
-        </TouchableOpacity>
+        {libraries?.length > 1 && (
+          <TouchableOpacity
+            onPress={() => setModalVisible(true)}
+            className="flex-row items-center bg-white border border-borderLight rounded-full px-4 py-2 shadow-sm"
+          >
+            <Text className="text-textDark font-m-bold text-sm mr-2">
+              {selectedLibrary?.name || "Select"}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={COLORS.textDark} />
+          </TouchableOpacity>
+        )}
       </View>
 
-      <ScrollView className="px-6">
+      <RefreshableScrollView className="px-6" onRefresh={handlePullToRefresh}>
         {loading ? (
           <ActivityIndicator
             className="mt-20"
@@ -132,60 +154,93 @@ export default function DashboardScreen() {
           />
         ) : stats ? (
           <>
-            {/* --- METRICS --- */}
-            <View className="flex-row flex-wrap justify-between mb-6">
-              <MetricCard
-                label="Pending"
-                value={stats.metrics.pending_count}
-                color="brandAccent"
-              />
-              <MetricCard
-                label="Occupied"
-                value={`${stats.metrics.active_users_count}/${stats.metrics.total_capacity}`}
-                color="brand"
-              />
-              <MetricCard
-                label="Revenue"
-                value={`₹${Math.round(stats.metrics.monthly_revenue)}`}
-                color="textLight"
-                full
-              />
-            </View>
+            {/* 📌 EMPTY STATE: If they have a library but NO seats yet */}
+            {!hasInventory && (
+              <View className="bg-white p-6 rounded-3xl border border-brandAccent/30 mb-6 items-center mt-4">
+                <View className="bg-brand/10 h-16 w-16 rounded-full items-center justify-center mb-4">
+                  <Text className="text-3xl">🪑</Text>
+                </View>
 
-            {/* --- PENDING REQUESTS --- */}
-            <Text className="text-lg font-m-bold text-textDark mb-4">
-              Pending Approvals
-            </Text>
-            {stats.pendingRequests.map((req) => (
-              <View
-                key={req.id}
-                className="bg-white p-4 rounded-2xl mb-3 border border-borderLight"
-              >
-                <Text className="font-m-bold text-textDark">
-                  {req.student_name}
+                <Text className="text-xl font-m-bold text-textDark text-center mb-2">
+                  Finish Setting Up
                 </Text>
-                <Text className="text-sm font-m text-textLight">
-                  {req.seat_type} • Since {req.start_date}
+
+                <Text className="text-textLight text-center font-m mb-6 leading-5 px-2">
+                  You haven't added any seat capacities yet. Students cannot
+                  find or book your library until you add your shifts and
+                  prices!
                 </Text>
-                <View className="flex-row mt-3">
-                  <Button
-                    title="Accept"
-                    variant="primary"
-                    className="py-2 px-6 mr-2"
-                    onPress={() => handleAcceptRequest(req.id)}
+
+                <Button
+                  title="Add Seats Now"
+                  onPress={() => router.push("/manage-seats")}
+                  className="w-full"
+                />
+              </View>
+            )}
+
+            {/* 📌 FULL DASHBOARD: Only show metrics if they actually have seats */}
+            {hasInventory && (
+              <>
+                {/* --- METRICS --- */}
+                <View className="flex-row flex-wrap justify-between mb-6">
+                  <MetricCard
+                    label="Pending"
+                    value={stats.metrics.pending_count}
+                    color="brandAccent"
                   />
-                  <Button
-                    title="Deny"
-                    variant="outline"
-                    className="py-2 px-6"
-                    onPress={() => handleDenyRequest(req.id)}
+                  <MetricCard
+                    label="Occupied"
+                    value={`${stats.metrics.active_users_count}/${stats.metrics.total_capacity}`}
+                    color="brand"
+                  />
+                  <MetricCard
+                    label="Revenue"
+                    value={`₹${Math.round(stats.metrics.monthly_revenue)}`}
+                    color="textLight"
+                    full
                   />
                 </View>
-              </View>
-            ))}
+
+                {/* --- PENDING REQUESTS --- */}
+                {stats.pendingRequests.length > 0 && (
+                  <Text className="text-lg font-m-bold text-textDark mb-4">
+                    Pending Approvals
+                  </Text>
+                )}
+                {stats.pendingRequests.map((req) => (
+                  <View
+                    key={req.id}
+                    className="bg-white p-4 rounded-2xl mb-3 border border-borderLight"
+                  >
+                    <Text className="font-m-bold text-textDark">
+                      {req.student_name}
+                    </Text>
+                    <Text className="text-sm font-m text-textLight">
+                      {req.seat_type} • Since {req.start_date}
+                    </Text>
+                    <View className="flex-row mt-3">
+                      <Button
+                        title="Accept"
+                        variant="primary"
+                        className="py-2 px-6 mr-2"
+                        onPress={() => handleAcceptRequest(req.id)}
+                      />
+                      <Button
+                        title="Deny"
+                        variant="outline"
+                        className="py-2 px-6"
+                        onPress={() => handleDenyRequest(req.id)}
+                      />
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
           </>
         ) : (
-          <View className="mt-20 items-center bg-white p-8 rounded-3xl border border-borderLight shadow-sm">
+          /* --- NO LIBRARIES SCENARIO --- */
+          <View className="mt-20 items-center bg-white p-8 rounded-3xl border border-borderLight">
             <Text className="text-4xl mb-4">🏢</Text>
             <Text className="text-xl font-m-bold text-textDark mb-2 text-center">
               No Libraries Yet
@@ -197,14 +252,14 @@ export default function DashboardScreen() {
             <Button
               title="Add a Library"
               variant="primary"
-              onPress={() =>
-                Alert.alert("Coming Soon", "Redirect to Add Library Screen")
+              onPress={
+                () => router.push("/create-library-wizard") // Updated to point to your wizard!
               }
               className="w-full"
             />
           </View>
         )}
-      </ScrollView>
+      </RefreshableScrollView>
 
       {/* --- LIBRARY SELECTOR MODAL --- */}
       <Modal visible={modalVisible} transparent animationType="fade">

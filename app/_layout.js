@@ -1,3 +1,4 @@
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import {
   Montserrat_400Regular,
   Montserrat_500Medium,
@@ -11,6 +12,8 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { Text, TextInput } from "react-native";
 import "../global.css";
+
+usePushNotifications();
 
 SplashScreen.preventAutoHideAsync();
 
