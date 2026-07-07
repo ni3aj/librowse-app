@@ -13,8 +13,6 @@ import { useEffect } from "react";
 import { Text, TextInput } from "react-native";
 import "../global.css";
 
-usePushNotifications();
-
 SplashScreen.preventAutoHideAsync();
 
 if (!Text.defaultProps) {
@@ -28,6 +26,8 @@ if (!TextInput.defaultProps) {
 TextInput.defaultProps.style = { fontFamily: "Montserrat_400Regular" };
 
 export default function RootLayout() {
+  usePushNotifications();
+
   const [fontsLoaded, error] = useFonts({
     Montserrat_400Regular,
     Montserrat_500Medium,

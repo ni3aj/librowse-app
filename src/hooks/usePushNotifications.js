@@ -9,7 +9,7 @@ Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
-    shouldSetBadge: false,
+    shouldSetBadge: true,
   }),
 });
 
@@ -53,9 +53,9 @@ export const usePushNotifications = () => {
 
         console.log("🟢 Expo Push Token:", expoPushToken);
 
-        await apiClient.post("/user/push-token", { token: expoPushToken });
+        await apiClient.post("/user/fcm-token", { token: expoPushToken });
       } catch (error) {
-        console.error("Error saving push token:", error);
+        console.error("Error saving fcm token:", error);
       }
     };
 

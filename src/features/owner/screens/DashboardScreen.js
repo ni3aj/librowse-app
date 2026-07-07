@@ -10,9 +10,10 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Pressable,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -22,8 +23,6 @@ export default function DashboardScreen() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
-
-  // 📌 NEW: Tracks if the user has completed the "Add Seats" onboarding step
   const [hasInventory, setHasInventory] = useState(true);
 
   useEffect(() => {
@@ -35,6 +34,36 @@ export default function DashboardScreen() {
     if (selectedLibrary) fetchDashboardStats(selectedLibrary.id);
   }, [selectedLibrary]);
 
+  const handleMarkAsPaid = (enrollmentId, studentName) => {
+    Alert.alert(
+      "Confirm Offline Payment",
+      `Did ${studentName} pay you directly? This will instantly activate their seat and log the revenue.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Yes, Mark as Paid",
+          style: "default",
+          onPress: async () => {
+            try {
+              const response = await apiClient.patch(
+                `/owner/${enrollmentId}/mark-paid`,
+              );
+              if (response.data.success) {
+                Alert.alert("Success", `${studentName}'s seat is now Active!`);
+                fetchDashboardStats(selectedLibrary.id); // Triggers full refresh!
+              }
+            } catch (error) {
+              Alert.alert(
+                "Error",
+                error.response?.data?.error || "Failed to mark as paid.",
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const handlePullToRefresh = async () => {
     if (selectedLibrary) {
       await fetchDashboardStats(selectedLibrary.id);
@@ -43,7 +72,6 @@ export default function DashboardScreen() {
     }
   };
 
-  // 📌 NEW: Check AsyncStorage to see if they bypassed seat creation
   const checkSetupStatus = async () => {
     const inventoryFlag = await AsyncStorage.getItem("hasInventory");
     if (inventoryFlag === "false") {
@@ -87,7 +115,7 @@ export default function DashboardScreen() {
       );
 
       if (response.data.success) {
-        Alert.alert("Success", "Student approved! They can now pay.");
+        Alert.alert("Success", "Student approved! Awaiting their payment.");
         fetchDashboardStats(selectedLibrary.id);
       }
     } catch (error) {
@@ -135,7 +163,7 @@ export default function DashboardScreen() {
         {libraries?.length > 1 && (
           <TouchableOpacity
             onPress={() => setModalVisible(true)}
-            className="flex-row items-center bg-white border border-borderLight rounded-full px-4 py-2 shadow-sm"
+            className="flex-row items-center bg-white border border-borderLight rounded-full px-4 py-2"
           >
             <Text className="text-textDark font-m-bold text-sm mr-2">
               {selectedLibrary?.name || "Select"}
@@ -154,23 +182,20 @@ export default function DashboardScreen() {
           />
         ) : stats ? (
           <>
-            {/* 📌 EMPTY STATE: If they have a library but NO seats yet */}
+            {/* 📌 EMPTY STATE */}
             {!hasInventory && (
               <View className="bg-white p-6 rounded-3xl border border-brandAccent/30 mb-6 items-center mt-4">
                 <View className="bg-brand/10 h-16 w-16 rounded-full items-center justify-center mb-4">
                   <Text className="text-3xl">🪑</Text>
                 </View>
-
                 <Text className="text-xl font-m-bold text-textDark text-center mb-2">
                   Finish Setting Up
                 </Text>
-
                 <Text className="text-textLight text-center font-m mb-6 leading-5 px-2">
                   You haven't added any seat capacities yet. Students cannot
                   find or book your library until you add your shifts and
                   prices!
                 </Text>
-
                 <Button
                   title="Add Seats Now"
                   onPress={() => router.push("/manage-seats")}
@@ -179,15 +204,20 @@ export default function DashboardScreen() {
               </View>
             )}
 
-            {/* 📌 FULL DASHBOARD: Only show metrics if they actually have seats */}
+            {/* 📌 FULL DASHBOARD */}
             {hasInventory && (
               <>
-                {/* --- METRICS --- */}
+                {/* --- 2x2 METRICS GRID --- */}
                 <View className="flex-row flex-wrap justify-between mb-6">
                   <MetricCard
                     label="Pending"
                     value={stats.metrics.pending_count}
                     color="brandAccent"
+                  />
+                  <MetricCard
+                    label="Unpaid"
+                    value={stats.metrics.awaiting_payment_count}
+                    color="textLight"
                   />
                   <MetricCard
                     label="Occupied"
@@ -197,41 +227,113 @@ export default function DashboardScreen() {
                   <MetricCard
                     label="Revenue"
                     value={`₹${Math.round(stats.metrics.monthly_revenue)}`}
-                    color="textLight"
-                    full
+                    color="textDark"
                   />
                 </View>
 
-                {/* --- PENDING REQUESTS --- */}
+                {/* --- PENDING APPROVALS --- */}
                 {stats.pendingRequests.length > 0 && (
                   <Text className="text-lg font-m-bold text-textDark mb-4">
                     Pending Approvals
                   </Text>
                 )}
                 {stats.pendingRequests.map((req) => (
+                  <Pressable
+                    key={req.id}
+                    onPress={() => router.push(`/user/${req.student_id}`)}
+                    className="bg-white p-4 rounded-2xl mb-3 border border-borderLight active:opacity-70"
+                  >
+                    <View className="flex-row justify-between items-center">
+                      <Text className="font-m-bold text-textDark text-lg">
+                        {req.student_name}
+                      </Text>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={18}
+                        color={COLORS.textLight}
+                      />
+                    </View>
+                    <Text className="text-sm font-m text-textLight mt-1">
+                      {req.seat_type} • Requested {req.start_date}
+                    </Text>
+                    <View className="flex-row mt-4">
+                      <View className="flex-1 mr-2">
+                        <Button
+                          title="Accept"
+                          variant="primary"
+                          className="py-2 w-full"
+                          onPress={() => handleAcceptRequest(req.id)}
+                        />
+                      </View>
+                      <View className="flex-1 ml-2">
+                        <Button
+                          title="Deny"
+                          variant="outline"
+                          className="py-2 w-full"
+                          onPress={() => handleDenyRequest(req.id)}
+                        />
+                      </View>
+                    </View>
+                  </Pressable>
+                ))}
+
+                {/* --- AWAITING PAYMENT (APPROVED STUDENTS) --- */}
+                {/* --- AWAITING PAYMENT (APPROVED STUDENTS) --- */}
+                {stats.awaitingPayment.length > 0 && (
+                  <Text className="text-lg font-m-bold text-textDark mb-4 mt-4">
+                    Awaiting Payment
+                  </Text>
+                )}
+                {stats.awaitingPayment.map((req) => (
                   <View
                     key={req.id}
-                    className="bg-white p-4 rounded-2xl mb-3 border border-borderLight"
+                    className="bg-white p-4 rounded-2xl mb-3 border border-borderLight active:opacity-70"
                   >
-                    <Text className="font-m-bold text-textDark">
-                      {req.student_name}
-                    </Text>
+                    <View className="flex-row justify-between items-center mb-1">
+                      <Text className="font-m-bold text-textDark text-lg">
+                        {req.student_name}
+                      </Text>
+                    </View>
                     <Text className="text-sm font-m text-textLight">
-                      {req.seat_type} • Since {req.start_date}
+                      {req.seat_type} • Approved {req.start_date}
                     </Text>
-                    <View className="flex-row mt-3">
-                      <Button
-                        title="Accept"
-                        variant="primary"
-                        className="py-2 px-6 mr-2"
-                        onPress={() => handleAcceptRequest(req.id)}
+
+                    {/* Info Banner */}
+                    <View className="mt-3 bg-brandAccent/10 py-2 px-3 rounded-lg flex-row items-center mb-3">
+                      <Ionicons
+                        name="time-outline"
+                        size={16}
+                        color={COLORS.brandAccent}
+                        className="mr-2"
                       />
-                      <Button
-                        title="Deny"
-                        variant="outline"
-                        className="py-2 px-6"
-                        onPress={() => handleDenyRequest(req.id)}
-                      />
+                      <Text className="font-m-bold text-brandAccent ml-2 text-sm flex-1">
+                        Waiting for Student to Pay
+                      </Text>
+                    </View>
+
+                    {/* 📌 NEW: Offline Payment Button */}
+                    <View className="flex-row mt-2 border-t border-borderLight pt-4">
+                      {/* Left Side: View Profile */}
+                      <View className="flex-1 mr-2">
+                        <Button
+                          title="View Profile"
+                          variant="outline"
+                          className="py-2 w-full"
+                          onPress={() => router.push(`/user/${req.student_id}`)}
+                        />
+                      </View>
+
+                      {/* Right Side: Mark as Paid */}
+                      <View className="flex-1 ml-2">
+                        <Button
+                          title="Mark as Paid"
+                          variant="primary"
+                          className="py-2 w-full"
+                          onPress={() =>
+                            handleMarkAsPaid(req.id, req.student_name)
+                          }
+                        />
+                      </View>
                     </View>
                   </View>
                 ))}
@@ -252,9 +354,7 @@ export default function DashboardScreen() {
             <Button
               title="Add a Library"
               variant="primary"
-              onPress={
-                () => router.push("/create-library-wizard") // Updated to point to your wizard!
-              }
+              onPress={() => router.push("/create-library-wizard")}
               className="w-full"
             />
           </View>
@@ -288,11 +388,9 @@ export default function DashboardScreen() {
 }
 
 // Small helper component for the metrics
-function MetricCard({ label, value, color, full }) {
+function MetricCard({ label, value, color }) {
   return (
-    <View
-      className={`${full ? "w-full" : "w-[48%]"} bg-white p-5 rounded-3xl mb-4 border border-borderLight`}
-    >
+    <View className="w-[48%] bg-white p-5 rounded-3xl mb-4 border border-borderLight">
       <Text
         className={`text-xs font-m-bold text-${color} uppercase tracking-widest mb-1`}
       >
