@@ -1,0 +1,169 @@
+import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    FlatList,
+    Linking,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import apiClient from "../../../api/client"; // Adjust path as needed
+import { COLORS } from "../../../constants/theme";
+
+export default function OwnerStudentsListScreen() {
+  const { id } = useLocalSearchParams(); // Library ID
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchStudents();
+  }, [id]); // 📌 Added 'id' to dependency array
+
+  const fetchStudents = async () => {
+    try {
+      const res = await apiClient.get(`/owner/libraries/${id}/students`);
+      if (res.data.success) {
+        setStudents(res.data.students);
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 📌 Helper to format expiry date safely
+  const formatExpiry = (dateStr) => {
+    if (!dateStr) return "N/A";
+    return new Date(dateStr).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+    });
+  };
+
+  const renderStudent = ({ item }) => {
+    const isActive = item.status === "ACTIVE";
+    // 📌 THE FIX: Explicitly check for pending statuses
+    const isPending =
+      item.status === "PENDING" || item.status === "PAYMENT_PENDING";
+
+    return (
+      <TouchableOpacity
+        onPress={() => router.push(`/user/${item.user_id}`)}
+        className="bg-white p-4 rounded-2xl mb-3 border border-borderLight flex-row items-center"
+      >
+        {/* Avatar Placeholder */}
+        <View className="w-12 h-12 rounded-full bg-surface justify-center items-center mr-4 border border-borderLight">
+          <Text className="text-lg font-m-bold text-textDark">
+            {item.full_name?.charAt(0).toUpperCase()}
+          </Text>
+        </View>
+
+        {/* Student Details */}
+        <View className="flex-1 pr-2">
+          <Text className="text-base font-m-bold text-textDark mb-0.5">
+            {item.full_name}
+          </Text>
+          <Text className="text-xs text-textLight mb-1">
+            {item.amenity?.replace("_", " ")} • {item.shift?.replace("_", " ")}
+          </Text>
+
+          <View className="flex-row items-center">
+            {/* 📌 Dynamic Color Dot */}
+            <View
+              className={`w-2 h-2 rounded-full mr-1.5 ${
+                isActive
+                  ? "bg-green-500"
+                  : isPending
+                    ? "bg-brandAccent"
+                    : "bg-gray-400"
+              }`}
+            />
+            {/* 📌 Dynamic Status Text */}
+            <Text
+              className={`text-xs font-m-bold ${
+                isActive
+                  ? "text-green-600"
+                  : isPending
+                    ? "text-brandAccent"
+                    : "text-gray-500"
+              }`}
+            >
+              {isActive
+                ? `Valid till ${formatExpiry(item.end_date)}`
+                : isPending
+                  ? `Pending Request`
+                  : `Expired on ${formatExpiry(item.end_date)}`}
+            </Text>
+          </View>
+        </View>
+
+        {/* Action Button: Profile Arrow or WhatsApp Reminder */}
+        {/* 📌 Only show WhatsApp if they are fully EXPIRED */}
+        {!isActive && !isPending ? (
+          <TouchableOpacity
+            onPress={() => {
+              // Wrapped in encodeURIComponent so special characters in names don't break the WhatsApp link!
+              const msg = encodeURIComponent(
+                `Hi ${item.full_name}, your study room seat expired on ${formatExpiry(item.end_date)}. Would you like to renew it for this month?`,
+              );
+              Linking.openURL(
+                `whatsapp://send?phone=91${item.phone}&text=${msg}`,
+              );
+            }}
+            className="bg-green-50 p-3 rounded-full border border-green-200"
+          >
+            <Ionicons name="logo-whatsapp" size={20} color="#128C7E" />
+          </TouchableOpacity>
+        ) : (
+          <View className="p-3">
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={COLORS.textLight}
+            />
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View className="flex-1 bg-background justify-center items-center">
+        <ActivityIndicator size="large" color={COLORS.brand} />
+      </View>
+    );
+  }
+
+  return (
+    <View className="flex-1 bg-background px-6 pt-6 mt-12">
+      <View className="flex-row items-center mb-6">
+        <TouchableOpacity
+          onPress={() => router.back()}
+          className="p-2 rounded-full mr-4"
+        >
+          <Ionicons name="chevron-back" size={24} color={COLORS.textDark} />
+        </TouchableOpacity>
+        <Text className="text-2xl font-m-extra text-textDark">
+          Student Directory
+        </Text>
+      </View>
+
+      <FlatList
+        data={students}
+        keyExtractor={(item) => item.user_id}
+        renderItem={renderStudent}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        ListEmptyComponent={
+          <Text className="text-center text-textLight mt-10">
+            No students found.
+          </Text>
+        }
+      />
+    </View>
+  );
+}

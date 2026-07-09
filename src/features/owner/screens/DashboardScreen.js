@@ -155,6 +155,38 @@ export default function DashboardScreen() {
     );
   };
 
+  const getSubscriptionUI = () => {
+    const sub = stats?.platformSubscription || {
+      status: "ACTIVE",
+      daysRemaining: 30,
+    };
+
+    if (sub.daysRemaining <= 0) {
+      return {
+        label: "Payment Due",
+        value: "Pay Now",
+        color: "red-500",
+        bg: "red-50",
+      };
+    } else if (sub.daysRemaining <= 5) {
+      return {
+        label: "Expiring Soon",
+        value: `${sub.daysRemaining} days`,
+        color: "orange-500",
+        bg: "orange-50",
+      };
+    } else {
+      return {
+        label: "Subscription",
+        value: "Active",
+        color: "green-600",
+        bg: "green-50",
+      };
+    }
+  };
+
+  const subUI = getSubscriptionUI();
+
   return (
     <SafeAreaView className="flex-1 bg-background">
       {/* --- HEADER --- */}
@@ -220,14 +252,36 @@ export default function DashboardScreen() {
                     color="textLight"
                   />
                   <MetricCard
-                    label="Occupied"
+                    label="Occupied seats"
                     value={`${stats.metrics.active_users_count}/${stats.metrics.total_capacity}`}
                     color="brand"
                   />
                   <MetricCard
-                    label="Revenue"
+                    label="Active Students"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/students-list",
+                        params: { id: selectedLibrary?.id },
+                      })
+                    }
+                    value={`${stats.metrics.active_users_count}/${stats.metrics.total_students_count}`}
+                    color="brand"
+                  />
+                  <MetricCard
+                    label="My Revenue"
                     value={`₹${Math.round(stats.metrics.monthly_revenue)}`}
                     color="textDark"
+                  />
+                  <MetricCard
+                    label={subUI.label}
+                    value={subUI.value}
+                    color={subUI.color} // You may need to update MetricCard component to accept hex/tailwind colors directly
+                    onPress={() => {
+                      if (subUI.label !== "Subscription") {
+                        // Navigate to Payment / Billing Screen
+                        router.push("/owner/billing");
+                      }
+                    }}
                   />
                 </View>
 
@@ -388,15 +442,20 @@ export default function DashboardScreen() {
 }
 
 // Small helper component for the metrics
-function MetricCard({ label, value, color }) {
+function MetricCard({ label, value, color, onPress }) {
+  const CardContainer = onPress ? TouchableOpacity : View;
+
   return (
-    <View className="w-[48%] bg-white p-5 rounded-3xl mb-4 border border-borderLight">
-      <Text
-        className={`text-xs font-m-bold text-${color} uppercase tracking-widest mb-1`}
-      >
+    <CardContainer
+      onPress={onPress}
+      activeOpacity={onPress ? 0.7 : 1}
+      className={`w-[48%] bg-white p-5 rounded-3xl mb-4 border border-borderLight`}
+    >
+      <Text className="text-xs font-m-bold text-textLight uppercase tracking-widest mb-1">
         {label}
       </Text>
-      <Text className="text-2xl font-m-extra text-textDark">{value}</Text>
-    </View>
+      {/* 📌 Dynamic text color based on status */}
+      <Text className={`text-2xl font-m-extra text-${color}`}>{value}</Text>
+    </CardContainer>
   );
 }

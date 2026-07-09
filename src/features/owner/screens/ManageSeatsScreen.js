@@ -93,7 +93,7 @@ export default function ManageSeatsScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-background p-6 mb-8 mt-10">
+    <ScrollView className="flex-1 bg-background p-6 mb-8 mt-12">
       <Text className="text-2xl font-bold text-textDark mb-2">
         Manage Seats
       </Text>

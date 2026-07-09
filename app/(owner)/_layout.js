@@ -44,6 +44,14 @@ export default function OwnerTabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="students-list"
+        options={{ href: null }} // 👈 This hides the button!
+      />
+      <Tabs.Screen
+        name="create-library-wizard"
+        options={{ href: null }} // 👈 This hides the button!
+      />
     </Tabs>
   );
 }
