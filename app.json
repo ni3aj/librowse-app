@@ -38,6 +38,12 @@
           }
         }
       ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow LiBrowse to use Face ID to quickly and securely unlock your dashboard."
+        }
+      ],
       "expo-font",
       "expo-notifications"
     ],

@@ -49,3 +49,30 @@ export const createLibraryProfile = async (libraryData) => {
     };
   }
 };
+
+export const fetchBillingStatusApi = async () => {
+  try {
+    const response = await apiClient.get("/owner/billing/status");
+    return response.data; // Returns { success, data, error }
+  } catch (error) {
+    throw error.response?.data || { success: false, error: "Network Error" };
+  }
+};
+
+export const createRazorpayOrderApi = async () => {
+  try {
+    const response = await apiClient.post("/billing/create-order");
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { success: false, error: "Network Error" };
+  }
+};
+
+export const verifyRazorpayPaymentApi = async (paymentData) => {
+  try {
+    const response = await apiClient.post("/billing/verify", paymentData);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { success: false, error: "Network Error" };
+  }
+};

@@ -2,8 +2,9 @@ import apiClient from "@/api/client";
 import BackgroundBlobs from "@/components/ui/BackgroundBlobs";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { fetchCurrentUserStatus } from "@/features/auth/api"; //
+import { fetchCurrentUserStatus } from "@/features/auth/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as LocalAuthentication from "expo-local-authentication"; // 📌 NEW IMPORT
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
@@ -14,6 +15,8 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+// 📌 Optional Icon for the Biometric Button
+import { Ionicons } from "@expo/vector-icons";
 
 export default function LoginScreen() {
   const [phone, setPhone] = useState("");
@@ -23,19 +26,28 @@ export default function LoginScreen() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
+  const [biometricSupported, setBiometricSupported] = useState(false); // 📌 Track biometric support
 
   useFocusEffect(
     useCallback(() => {
       const checkSession = async () => {
         setIsChecking(true);
+
+        // 📌 1. Check if device supports FaceID / Fingerprint
+        const compatible = await LocalAuthentication.hasHardwareAsync();
+        const enrolled = await LocalAuthentication.isEnrolledAsync();
+        setBiometricSupported(compatible && enrolled);
+
         const token = await AsyncStorage.getItem("jwt_token");
         if (!token) {
           setHasExistingSession(false);
           setIsChecking(false);
           return;
         }
+
         const { success, data, error, isUnauthorized } =
           await fetchCurrentUserStatus();
+
         if (!success) {
           if (isUnauthorized) {
             console.log("Token expired. Wiping storage.");
@@ -47,28 +59,66 @@ export default function LoginScreen() {
           setIsChecking(false);
           return;
         }
-        if (data.token) {
-          await AsyncStorage.setItem("jwt_token", data.token);
-        }
-        if (!data.isProfileComplete) {
-          router.replace("/setup-profile");
-        } else if (!data.hasMpin) {
-          router.replace("/setup-mpin");
-        } else if (data.user.role === "owner" && !data.hasLibrary) {
-          router.replace("/create-library-wizard");
-        } else {
-          if (data.hasMpin) {
-            await AsyncStorage.setItem("mpin_configured", "true");
-            setHasExistingSession(true);
+
+        if (data.token) await AsyncStorage.setItem("jwt_token", data.token);
+        if (data.libraryId)
+          await AsyncStorage.setItem("libraryId", data.libraryId);
+        await AsyncStorage.setItem(
+          "hasInventory",
+          data.hasInventory ? "true" : "false",
+        );
+        const currentState = data.account_state;
+        if (currentState.startsWith("ACTIVE")) {
+          await AsyncStorage.setItem("mpin_configured", "true");
+          setHasExistingSession(true);
+          if (compatible && enrolled) {
+            handleBiometricLogin(data.user.role);
           } else {
-            setHasExistingSession(false);
+            setStep(3);
           }
-          setIsChecking(false);
+        } else {
+          router.replace(ONBOARDING_ROUTE_MAP[currentState]);
         }
+
+        setIsChecking(false);
       };
       checkSession();
     }, []),
   );
+
+  // 📌 3. THE BIOMETRIC LOGIN HANDLER
+  const handleBiometricLogin = async (knownRole = null) => {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: "Unlock LiBrowse",
+        fallbackLabel: "Use MPIN",
+        disableDeviceFallback: false, // Allows them to use device passcode if FaceID fails
+        cancelLabel: "Cancel",
+      });
+
+      if (result.success) {
+        // If they successfully used fingerprint/face, we need to know where to route them.
+        // If we know their role from the boot check, use it. Otherwise, fetch it.
+        let finalRole = knownRole;
+        if (!finalRole) {
+          const { data } = await fetchCurrentUserStatus();
+          finalRole = data?.user?.role;
+        }
+
+        if (finalRole === "owner") {
+          router.replace("/(owner)/dashboard");
+        } else {
+          router.replace("/(student)/home");
+        }
+      } else {
+        // If they cancel or fail, ensure they are on the MPIN screen
+        setStep(3);
+      }
+    } catch (error) {
+      console.log("Biometric Auth Error", error);
+      setStep(3); // Fallback to MPIN on error
+    }
+  };
 
   if (isChecking) {
     return (
@@ -88,14 +138,9 @@ export default function LoginScreen() {
           text: "Proceed",
           style: "destructive",
           onPress: async () => {
-            // 1. Wipe their current broken session
             await AsyncStorage.removeItem("jwt_token");
             await AsyncStorage.removeItem("mpin_configured");
-
-            // 2. 📌 Drop the breadcrumb!
             await AsyncStorage.setItem("force_mpin_reset", "true");
-
-            // 3. Flip the UI back to the Phone Number entry screen
             setHasExistingSession(false);
             setStep(1);
           },
@@ -109,7 +154,6 @@ export default function LoginScreen() {
       return Alert.alert("Error", "Enter 10-digit number.");
     setLoading(true);
     try {
-      //await AsyncStorage.clear();
       const response = await apiClient.post("/auth/send-otp", { phone });
       if (response.data.success) setStep(2);
     } catch (error) {
@@ -122,41 +166,29 @@ export default function LoginScreen() {
   const handleVerifyOtp = async () => {
     if (otp.length !== 6) return Alert.alert("Error", "Enter 6-digit OTP.");
     setLoading(true);
+
     try {
-      const response = await apiClient.post("/auth/verify-otp", {
-        phone,
-        otp,
-      });
+      const response = await apiClient.post("/auth/verify-otp", { phone, otp });
+
       if (response.data.success) {
-        await AsyncStorage.setItem("jwt_token", response.data.token);
-        // 2. 📌 THE STRICT ALGORITHM (Identical to boot logic)
         const { data } = response;
+        await AsyncStorage.setItem("jwt_token", data.token);
+        if (data.libraryId)
+          await AsyncStorage.setItem("libraryId", data.libraryId);
+        await AsyncStorage.setItem(
+          "hasInventory",
+          data.hasInventory ? "true" : "false",
+        );
         const needsReset = await AsyncStorage.getItem("force_mpin_reset");
-        console.log("🟢 1. User has MPIN in DB?:", data.hasMpin);
-        console.log("🟢 2. Did they click Forgot MPIN?:", needsReset);
-        if (!data.isProfileComplete) {
-          router.replace("/setup-profile");
-        } else if (!data.hasMpin || needsReset === "true") {
-          if (needsReset) await AsyncStorage.removeItem("force_mpin_reset");
-          router.replace("/setup-mpin");
-        } else if (data.user?.role === "owner" && !data.hasLibrary) {
-          router.replace("/create-library-wizard");
-        } else {
-          // They are fully onboarded! Save their local flags and let them in.
-          if (data.hasMpin)
-            await AsyncStorage.setItem("mpin_configured", "true");
-          if (data.libraryId)
-            await AsyncStorage.setItem("libraryId", data.libraryId);
-          await AsyncStorage.setItem(
-            "hasInventory",
-            data.hasInventory ? "true" : "false",
-          );
-          if (data.user?.role === "owner") {
-            router.replace("/(owner)/dashboard");
-          } else {
-            router.replace("/(student)/home");
-          }
+        let finalState = data.account_state;
+        if (needsReset === "true") {
+          await AsyncStorage.removeItem("force_mpin_reset");
+          finalState = "REQUIRES_MPIN";
         }
+        if (finalState.startsWith("ACTIVE")) {
+          await AsyncStorage.setItem("mpin_configured", "true");
+        }
+        router.replace(ONBOARDING_ROUTE_MAP[finalState]);
       }
     } catch (error) {
       Alert.alert("Login Failed", "Invalid OTP");
@@ -171,11 +203,16 @@ export default function LoginScreen() {
     try {
       const response = await apiClient.post("/auth/login-mpin", { mpin });
       if (response.data.success) {
-        router.replace(
-          response.data.role === "owner"
-            ? "/(owner)/dashboard"
-            : "/(student)/home",
-        );
+        const { data } = response;
+        if (data.libraryId)
+          await AsyncStorage.setItem("libraryId", data.libraryId);
+        if (data.hasInventory !== undefined) {
+          await AsyncStorage.setItem(
+            "hasInventory",
+            data.hasInventory ? "true" : "false",
+          );
+        }
+        router.replace(ONBOARDING_ROUTE_MAP[data.account_state]);
       }
     } catch (error) {
       Alert.alert(
@@ -228,7 +265,6 @@ export default function LoginScreen() {
               value={phone}
               onChangeText={setPhone}
             />
-
             <Button
               title="Get OTP"
               variant="primary"
@@ -265,7 +301,7 @@ export default function LoginScreen() {
           </View>
         )}
 
-        {/* STEP 3: MPIN */}
+        {/* STEP 3: MPIN (With Optional Biometric Button) */}
         {step === 3 && (
           <View className="w-full">
             <Input
@@ -277,13 +313,28 @@ export default function LoginScreen() {
               value={mpin}
               onChangeText={setMpin}
             />
-            <Button
-              title="Unlock App"
-              variant="dark"
-              onPress={handleMpinLogin}
-              loading={loading}
-              className="mb-4"
-            />
+
+            <View className="flex-row justify-between mb-4">
+              <View className="flex-1 mr-2">
+                <Button
+                  title="Unlock App"
+                  variant="dark"
+                  onPress={handleMpinLogin}
+                  loading={loading}
+                />
+              </View>
+
+              {/* 📌 Optional: Show a quick fingerprint icon button if they closed the auto-prompt */}
+              {biometricSupported && (
+                <TouchableOpacity
+                  onPress={() => handleBiometricLogin()}
+                  className="bg-brand/10 w-14 items-center justify-center rounded-2xl border border-brand/20"
+                >
+                  <Ionicons name="fingerprint" size={28} color="#C13383" />
+                </TouchableOpacity>
+              )}
+            </View>
+
             <Button
               title="Forgot MPIN? Use OTP"
               variant="primary"

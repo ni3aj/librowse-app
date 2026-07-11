@@ -1,7 +1,9 @@
 import apiClient from "@/api/client";
 import Button from "@/components/ui/Button";
+import Header from "@/components/ui/Header";
 import RefreshableScrollView from "@/components/ui/RefreshableScrollView";
 import { COLORS } from "@/constants/theme";
+import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
@@ -46,7 +48,7 @@ export default function DashboardScreen() {
           onPress: async () => {
             try {
               const response = await apiClient.patch(
-                `/owner/${enrollmentId}/mark-paid`,
+                `/owner/requests/${enrollmentId}/mark-paid`,
               );
               if (response.data.success) {
                 Alert.alert("Success", `${studentName}'s seat is now Active!`);
@@ -190,8 +192,8 @@ export default function DashboardScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       {/* --- HEADER --- */}
-      <View className="flex-row justify-between items-center px-6 pt-4 pb-6">
-        <Text className="text-2xl font-m-extra text-textDark">Dashboard</Text>
+      <View className="flex-row justify-between items-center px-7 pb-4">
+        <Header title="Dashboard" showBack={false} />
         {libraries?.length > 1 && (
           <TouchableOpacity
             onPress={() => setModalVisible(true)}
@@ -240,7 +242,7 @@ export default function DashboardScreen() {
             {hasInventory && (
               <>
                 {/* --- 2x2 METRICS GRID --- */}
-                <View className="flex-row flex-wrap justify-between mb-6">
+                <View className="flex-row flex-wrap justify-between mb-4">
                   <MetricCard
                     label="Pending"
                     value={stats.metrics.pending_count}
@@ -276,19 +278,14 @@ export default function DashboardScreen() {
                     label={subUI.label}
                     value={subUI.value}
                     color={subUI.color} // You may need to update MetricCard component to accept hex/tailwind colors directly
-                    onPress={() => {
-                      if (subUI.label !== "Subscription") {
-                        // Navigate to Payment / Billing Screen
-                        router.push("/owner/billing");
-                      }
-                    }}
+                    onPress={() => router.push("/billing")}
                   />
                 </View>
 
                 {/* --- PENDING APPROVALS --- */}
                 {stats.pendingRequests.length > 0 && (
-                  <Text className="text-lg font-m-bold text-textDark mb-4">
-                    Pending Approvals
+                  <Text className="text-lg font-m-bold px-1 text-textDark mb-4">
+                    New Requests
                   </Text>
                 )}
                 {stats.pendingRequests.map((req) => (
@@ -308,7 +305,10 @@ export default function DashboardScreen() {
                       />
                     </View>
                     <Text className="text-sm font-m text-textLight mt-1">
-                      {req.seat_type} • Requested {req.start_date}
+                      {req.seat_type}
+                    </Text>
+                    <Text className="text-sm font-m text-textLight mt-1">
+                      Requested on {formatCleanDate(req.start_date)}
                     </Text>
                     <View className="flex-row mt-4">
                       <View className="flex-1 mr-2">
@@ -334,7 +334,7 @@ export default function DashboardScreen() {
                 {/* --- AWAITING PAYMENT (APPROVED STUDENTS) --- */}
                 {/* --- AWAITING PAYMENT (APPROVED STUDENTS) --- */}
                 {stats.awaitingPayment.length > 0 && (
-                  <Text className="text-lg font-m-bold text-textDark mb-4 mt-4">
+                  <Text className="text-lg font-m-bold px-1 text-textDark mb-4 mt-4">
                     Awaiting Payment
                   </Text>
                 )}
@@ -372,7 +372,7 @@ export default function DashboardScreen() {
                         <Button
                           title="View Profile"
                           variant="outline"
-                          className="py-2 w-full"
+                          className="py-1 w-full"
                           onPress={() => router.push(`/user/${req.student_id}`)}
                         />
                       </View>

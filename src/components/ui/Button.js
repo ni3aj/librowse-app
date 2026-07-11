@@ -11,7 +11,7 @@ export default function Button({
   ...props
 }) {
   // Tailwind classes mapping (using your config keys)
-  const baseStyle = "py-4 px-6 rounded-2xl items-center justify-center";
+  const baseStyle = "py-3 px-4 rounded-2xl items-center justify-center";
 
   const variants = {
     primary: "bg-brand",

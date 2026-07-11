@@ -2,12 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    Linking,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Linking,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import apiClient from "../../../api/client"; // Adjust path as needed
 import { COLORS } from "../../../constants/theme";
@@ -107,7 +107,7 @@ export default function OwnerStudentsListScreen() {
             onPress={() => {
               // Wrapped in encodeURIComponent so special characters in names don't break the WhatsApp link!
               const msg = encodeURIComponent(
-                `Hi ${item.full_name}, your study room seat expired on ${formatExpiry(item.end_date)}. Would you like to renew it for this month?`,
+                `Hi ${item.full_name}, your library seat expired on ${formatExpiry(item.end_date)}. Would you like to renew it for this month? Please log in to LiBrowse app and choose you seat.`,
               );
               Linking.openURL(
                 `whatsapp://send?phone=91${item.phone}&text=${msg}`,
