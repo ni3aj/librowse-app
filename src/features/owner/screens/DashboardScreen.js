@@ -1,4 +1,5 @@
 import apiClient from "@/api/client";
+import AlertModal from "@/components/ui/AlertModal";
 import Button from "@/components/ui/Button";
 import Header from "@/components/ui/Header";
 import RefreshableScrollView from "@/components/ui/RefreshableScrollView";
@@ -20,6 +21,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function DashboardScreen() {
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
+  const hideAlert = () =>
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
   const [libraries, setLibraries] = useState([]);
   const [selectedLibrary, setSelectedLibrary] = useState(null);
   const [stats, setStats] = useState(null);
@@ -37,33 +46,49 @@ export default function DashboardScreen() {
   }, [selectedLibrary]);
 
   const handleMarkAsPaid = (enrollmentId, studentName) => {
-    Alert.alert(
-      "Confirm Offline Payment",
-      `Did ${studentName} pay you directly? This will instantly activate their seat and log the revenue.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Yes, Mark as Paid",
-          style: "default",
-          onPress: async () => {
-            try {
-              const response = await apiClient.patch(
-                `/owner/requests/${enrollmentId}/mark-paid`,
-              );
-              if (response.data.success) {
-                Alert.alert("Success", `${studentName}'s seat is now Active!`);
-                fetchDashboardStats(selectedLibrary.id); // Triggers full refresh!
-              }
-            } catch (error) {
-              Alert.alert(
-                "Error",
-                error.response?.data?.error || "Failed to mark as paid.",
-              );
-            }
-          },
-        },
-      ],
-    );
+    setAlertConfig({
+      visible: true,
+      type: "warning", // Uses the Amber warning colors
+      title: "Confirm Offline Payment",
+      message: `Did ${studentName} pay you directly? This will instantly activate their seat and log the revenue.`,
+      primaryButtonText: "Mark as Paid",
+      secondaryButtonText: "Cancel",
+      onPrimaryPress: async () => {
+        // 2. When they click Yes, fire the API
+        try {
+          const response = await apiClient.patch(
+            `/owner/requests/${enrollmentId}/mark-paid`,
+          );
+
+          if (response.data.success) {
+            // 3. Update the modal to a Success state!
+            setAlertConfig({
+              visible: true,
+              type: "success", // Smoothly animates to the Emerald checkmark
+              title: "Success!",
+              message: `${studentName}'s seat is now Active!`,
+              primaryButtonText: "Awesome",
+              secondaryButtonText: null, // Hides the cancel button
+              onPrimaryPress: () => {
+                hideAlert(); // Close the modal
+                fetchDashboardStats(selectedLibrary.id); // Refresh the UI
+              },
+            });
+          }
+        } catch (error) {
+          // 4. Update the modal to an Error state!
+          setAlertConfig({
+            visible: true,
+            type: "error", // Smoothly animates to the Coral Red cross
+            title: "Error",
+            message: error.response?.data?.error || "Failed to mark as paid.",
+            primaryButtonText: "OK",
+            secondaryButtonText: null,
+            onPrimaryPress: hideAlert, // Close the modal on click
+          });
+        }
+      },
+    });
   };
 
   const handlePullToRefresh = async () => {
@@ -121,6 +146,7 @@ export default function DashboardScreen() {
         fetchDashboardStats(selectedLibrary.id);
       }
     } catch (error) {
+      console.log(error);
       Alert.alert(
         "Error",
         error.response?.data?.error || "Failed to approve student.",
@@ -437,6 +463,17 @@ export default function DashboardScreen() {
           </View>
         </View>
       </Modal>
+      <AlertModal
+        visible={alertConfig.visible}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        primaryButtonText={alertConfig.primaryButtonText}
+        secondaryButtonText={alertConfig.secondaryButtonText}
+        onPrimaryPress={alertConfig.onPrimaryPress}
+        onSecondaryPress={hideAlert}
+        onClose={hideAlert}
+      />
     </SafeAreaView>
   );
 }

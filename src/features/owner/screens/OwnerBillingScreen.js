@@ -2,28 +2,36 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
-// Clean separation of imports
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
 import {
-    createRazorpayOrderApi,
-    fetchBillingStatusApi,
-    verifyRazorpayPaymentApi,
+  createRazorpayOrderApi,
+  fetchBillingStatusApi,
+  verifyRazorpayPaymentApi,
 } from "@/features/owner/api";
 import { formatCleanDate } from "@/utils/dateFormatter";
-import RazorpayCheckout from "react-native-razorpay";
+// import RazorpayCheckout from "react-native-razorpay";
+import AlertModal from "@/components/ui/AlertModal";
 
 export default function OwnerBillingScreen() {
   const [loading, setLoading] = useState(true);
   const [billingData, setBillingData] = useState(null);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
+  const hideAlert = () =>
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
 
   useFocusEffect(
     useCallback(() => {
@@ -51,49 +59,41 @@ export default function OwnerBillingScreen() {
 
   const handlePayNow = async () => {
     try {
-      setLoading(true); // Re-use the existing loading state from your screen
-
-      // 1. Get Order ID from your Fastify Backend
+      setLoading(true);
       const orderResponse = await createRazorpayOrderApi();
       if (!orderResponse.success) throw new Error(orderResponse.error);
-
-      // 2. Open Razorpay Checkout UI
       const options = {
-        description: "LiBrowse Standard Plan (1 Month)",
-        image: "https://your-server.com/logo.png", // Add your LiBrowse logo URL here
+        description: `${billingData?.currentTier?.name} (1 Month)`,
         currency: "INR",
-        key: "YOUR_RAZORPAY_KEY_ID", // IMPORTANT: Put your public Key ID here too
-        amount: orderResponse.amount,
+        key: "rzp_test_T1wmUuoMg0txLR",
+        amount: parseInt(orderResponse.amount, 10),
         name: "LiBrowse Technologies",
-        order_id: orderResponse.order_id,
-        theme: { color: COLORS.brand }, // Matches your React App Colors Schema (#C13383)
+        order_id: String(orderResponse.order_id),
+        theme: { color: "#C13383" },
         prefill: {
-          email: "owner@example.com", // Optional: autofill from your app state
-          contact: "9999999999", // Optional: autofill from your app state
-          name: "Library Owner",
+          name: billingData?.ownerDetails?.name,
+          contact: billingData?.ownerDetails?.phone,
+          email: billingData?.ownerDetails?.email,
         },
       };
-
-      // Razorpay throws an error if the user closes the modal, so we wrap it in a promise catch
       RazorpayCheckout.open(options)
         .then(async (data) => {
-          // 3. User paid successfully! Now verify the signature on your server
           const verifyResponse = await verifyRazorpayPaymentApi({
             razorpay_order_id: data.razorpay_order_id,
             razorpay_payment_id: data.razorpay_payment_id,
             razorpay_signature: data.razorpay_signature,
           });
-
           if (verifyResponse.success) {
-            Alert.alert("Success!", "Your standard plan has been renewed.");
-            // Refresh the screen data to show the new 'Valid Until' date
-            loadBillingData();
+            setTimeout(() => {
+              Alert.alert("Success!", "Your plan has been renewed.");
+              loadBillingData();
+            }, 500);
           } else {
             Alert.alert("Verification Failed", verifyResponse.error);
+            setLoading(false);
           }
         })
         .catch((error) => {
-          // User closed the Razorpay modal or payment failed inside the gateway
           Alert.alert("Payment Cancelled", "You have not been charged.");
           setLoading(false);
         });
@@ -106,6 +106,21 @@ export default function OwnerBillingScreen() {
     }
   };
 
+  const handleUpgradeClick = (tier) => {
+    setAlertConfig({
+      visible: true,
+      type: "info", // Uses your brand magenta color
+      title: `Upgrade to ${tier.name}`,
+      message: `Our system will calculate the unused days on your current plan and apply it as a discount towards the ₹${tier.price} fee.\n\n(Backend math coming soon!)`,
+      primaryButtonText: "Calculate",
+      secondaryButtonText: "Cancel",
+      onPrimaryPress: () => {
+        hideAlert(); // Close the modal
+        console.log(`Trigger upgrade API for tier ID: ${tier.id}`);
+      },
+    });
+  };
+
   if (loading) {
     return (
       <View className="flex-1 justify-center items-center bg-background">
@@ -115,15 +130,21 @@ export default function OwnerBillingScreen() {
   }
 
   return (
-    <View className="flex-1 bg-background">
+    <View className="flex-1 bg-background mt-12">
       <Header title="Billing & Plans" />
 
-      <ScrollView className="flex-1 px-6 pt-4">
-        {/* --- CURRENT PLAN CARD --- */}
-        <View className="bg-white rounded-2xl p-5 mb-6 border border-borderLight">
+      <ScrollView
+        className="flex-1 px-6 pt-4"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* --- SECTION 1: CURRENT PLAN CARD --- */}
+        <Text className="text-sm font-m-bold text-textLight uppercase tracking-wider mb-3">
+          Current Subscription
+        </Text>
+        <View className="bg-white rounded-2xl p-5 mb-8 border border-borderLight shadow-sm shadow-black/5">
           <View className="flex-row justify-between items-center mb-2">
-            <Text className="text-lg font-m-bold text-textDark">
-              Standard Plan
+            <Text className="text-xl font-m-bold text-textDark">
+              {billingData?.currentTier?.name || "Loading Plan..."}
             </Text>
             <View
               className={`px-3 py-1 rounded-full ${
@@ -144,53 +165,111 @@ export default function OwnerBillingScreen() {
             </View>
           </View>
 
-          <Text className="text-sm font-m-regular text-textLight mb-4">
-            Up to 100 Active Students
+          <Text className="text-sm font-m-regular text-textLight mb-5">
+            Up to {billingData?.currentTier?.maxStudents || 0} Active Students
           </Text>
 
-          <View className="bg-background rounded-lg p-4 mb-4">
+          <View className="bg-background rounded-xl p-4 mb-5 border border-borderLight/50">
             <Text className="text-sm font-m-regular text-textLight">
               Valid Until
             </Text>
-            <Text className="text-base font-m-bold text-textDark">
+            <Text className="text-lg font-m-bold text-textDark">
               {billingData?.validUntil
                 ? formatCleanDate(billingData.validUntil)
                 : "N/A"}
             </Text>
             {billingData?.status !== "EXPIRED" &&
               billingData?.daysRemaining !== undefined && (
-                <Text className="text-xs font-m-regular text-textLight mt-1">
+                <Text className="text-xs font-m-semi text-brand mt-1">
                   {billingData?.daysRemaining} days remaining
                 </Text>
               )}
           </View>
 
-          {/* --- DYNAMIC ACTION BUTTON --- */}
-          {billingData?.status === "EXPIRED" && (
-            <TouchableOpacity
-              onPress={handlePayNow}
-              className="bg-brandAccent py-3 rounded-xl items-center"
-            >
-              <Text className="text-white font-m-bold text-base">
-                Pay Now to Unlock (₹1499)
-              </Text>
-            </TouchableOpacity>
-          )}
+          {/* --- RENEWAL / TRIAL BUTTONS --- */}
+          {Number(billingData?.currentTier?.price) > 0 ? (
+            // NORMAL PAID TIER LOGIC
+            <>
+              {billingData?.status === "EXPIRED" && (
+                <TouchableOpacity
+                  onPress={handlePayNow}
+                  disabled={loading}
+                  className={`bg-brandAccent py-3.5 rounded-xl items-center ${loading ? "opacity-50" : ""}`}
+                >
+                  <Text className="text-white font-m-bold text-base">
+                    {loading
+                      ? "Processing..."
+                      : `Pay Now to Unlock (₹${billingData?.currentTier?.price})`}
+                  </Text>
+                </TouchableOpacity>
+              )}
 
-          {billingData?.status === "EXPIRING_SOON" && (
-            <TouchableOpacity
-              onPress={handlePayNow}
-              className="bg-brand py-3 rounded-xl items-center"
-            >
-              <Text className="text-white font-m-bold text-base">
-                Renew in Advance (₹1499)
-              </Text>
-            </TouchableOpacity>
+              {billingData?.status === "EXPIRING_SOON" && (
+                <TouchableOpacity
+                  onPress={handlePayNow}
+                  disabled={loading}
+                  className={`bg-brand py-3.5 rounded-xl items-center ${loading ? "opacity-50" : ""}`}
+                >
+                  <Text className="text-white font-m-bold text-base">
+                    {loading
+                      ? "Processing..."
+                      : `Renew in Advance (₹${billingData?.currentTier?.price})`}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
+          ) : (
+            // 📌 THE FIX: FREE TRIAL EXPIRATION LOGIC
+            (billingData?.status === "EXPIRED" ||
+              billingData?.status === "EXPIRING_SOON") && (
+              <View className="bg-red-50 border border-red-200 p-4 rounded-xl mt-2">
+                <Text className="text-sm font-m-bold text-red-600 text-center">
+                  {billingData?.status === "EXPIRED"
+                    ? "Your Free Trial has expired. Please select a paid plan below to restore access."
+                    : "Your Free Trial ends soon! Please select a paid plan below to avoid service interruption."}
+                </Text>
+              </View>
+            )
           )}
         </View>
 
-        {/* --- PAYMENT HISTORY --- */}
-        <Text className="text-lg font-m-bold text-textDark mb-4">
+        {/* --- SECTION 2: DYNAMIC UPGRADE OPTIONS --- */}
+        {billingData?.upgradeTiers && billingData.upgradeTiers.length > 0 && (
+          <>
+            <Text className="text-sm font-m-bold text-textLight uppercase tracking-wider mb-3">
+              Need More Capacity?
+            </Text>
+            <View className="mb-8">
+              {billingData.upgradeTiers.map((tier, index) => (
+                <TouchableOpacity
+                  key={index}
+                  onPress={() => handleUpgradeClick(tier)}
+                  className="bg-white border border-brand/20 rounded-2xl p-5 mb-4 flex-row justify-between items-center"
+                >
+                  <View className="flex-1">
+                    <Text className="text-lg font-m-bold text-brand">
+                      {tier.name}
+                    </Text>
+                    <Text className="text-sm font-m-regular text-textLight mt-1">
+                      Up to {tier.maxStudents} Students
+                    </Text>
+                  </View>
+                  <View className="items-end">
+                    <Text className="text-lg font-m-bold text-textDark">
+                      ₹{tier.price}
+                    </Text>
+                    <Text className="text-xs font-m-regular text-textLight">
+                      / month
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
+
+        {/* --- SECTION 3: PAYMENT HISTORY --- */}
+        <Text className="text-sm font-m-bold text-textLight uppercase tracking-wider mb-3">
           Payment History
         </Text>
 
@@ -224,7 +303,6 @@ export default function OwnerBillingScreen() {
                     {formatCleanDate(payment.created_at)}
                   </Text>
                 </View>
-
                 <TouchableOpacity className="bg-background w-10 h-10 rounded-full items-center justify-center">
                   <Ionicons
                     name="download-outline"
@@ -237,6 +315,17 @@ export default function OwnerBillingScreen() {
           </View>
         )}
       </ScrollView>
+      <AlertModal
+        visible={alertConfig.visible}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        primaryButtonText={alertConfig.primaryButtonText}
+        secondaryButtonText={alertConfig.secondaryButtonText}
+        onPrimaryPress={alertConfig.onPrimaryPress}
+        onSecondaryPress={hideAlert}
+        onClose={hideAlert}
+      />
     </View>
   );
 }

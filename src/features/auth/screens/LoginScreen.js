@@ -2,9 +2,11 @@ import apiClient from "@/api/client";
 import BackgroundBlobs from "@/components/ui/BackgroundBlobs";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import { ONBOARDING_ROUTE_MAP } from "@/constants/config";
 import { fetchCurrentUserStatus } from "@/features/auth/api";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as LocalAuthentication from "expo-local-authentication"; // 📌 NEW IMPORT
+import * as LocalAuthentication from "expo-local-authentication";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
@@ -12,35 +14,34 @@ import {
   Alert,
   Keyboard,
   Text,
+  TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
-// 📌 Optional Icon for the Biometric Button
-import { Ionicons } from "@expo/vector-icons";
 
 export default function LoginScreen() {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [mpin, setMpin] = useState("");
-  const [hasExistingSession, setHasExistingSession] = useState(false);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
-  const [biometricSupported, setBiometricSupported] = useState(false); // 📌 Track biometric support
+
+  const [biometricSupported, setBiometricSupported] = useState(false);
+  // 📌 NEW: Cache the state so the fingerprint button doesn't need a network call
+  const [cachedRouteState, setCachedRouteState] = useState(null);
 
   useFocusEffect(
     useCallback(() => {
       const checkSession = async () => {
         setIsChecking(true);
 
-        // 📌 1. Check if device supports FaceID / Fingerprint
         const compatible = await LocalAuthentication.hasHardwareAsync();
         const enrolled = await LocalAuthentication.isEnrolledAsync();
         setBiometricSupported(compatible && enrolled);
 
         const token = await AsyncStorage.getItem("jwt_token");
         if (!token) {
-          setHasExistingSession(false);
           setIsChecking(false);
           return;
         }
@@ -55,68 +56,88 @@ export default function LoginScreen() {
           } else {
             console.log("Network error. Keeping token safe in wallet.", error);
           }
-          setHasExistingSession(false);
           setIsChecking(false);
           return;
         }
 
         if (data.token) await AsyncStorage.setItem("jwt_token", data.token);
         if (data.libraryId)
-          await AsyncStorage.setItem("libraryId", data.libraryId);
+          await AsyncStorage.setItem("libraryId", String(data.libraryId));
         await AsyncStorage.setItem(
           "hasInventory",
           data.hasInventory ? "true" : "false",
         );
+
         const currentState = data.account_state;
+        setCachedRouteState(currentState); // 📌 Cache for manual biometric triggers
+
         if (currentState.startsWith("ACTIVE")) {
           await AsyncStorage.setItem("mpin_configured", "true");
-          setHasExistingSession(true);
+
           if (compatible && enrolled) {
-            handleBiometricLogin(data.user.role);
+            // 📌 Pass the exact state machine route to biometrics
+            handleBiometricLogin(currentState);
           } else {
             setStep(3);
           }
         } else {
-          router.replace(ONBOARDING_ROUTE_MAP[currentState]);
+          const nextRoute = ONBOARDING_ROUTE_MAP[finalState];
+          if (!nextRoute) {
+            // If the route doesn't exist in the map, alert the developer safely instead of crashing!
+            Alert.alert(
+              "Routing Error",
+              `Target state '${finalState}' is missing from ONBOARDING_ROUTE_MAP. Check config.js!`,
+            );
+            setLoading(false);
+            return;
+          }
+
+          router.replace(nextRoute);
         }
 
         setIsChecking(false);
       };
+
       checkSession();
     }, []),
   );
 
-  // 📌 3. THE BIOMETRIC LOGIN HANDLER
-  const handleBiometricLogin = async (knownRole = null) => {
+  // 📌 FIXED: Biometric routing now obeys the State Machine strictly
+  const handleBiometricLogin = async (targetState) => {
     try {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: "Unlock LiBrowse",
         fallbackLabel: "Use MPIN",
-        disableDeviceFallback: false, // Allows them to use device passcode if FaceID fails
+        disableDeviceFallback: false,
         cancelLabel: "Cancel",
       });
 
       if (result.success) {
-        // If they successfully used fingerprint/face, we need to know where to route them.
-        // If we know their role from the boot check, use it. Otherwise, fetch it.
-        let finalRole = knownRole;
-        if (!finalRole) {
-          const { data } = await fetchCurrentUserStatus();
-          finalRole = data?.user?.role;
-        }
+        // Fallback to cached state if triggered manually via the icon
+        const finalState = targetState || cachedRouteState;
 
-        if (finalRole === "owner") {
-          router.replace("/(owner)/dashboard");
+        if (finalState && ONBOARDING_ROUTE_MAP[finalState]) {
+          const nextRoute = ONBOARDING_ROUTE_MAP[finalState];
+          if (!nextRoute) {
+            // If the route doesn't exist in the map, alert the developer safely instead of crashing!
+            Alert.alert(
+              "Routing Error",
+              `Target state '${finalState}' is missing from ONBOARDING_ROUTE_MAP. Check config.js!`,
+            );
+            setLoading(false);
+            return;
+          }
+
+          router.replace(nextRoute);
         } else {
-          router.replace("/(student)/home");
+          setStep(3); // Safety fallback
         }
       } else {
-        // If they cancel or fail, ensure they are on the MPIN screen
         setStep(3);
       }
     } catch (error) {
       console.log("Biometric Auth Error", error);
-      setStep(3); // Fallback to MPIN on error
+      setStep(3);
     }
   };
 
@@ -141,7 +162,7 @@ export default function LoginScreen() {
             await AsyncStorage.removeItem("jwt_token");
             await AsyncStorage.removeItem("mpin_configured");
             await AsyncStorage.setItem("force_mpin_reset", "true");
-            setHasExistingSession(false);
+            setCachedRouteState(null);
             setStep(1);
           },
         },
@@ -174,24 +195,48 @@ export default function LoginScreen() {
         const { data } = response;
         await AsyncStorage.setItem("jwt_token", data.token);
         if (data.libraryId)
-          await AsyncStorage.setItem("libraryId", data.libraryId);
+          await AsyncStorage.setItem("libraryId", String(data.libraryId));
         await AsyncStorage.setItem(
           "hasInventory",
           data.hasInventory ? "true" : "false",
         );
+
         const needsReset = await AsyncStorage.getItem("force_mpin_reset");
         let finalState = data.account_state;
+
         if (needsReset === "true") {
           await AsyncStorage.removeItem("force_mpin_reset");
           finalState = "REQUIRES_MPIN";
         }
+
         if (finalState.startsWith("ACTIVE")) {
           await AsyncStorage.setItem("mpin_configured", "true");
         }
-        router.replace(ONBOARDING_ROUTE_MAP[finalState]);
+
+        const nextRoute = ONBOARDING_ROUTE_MAP[finalState];
+        if (!nextRoute) {
+          // If the route doesn't exist in the map, alert the developer safely instead of crashing!
+          Alert.alert(
+            "Routing Error",
+            `Target state '${finalState}' is missing from ONBOARDING_ROUTE_MAP. Check config.js!`,
+          );
+          setLoading(false);
+          return;
+        }
+
+        router.replace(nextRoute);
       }
     } catch (error) {
-      Alert.alert("Login Failed", "Invalid OTP");
+      console.error("APP CRASHED AFTER OTP:", error);
+
+      // If it's a backend API error (like an actually wrong OTP), show it.
+      // If it's a React Native error (like a missing route), show the code error!
+      Alert.alert(
+        "Debug Error",
+        error.response?.data?.error ||
+          error.message ||
+          "Unknown JavaScript Error",
+      );
     } finally {
       setLoading(false);
     }
@@ -204,15 +249,27 @@ export default function LoginScreen() {
       const response = await apiClient.post("/auth/login-mpin", { mpin });
       if (response.data.success) {
         const { data } = response;
+        await AsyncStorage.setItem("jwt_token", data.token); // 📌 Fixed: Use jwt_token key
         if (data.libraryId)
-          await AsyncStorage.setItem("libraryId", data.libraryId);
+          await AsyncStorage.setItem("libraryId", String(data.libraryId));
         if (data.hasInventory !== undefined) {
           await AsyncStorage.setItem(
             "hasInventory",
             data.hasInventory ? "true" : "false",
           );
         }
-        router.replace(ONBOARDING_ROUTE_MAP[data.account_state]);
+        const nextRoute = ONBOARDING_ROUTE_MAP[finalState];
+        if (!nextRoute) {
+          // If the route doesn't exist in the map, alert the developer safely instead of crashing!
+          Alert.alert(
+            "Routing Error",
+            `Target state '${finalState}' is missing from ONBOARDING_ROUTE_MAP. Check config.js!`,
+          );
+          setLoading(false);
+          return;
+        }
+
+        router.replace(nextRoute);
       }
     } catch (error) {
       Alert.alert(
@@ -240,24 +297,7 @@ export default function LoginScreen() {
         {/* STEP 1: PHONE */}
         {step === 1 && (
           <View className="w-full">
-            {hasExistingSession && (
-              <View>
-                <Button
-                  title="Login with MPIN"
-                  variant="dark"
-                  onPress={() => setStep(3)}
-                  className="mb-6"
-                />
-                <View className="flex-row items-center my-6">
-                  <View className="flex-1 h-[1px] bg-borderLight" />
-                  <Text className="mx-4 text-textLight font-m-semi uppercase tracking-widest text-xs">
-                    OR
-                  </Text>
-                  <View className="flex-1 h-[1px] bg-borderLight" />
-                </View>
-              </View>
-            )}
-
+            {/* 📌 Ghost code removed here */}
             <Input
               label="Phone Number"
               keyboardType="number-pad"
@@ -301,7 +341,7 @@ export default function LoginScreen() {
           </View>
         )}
 
-        {/* STEP 3: MPIN (With Optional Biometric Button) */}
+        {/* STEP 3: MPIN */}
         {step === 3 && (
           <View className="w-full">
             <Input
@@ -324,7 +364,7 @@ export default function LoginScreen() {
                 />
               </View>
 
-              {/* 📌 Optional: Show a quick fingerprint icon button if they closed the auto-prompt */}
+              {/* 📌 Fixed: Manual click passes no variables, relies on cached state! */}
               {biometricSupported && (
                 <TouchableOpacity
                   onPress={() => handleBiometricLogin()}

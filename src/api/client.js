@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import { router } from "expo-router";
 import { API_BASE_URL } from "../constants/config";
-
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,

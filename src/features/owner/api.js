@@ -61,7 +61,7 @@ export const fetchBillingStatusApi = async () => {
 
 export const createRazorpayOrderApi = async () => {
   try {
-    const response = await apiClient.post("/billing/create-order");
+    const response = await apiClient.post("/owner/billing/create-order");
     return response.data;
   } catch (error) {
     throw error.response?.data || { success: false, error: "Network Error" };
@@ -70,7 +70,7 @@ export const createRazorpayOrderApi = async () => {
 
 export const verifyRazorpayPaymentApi = async (paymentData) => {
   try {
-    const response = await apiClient.post("/billing/verify", paymentData);
+    const response = await apiClient.post("/owner/billing/verify", paymentData);
     return response.data;
   } catch (error) {
     throw error.response?.data || { success: false, error: "Network Error" };
