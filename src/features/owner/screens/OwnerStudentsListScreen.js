@@ -45,7 +45,7 @@ export default function OwnerStudentsListScreen() {
 
   const renderStudent = ({ item }) => {
     const isActive = item.status === "ACTIVE";
-    // 📌 THE FIX: Explicitly check for pending statuses
+    // Keep this for the color dots/text styling
     const isPending =
       item.status === "PENDING" || item.status === "PAYMENT_PENDING";
 
@@ -91,11 +91,14 @@ export default function OwnerStudentsListScreen() {
                     : "text-gray-500"
               }`}
             >
+              {/* 📌 THE FIX: Split the text output for Pending vs Payment Pending */}
               {isActive
                 ? `Valid till ${formatExpiry(item.end_date)}`
-                : isPending
-                  ? `Pending Request`
-                  : `Expired on ${formatExpiry(item.end_date)}`}
+                : item.status === "PAYMENT_PENDING"
+                  ? `Payment Pending`
+                  : item.status === "PENDING"
+                    ? `Pending Request`
+                    : `Expired on ${formatExpiry(item.end_date)}`}
             </Text>
           </View>
         </View>

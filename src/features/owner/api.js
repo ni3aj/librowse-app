@@ -76,3 +76,22 @@ export const verifyRazorpayPaymentApi = async (paymentData) => {
     throw error.response?.data || { success: false, error: "Network Error" };
   }
 };
+
+export const calculateUpgradeDiscountApi = async (libraryId, targetTierId) => {
+  try {
+    const response = await apiClient.post("/owner/billing/upgrade-plan", {
+      libraryId,
+      targetTierId,
+    });
+
+    // Return the clean data object on success
+    return response.data;
+  } catch (error) {
+    // Return a standardized error object so the UI never crashes
+    return {
+      success: false,
+      error:
+        error.response?.data?.error || "Could not calculate upgrade discount.",
+    };
+  }
+};

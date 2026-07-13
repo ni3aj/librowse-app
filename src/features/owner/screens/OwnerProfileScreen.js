@@ -1,2 +1,188 @@
+import Button from "@/components/ui/Button"; // Adjust path
+import Header from "@/components/ui/Header";
+import { COLORS } from "@/constants/theme"; // Adjust path
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { useState } from "react";
+import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 
-export default function OwnerProfileScreen() {}
+export default function OwnerProfileScreen() {
+  // Dummy state (We will replace this with an API call later)
+  const [owner, setOwner] = useState({
+    full_name: "Rahul Sharma",
+    phone: "9876543210",
+  });
+
+  const [libraries, setLibraries] = useState([
+    { id: "1", name: "Focus Study Library", city: "Pune", status: "VERIFIED" },
+    // { id: "2", name: "Focus Branch 2", city: "Mumbai", status: "PENDING_ADMIN_APPROVAL" }
+  ]);
+
+  const handleLogout = () => {
+    Alert.alert("Logout", "Are you sure you want to log out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: () => {
+          // Add AsyncStorage clear logic here
+          router.replace("/");
+        },
+      },
+    ]);
+  };
+
+  return (
+    <ScrollView className="flex-1 bg-background">
+      {/* HEADER */}
+      <Header title="Profile" subtitle="Manage your account and libraries" />
+
+      <View className="px-6 pt-6 pb-12">
+        {/* SECTION 1: OWNER DETAILS */}
+        <View className="mb-8">
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-lg font-m-bold text-textDark ml-1">
+              Personal Info
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.push("/profile/edit-owner")}
+            >
+              <Text className="text-brand font-m-bold mr-4">Edit</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View className="bg-surface p-5 rounded-2xl border border-borderLight">
+            <View className="flex-row items-center">
+              <View className="w-12 h-12 rounded-full bg-brand/10 items-center justify-center mr-4">
+                <Text className="text-xl font-m-bold text-brand">
+                  {owner.full_name.charAt(0)}
+                </Text>
+              </View>
+              <View>
+                <Text className="text-base font-m-bold text-textDark">
+                  {owner.full_name}
+                </Text>
+                <Text className="text-sm text-textLight">
+                  +91 {owner.phone}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* SECTION 2: MY LIBRARIES */}
+        <View className="mb-4">
+          <View className="flex-row justify-between items-center mb-4 ml-1">
+            <Text className="text-lg font-m-bold text-textDark">
+              My Study Rooms
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.push("/(owner)/create-library-wizard")}
+            >
+              <Text className="text-brand font-m-bold mr-3">+ Add New</Text>
+            </TouchableOpacity>
+          </View>
+
+          {libraries.map((lib) => (
+            <View
+              key={lib.id}
+              className="bg-surface p-5 rounded-2xl border border-borderLight mb-3"
+            >
+              <View className="flex-row justify-between items-start mb-3">
+                <View>
+                  <Text className="text-base font-m-bold text-textDark">
+                    {lib.name}
+                  </Text>
+                  <Text className="text-sm text-textLight">{lib.city}</Text>
+                </View>
+                <View
+                  className={`px-2 py-1 rounded-md ${lib.status === "VERIFIED" ? "bg-green-100" : "bg-orange-100"}`}
+                >
+                  <Text
+                    className={`text-xs font-bold ${lib.status === "VERIFIED" ? "text-green-700" : "text-orange-700"}`}
+                  >
+                    {lib.status === "VERIFIED" ? "Active" : "Pending"}
+                  </Text>
+                </View>
+              </View>
+
+              <View className="flex-row space-x-3 mt-2">
+                <TouchableOpacity
+                  className="flex-1 bg-background py-2 rounded-xl border border-borderLight items-center mr-2"
+                  onPress={() => router.push(`/profile/library/${lib.id}/edit`)}
+                >
+                  <Text className="text-textDark font-m-bold text-sm">
+                    Edit Details
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className="flex-1 bg-background py-2 rounded-xl border border-borderLight items-center"
+                  onPress={() =>
+                    router.push(`/profile/library/${lib.id}/inventory`)
+                  }
+                >
+                  <Text className="text-textDark font-m-bold text-sm">
+                    Manage Seats
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        {/* SECTION 3: BILLING & SETTINGS */}
+        <View className="mb-8 space-y-3">
+          <Text className="text-lg font-m-bold text-textDark mb-4 ml-1">
+            App & Billing
+          </Text>
+
+          <TouchableOpacity
+            className="bg-surface p-4 rounded-2xl border border-borderLight flex-row items-center justify-between mb-2"
+            onPress={() => router.push("/billing")}
+          >
+            <View className="flex-row items-center">
+              <View className="w-10 h-10 rounded-full bg-brand/10 items-center justify-center mr-3">
+                <Ionicons name="card" size={20} color={COLORS.brand} />
+              </View>
+              <Text className="text-base font-m-bold text-textDark">
+                Platform Subscription
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={COLORS.textLight}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            className="bg-surface p-4 rounded-2xl border border-borderLight flex-row items-center justify-between"
+            onPress={() => router.push("/profile/reset-mpin")}
+          >
+            <View className="flex-row items-center">
+              <View className="w-10 h-10 rounded-full bg-brand/10 items-center justify-center mr-3">
+                <Ionicons name="lock-closed" size={20} color={COLORS.brand} />
+              </View>
+              <Text className="text-base font-m-bold text-textDark">
+                Change MPIN
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={COLORS.textLight}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* LOGOUT BUTTON */}
+        <Button
+          title="Logout"
+          variant="outline"
+          onPress={handleLogout}
+          className="mt-4 border-brandAccent text-brandAccent"
+        />
+      </View>
+    </ScrollView>
+  );
+}

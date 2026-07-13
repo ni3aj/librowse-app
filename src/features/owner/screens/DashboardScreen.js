@@ -18,7 +18,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function DashboardScreen() {
   const [alertConfig, setAlertConfig] = useState({
@@ -216,24 +215,31 @@ export default function DashboardScreen() {
   const subUI = getSubscriptionUI();
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <View className="flex-1 bg-background">
       {/* --- HEADER --- */}
-      <View className="flex-row justify-between items-center px-7 pb-4">
-        <Header title="Dashboard" showBack={false} />
-        {libraries?.length > 1 && (
-          <TouchableOpacity
-            onPress={() => setModalVisible(true)}
-            className="flex-row items-center bg-white border border-borderLight rounded-full px-4 py-2"
-          >
-            <Text className="text-textDark font-m-bold text-sm mr-2">
-              {selectedLibrary?.name || "Select"}
-            </Text>
-            <Ionicons name="chevron-down" size={16} color={COLORS.textDark} />
-          </TouchableOpacity>
-        )}
-      </View>
+      <Header
+        title="Dashboard"
+        subtitle="View statistics and manage students"
+        rightComponent={
+          libraries?.length > 1 && (
+            <TouchableOpacity
+              onPress={() => setModalVisible(true)}
+              className="flex-row items-center bg-white border border-borderLight rounded-full px-2 py-2 mt-1"
+            >
+              <Text className="text-textDark font-m-bold text-sm mr-2">
+                {selectedLibrary?.name || "Select"}
+              </Text>
 
-      <RefreshableScrollView className="px-6" onRefresh={handlePullToRefresh}>
+              <Ionicons name="chevron-down" size={16} color={COLORS.textDark} />
+            </TouchableOpacity>
+          )
+        }
+      />
+
+      <RefreshableScrollView
+        className="px-6 mt-6"
+        onRefresh={handlePullToRefresh}
+      >
         {loading ? (
           <ActivityIndicator
             className="mt-20"
@@ -422,7 +428,7 @@ export default function DashboardScreen() {
           </>
         ) : (
           /* --- NO LIBRARIES SCENARIO --- */
-          <View className="mt-20 items-center bg-white p-8 rounded-3xl border border-borderLight">
+          <View className="items-center bg-white p-8 rounded-3xl border border-borderLight">
             <Text className="text-4xl mb-4">🏢</Text>
             <Text className="text-xl font-m-bold text-textDark mb-2 text-center">
               No Libraries Yet
@@ -474,7 +480,7 @@ export default function DashboardScreen() {
         onSecondaryPress={hideAlert}
         onClose={hideAlert}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

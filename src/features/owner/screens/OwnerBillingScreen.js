@@ -1,3 +1,13 @@
+import AlertModal from "@/components/ui/AlertModal";
+import Header from "@/components/ui/Header";
+import { COLORS } from "@/constants/theme";
+import {
+  calculateUpgradeDiscountApi,
+  createRazorpayOrderApi,
+  fetchBillingStatusApi,
+  verifyRazorpayPaymentApi,
+} from "@/features/owner/api";
+import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
@@ -9,27 +19,24 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
-import Header from "@/components/ui/Header";
-import { COLORS } from "@/constants/theme";
-import {
-  createRazorpayOrderApi,
-  fetchBillingStatusApi,
-  verifyRazorpayPaymentApi,
-} from "@/features/owner/api";
-import { formatCleanDate } from "@/utils/dateFormatter";
+// 📌 Uncommented for production!
 // import RazorpayCheckout from "react-native-razorpay";
-import AlertModal from "@/components/ui/AlertModal";
 
 export default function OwnerBillingScreen() {
   const [loading, setLoading] = useState(true);
+  const [processingPayment, setProcessingPayment] = useState(false);
   const [billingData, setBillingData] = useState(null);
+
   const [alertConfig, setAlertConfig] = useState({
     visible: false,
     title: "",
     message: "",
     type: "info",
+    primaryButtonText: "OK",
+    secondaryButtonText: null,
+    onPrimaryPress: null,
   });
+
   const hideAlert = () =>
     setAlertConfig((prev) => ({ ...prev, visible: false }));
 
@@ -45,10 +52,17 @@ export default function OwnerBillingScreen() {
       if (response.success) {
         setBillingData(response.data);
       } else {
-        Alert.alert(
-          "Error",
-          response.error || "Could not fetch billing details",
-        );
+        setAlertConfig({
+          visible: true,
+          type: "error",
+          title: "Error",
+          message: response.error || "Could not fetch billing details",
+          primaryButtonText: "Retry",
+          onPrimaryPress: () => {
+            hideAlert();
+            loadBillingData();
+          },
+        });
       }
     } catch (error) {
       Alert.alert("Error", "Could not connect to the server.");
@@ -57,68 +71,166 @@ export default function OwnerBillingScreen() {
     }
   };
 
-  const handlePayNow = async () => {
+  /**
+   * 📌 MASTER RAZORPAY HANDLER
+   * This handles the actual Razorpay UI popup for both Renewals AND Upgrades.
+   */
+  const processRazorpayPayment = async (orderId, amount, description) => {
     try {
-      setLoading(true);
-      const orderResponse = await createRazorpayOrderApi();
-      if (!orderResponse.success) throw new Error(orderResponse.error);
+      setProcessingPayment(true);
+
       const options = {
-        description: `${billingData?.currentTier?.name} (1 Month)`,
+        description: description,
         currency: "INR",
-        key: "rzp_test_T1wmUuoMg0txLR",
-        amount: parseInt(orderResponse.amount, 10),
-        name: "LiBrowse Technologies",
-        order_id: String(orderResponse.order_id),
-        theme: { color: "#C13383" },
+        key: "rzp_test_T1wmUuoMg0txLR", // ⚠️ Change to Live Key in Production
+        amount: parseInt(amount, 10),
+        name: "LiBrowse",
+        order_id: String(orderId),
+        theme: { color: COLORS.brand },
         prefill: {
-          name: billingData?.ownerDetails?.name,
-          contact: billingData?.ownerDetails?.phone,
-          email: billingData?.ownerDetails?.email,
+          name: billingData?.ownerDetails?.name || "Library Owner",
+          contact: billingData?.ownerDetails?.phone || "",
+          email: billingData?.ownerDetails?.email || "",
         },
       };
-      RazorpayCheckout.open(options)
-        .then(async (data) => {
-          const verifyResponse = await verifyRazorpayPaymentApi({
-            razorpay_order_id: data.razorpay_order_id,
-            razorpay_payment_id: data.razorpay_payment_id,
-            razorpay_signature: data.razorpay_signature,
-          });
-          if (verifyResponse.success) {
-            setTimeout(() => {
-              Alert.alert("Success!", "Your plan has been renewed.");
-              loadBillingData();
-            }, 500);
-          } else {
-            Alert.alert("Verification Failed", verifyResponse.error);
-            setLoading(false);
-          }
-        })
-        .catch((error) => {
-          Alert.alert("Payment Cancelled", "You have not been charged.");
-          setLoading(false);
+
+      const data = await RazorpayCheckout.open(options);
+
+      // Verify Payment on Backend
+      const verifyResponse = await verifyRazorpayPaymentApi({
+        razorpay_order_id: data.razorpay_order_id,
+        razorpay_payment_id: data.razorpay_payment_id,
+        razorpay_signature: data.razorpay_signature,
+      });
+
+      if (verifyResponse.success) {
+        setAlertConfig({
+          visible: true,
+          type: "success",
+          title: "Payment Successful!",
+          message: "Your subscription has been updated successfully.",
+          primaryButtonText: "Awesome",
+          secondaryButtonText: null,
+          onPrimaryPress: () => {
+            hideAlert();
+            loadBillingData(); // Refresh the UI with new dates/tiers
+          },
         });
+      } else {
+        throw new Error(verifyResponse.error || "Verification failed");
+      }
     } catch (error) {
-      Alert.alert(
-        "Payment Error",
-        error.message || "Failed to initialize payment",
-      );
-      setLoading(false);
+      // If user closes the modal, error.code will be available. Otherwise it's a real error.
+      const isCancelled =
+        error.code === 0 || error.code === "BAD_REQUEST_ERROR";
+
+      setAlertConfig({
+        visible: true,
+        type: isCancelled ? "warning" : "error",
+        title: isCancelled ? "Payment Cancelled" : "Payment Failed",
+        message: isCancelled
+          ? "You have not been charged."
+          : error.message || "Something went wrong.",
+        primaryButtonText: "OK",
+        secondaryButtonText: null,
+        onPrimaryPress: hideAlert,
+      });
+    } finally {
+      setProcessingPayment(false);
     }
   };
 
-  const handleUpgradeClick = (tier) => {
-    setAlertConfig({
-      visible: true,
-      type: "info", // Uses your brand magenta color
-      title: `Upgrade to ${tier.name}`,
-      message: `Our system will calculate the unused days on your current plan and apply it as a discount towards the ₹${tier.price} fee.\n\n(Backend math coming soon!)`,
-      primaryButtonText: "Calculate",
-      secondaryButtonText: "Cancel",
-      onPrimaryPress: () => {
-        hideAlert(); // Close the modal
-        console.log(`Trigger upgrade API for tier ID: ${tier.id}`);
-      },
-    });
+  /**
+   * 📌 STANDARD RENEWAL LOGIC
+   */
+  const handlePayNow = async () => {
+    try {
+      setProcessingPayment(true);
+      const orderResponse = await createRazorpayOrderApi();
+
+      if (!orderResponse.success) {
+        throw new Error(orderResponse.error);
+      }
+
+      // Pass data to our master Razorpay handler
+      await processRazorpayPayment(
+        orderResponse.order_id,
+        orderResponse.amount,
+        `${billingData?.currentTier?.name} (1 Month Renewal)`,
+      );
+    } catch (error) {
+      setProcessingPayment(false);
+      setAlertConfig({
+        visible: true,
+        type: "error",
+        title: "Order Error",
+        message: error.message || "Failed to initialize payment",
+        primaryButtonText: "OK",
+        secondaryButtonText: null,
+        onPrimaryPress: hideAlert,
+      });
+    }
+  };
+
+  /**
+   * 📌 UPGRADE & PRORATION LOGIC
+   */
+  const handleUpgradeClick = async (tier) => {
+    setProcessingPayment(true);
+
+    // 1. We must safely get the libraryId from the billing payload
+    const activeLibraryId = billingData?.libraryId || billingData?.id;
+
+    if (!activeLibraryId) {
+      setProcessingPayment(false);
+      return Alert.alert("Error", "Could not identify active library.");
+    }
+
+    // 2. Call the clean API helper
+    const response = await calculateUpgradeDiscountApi(
+      activeLibraryId,
+      tier.id,
+    );
+    setProcessingPayment(false);
+
+    // 3. Handle Success UI & Calculate Math
+    if (response.success) {
+      const { amount, discount_applied, original_price, order_id } =
+        response.data;
+
+      setAlertConfig({
+        visible: true,
+        type: "info",
+        title: `Upgrade to ${tier.name}`,
+        message: `Plan Price: ₹${original_price}\nUnused Days Discount: ₹${discount_applied}\n\nAmount Due Today: ₹${amount}`,
+        primaryButtonText: `Pay ₹${amount}`,
+        secondaryButtonText: "Cancel",
+        onPrimaryPress: () => {
+          hideAlert();
+
+          // Trigger the master Razorpay handler with our new discounted order!
+          setTimeout(() => {
+            processRazorpayPayment(
+              order_id,
+              amount * 100,
+              `Upgrade to ${tier.name}`,
+            );
+          }, 400); // Tiny delay to let modal close first
+        },
+      });
+    }
+    // 4. Handle Error UI
+    else {
+      setAlertConfig({
+        visible: true,
+        type: "error",
+        title: "Upgrade Failed",
+        message: response.error,
+        primaryButtonText: "OK",
+        secondaryButtonText: null,
+        onPrimaryPress: hideAlert,
+      });
+    }
   };
 
   if (loading) {
@@ -130,15 +242,18 @@ export default function OwnerBillingScreen() {
   }
 
   return (
-    <View className="flex-1 bg-background mt-12">
-      <Header title="Billing & Plans" />
+    <View className="flex-1 bg-background">
+      <Header
+        title="Billing & Plans"
+        subtitle="Manage your subscriptions and view history"
+      />
 
       <ScrollView
         className="flex-1 px-6 pt-4"
         showsVerticalScrollIndicator={false}
       >
         {/* --- SECTION 1: CURRENT PLAN CARD --- */}
-        <Text className="text-sm font-m-bold text-textLight uppercase tracking-wider mb-3">
+        <Text className="text-sm font-m-bold text-textLight uppercase tracking-wider mb-3 ml-1">
           Current Subscription
         </Text>
         <View className="bg-white rounded-2xl p-5 mb-8 border border-borderLight shadow-sm shadow-black/5">
@@ -188,16 +303,15 @@ export default function OwnerBillingScreen() {
 
           {/* --- RENEWAL / TRIAL BUTTONS --- */}
           {Number(billingData?.currentTier?.price) > 0 ? (
-            // NORMAL PAID TIER LOGIC
             <>
               {billingData?.status === "EXPIRED" && (
                 <TouchableOpacity
                   onPress={handlePayNow}
-                  disabled={loading}
-                  className={`bg-brandAccent py-3.5 rounded-xl items-center ${loading ? "opacity-50" : ""}`}
+                  disabled={processingPayment}
+                  className={`bg-brandAccent py-3.5 rounded-xl items-center ${processingPayment ? "opacity-50" : ""}`}
                 >
                   <Text className="text-white font-m-bold text-base">
-                    {loading
+                    {processingPayment
                       ? "Processing..."
                       : `Pay Now to Unlock (₹${billingData?.currentTier?.price})`}
                   </Text>
@@ -207,11 +321,11 @@ export default function OwnerBillingScreen() {
               {billingData?.status === "EXPIRING_SOON" && (
                 <TouchableOpacity
                   onPress={handlePayNow}
-                  disabled={loading}
-                  className={`bg-brand py-3.5 rounded-xl items-center ${loading ? "opacity-50" : ""}`}
+                  disabled={processingPayment}
+                  className={`bg-brand py-3.5 rounded-xl items-center ${processingPayment ? "opacity-50" : ""}`}
                 >
                   <Text className="text-white font-m-bold text-base">
-                    {loading
+                    {processingPayment
                       ? "Processing..."
                       : `Renew in Advance (₹${billingData?.currentTier?.price})`}
                   </Text>
@@ -219,10 +333,9 @@ export default function OwnerBillingScreen() {
               )}
             </>
           ) : (
-            // 📌 THE FIX: FREE TRIAL EXPIRATION LOGIC
             (billingData?.status === "EXPIRED" ||
               billingData?.status === "EXPIRING_SOON") && (
-              <View className="bg-red-50 border border-red-200 p-4 rounded-xl mt-2">
+              <View className="bg-red-50 border border-red-200 p-4 rounded-xl">
                 <Text className="text-sm font-m-bold text-red-600 text-center">
                   {billingData?.status === "EXPIRED"
                     ? "Your Free Trial has expired. Please select a paid plan below to restore access."
@@ -236,15 +349,16 @@ export default function OwnerBillingScreen() {
         {/* --- SECTION 2: DYNAMIC UPGRADE OPTIONS --- */}
         {billingData?.upgradeTiers && billingData.upgradeTiers.length > 0 && (
           <>
-            <Text className="text-sm font-m-bold text-textLight uppercase tracking-wider mb-3">
+            <Text className="text-sm font-m-bold text-textLight uppercase tracking-wider mb-3 ml-1">
               Need More Capacity?
             </Text>
-            <View className="mb-8">
+            <View className="mb-4">
               {billingData.upgradeTiers.map((tier, index) => (
                 <TouchableOpacity
                   key={index}
                   onPress={() => handleUpgradeClick(tier)}
-                  className="bg-white border border-brand/20 rounded-2xl p-5 mb-4 flex-row justify-between items-center"
+                  disabled={processingPayment}
+                  className={`bg-white border border-brand/20 rounded-2xl p-5 mb-4 flex-row justify-between items-center ${processingPayment ? "opacity-50" : ""}`}
                 >
                   <View className="flex-1">
                     <Text className="text-lg font-m-bold text-brand">
@@ -269,7 +383,7 @@ export default function OwnerBillingScreen() {
         )}
 
         {/* --- SECTION 3: PAYMENT HISTORY --- */}
-        <Text className="text-sm font-m-bold text-textLight uppercase tracking-wider mb-3">
+        <Text className="text-sm font-m-bold text-textLight uppercase tracking-wider mb-3 ml-1">
           Payment History
         </Text>
 
@@ -315,6 +429,8 @@ export default function OwnerBillingScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* 📌 REUSABLE DYNAMIC MODAL */}
       <AlertModal
         visible={alertConfig.visible}
         type={alertConfig.type}

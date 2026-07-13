@@ -28,7 +28,7 @@ export default function LoginScreen() {
   const [isChecking, setIsChecking] = useState(true);
 
   const [biometricSupported, setBiometricSupported] = useState(false);
-  // 📌 NEW: Cache the state so the fingerprint button doesn't need a network call
+  // Cache the state so the fingerprint button doesn't need a network call
   const [cachedRouteState, setCachedRouteState] = useState(null);
 
   useFocusEffect(
@@ -68,25 +68,25 @@ export default function LoginScreen() {
           data.hasInventory ? "true" : "false",
         );
 
+        // 📌 THE FIX: We define currentState here
         const currentState = data.account_state;
-        setCachedRouteState(currentState); // 📌 Cache for manual biometric triggers
+        setCachedRouteState(currentState);
 
         if (currentState.startsWith("ACTIVE")) {
           await AsyncStorage.setItem("mpin_configured", "true");
 
           if (compatible && enrolled) {
-            // 📌 Pass the exact state machine route to biometrics
             handleBiometricLogin(currentState);
           } else {
             setStep(3);
           }
         } else {
-          const nextRoute = ONBOARDING_ROUTE_MAP[finalState];
+          // 📌 THE FIX: Changed 'finalState' to 'currentState'
+          const nextRoute = ONBOARDING_ROUTE_MAP[currentState];
           if (!nextRoute) {
-            // If the route doesn't exist in the map, alert the developer safely instead of crashing!
             Alert.alert(
               "Routing Error",
-              `Target state '${finalState}' is missing from ONBOARDING_ROUTE_MAP. Check config.js!`,
+              `Target state '${currentState}' is missing from ONBOARDING_ROUTE_MAP. Check config.js!`,
             );
             setLoading(false);
             return;
@@ -102,7 +102,6 @@ export default function LoginScreen() {
     }, []),
   );
 
-  // 📌 FIXED: Biometric routing now obeys the State Machine strictly
   const handleBiometricLogin = async (targetState) => {
     try {
       const result = await LocalAuthentication.authenticateAsync({
@@ -113,13 +112,11 @@ export default function LoginScreen() {
       });
 
       if (result.success) {
-        // Fallback to cached state if triggered manually via the icon
         const finalState = targetState || cachedRouteState;
 
         if (finalState && ONBOARDING_ROUTE_MAP[finalState]) {
           const nextRoute = ONBOARDING_ROUTE_MAP[finalState];
           if (!nextRoute) {
-            // If the route doesn't exist in the map, alert the developer safely instead of crashing!
             Alert.alert(
               "Routing Error",
               `Target state '${finalState}' is missing from ONBOARDING_ROUTE_MAP. Check config.js!`,
@@ -130,7 +127,7 @@ export default function LoginScreen() {
 
           router.replace(nextRoute);
         } else {
-          setStep(3); // Safety fallback
+          setStep(3);
         }
       } else {
         setStep(3);
@@ -215,7 +212,6 @@ export default function LoginScreen() {
 
         const nextRoute = ONBOARDING_ROUTE_MAP[finalState];
         if (!nextRoute) {
-          // If the route doesn't exist in the map, alert the developer safely instead of crashing!
           Alert.alert(
             "Routing Error",
             `Target state '${finalState}' is missing from ONBOARDING_ROUTE_MAP. Check config.js!`,
@@ -228,9 +224,6 @@ export default function LoginScreen() {
       }
     } catch (error) {
       console.error("APP CRASHED AFTER OTP:", error);
-
-      // If it's a backend API error (like an actually wrong OTP), show it.
-      // If it's a React Native error (like a missing route), show the code error!
       Alert.alert(
         "Debug Error",
         error.response?.data?.error ||
@@ -249,7 +242,7 @@ export default function LoginScreen() {
       const response = await apiClient.post("/auth/login-mpin", { mpin });
       if (response.data.success) {
         const { data } = response;
-        await AsyncStorage.setItem("jwt_token", data.token); // 📌 Fixed: Use jwt_token key
+        await AsyncStorage.setItem("jwt_token", data.token);
         if (data.libraryId)
           await AsyncStorage.setItem("libraryId", String(data.libraryId));
         if (data.hasInventory !== undefined) {
@@ -258,12 +251,15 @@ export default function LoginScreen() {
             data.hasInventory ? "true" : "false",
           );
         }
-        const nextRoute = ONBOARDING_ROUTE_MAP[finalState];
+
+        // 📌 THE FIX: Extract currentState from the login response!
+        const currentState = data.account_state;
+        const nextRoute = ONBOARDING_ROUTE_MAP[currentState];
+
         if (!nextRoute) {
-          // If the route doesn't exist in the map, alert the developer safely instead of crashing!
           Alert.alert(
             "Routing Error",
-            `Target state '${finalState}' is missing from ONBOARDING_ROUTE_MAP. Check config.js!`,
+            `Target state '${currentState}' is missing from ONBOARDING_ROUTE_MAP. Check config.js!`,
           );
           setLoading(false);
           return;
@@ -297,7 +293,6 @@ export default function LoginScreen() {
         {/* STEP 1: PHONE */}
         {step === 1 && (
           <View className="w-full">
-            {/* 📌 Ghost code removed here */}
             <Input
               label="Phone Number"
               keyboardType="number-pad"
@@ -364,7 +359,6 @@ export default function LoginScreen() {
                 />
               </View>
 
-              {/* 📌 Fixed: Manual click passes no variables, relies on cached state! */}
               {biometricSupported && (
                 <TouchableOpacity
                   onPress={() => handleBiometricLogin()}

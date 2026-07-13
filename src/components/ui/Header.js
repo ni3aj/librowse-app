@@ -1,34 +1,52 @@
 import { COLORS } from "@/constants/theme";
-import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { Text, TouchableOpacity, View } from "react-native";
+import Constants from "expo-constants";
+import { LinearGradient } from "expo-linear-gradient";
+import { ReactNode } from "react";
+import { Text, View } from "react-native";
 
-export default function Header({ title, showBack = true, rightComponent }) {
+interface HeaderProps {
+  title: string;
+  subtitle?: string;
+  rightComponent?: ReactNode;
+}
+
+export default function Header({
+  title,
+  subtitle,
+  rightComponent,
+}: HeaderProps) {
+  const notchHeight = Constants.statusBarHeight;
+
   return (
-    <View className="flex-row justify-between items-center pt-4 pb-2">
-      <View className="flex-row items-center flex-1">
-        {/* --- BACK BUTTON --- */}
-        {showBack && (
-          <TouchableOpacity
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-            className="w-10 h-10 rounded-full bg-white border border-borderLight items-center justify-center mr-4"
+    <LinearGradient
+      colors={[COLORS.brand, COLORS.brandAccent]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      className="pb-6 border-b border-borderLight rounded-b-3xl shadow-sm"
+      style={{
+        paddingTop: notchHeight + 10,
+        paddingHorizontal: 24,
+      }}
+    >
+      <View className="flex-row justify-between items-start">
+        <View className="flex-1 pr-4">
+          <Text
+            className={`text-3xl font-m-extra text-white ${
+              subtitle ? "mb-2" : "mb-4"
+            }`}
           >
-            <Ionicons name="chevron-back" size={20} color={COLORS.textDark} />
-          </TouchableOpacity>
-        )}
+            {title}
+          </Text>
 
-        {/* --- THE TITLE --- */}
-        <Text
-          className="text-2xl font-m-extra text-textDark flex-1"
-          numberOfLines={1} // Prevents long names from breaking the UI
-        >
-          {title}
-        </Text>
+          {subtitle ? (
+            <Text className="text-sm text-white/80 pb-4">
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
+
+        {rightComponent}
       </View>
-
-      {/* --- OPTIONAL RIGHT SIDE (e.g., Settings Icon) --- */}
-      {rightComponent && <View className="ml-4">{rightComponent}</View>}
-    </View>
+    </LinearGradient>
   );
 }

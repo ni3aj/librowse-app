@@ -1,4 +1,5 @@
 import Button from "@/components/ui/Button";
+import Header from "@/components/ui/Header";
 import Input from "@/components/ui/Input";
 import { addInventoryBucket, getLibraryInventory } from "@/features/owner/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -93,16 +94,14 @@ export default function ManageSeatsScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-background p-6 mb-8 mt-12">
-      <Text className="text-2xl font-bold text-textDark mb-2">
-        Manage Seats
-      </Text>
-      <Text className="text-textLight mb-6">
-        Create capacity buckets for your students.
-      </Text>
+    <ScrollView className="flex-1 bg-background">
+      <Header
+        title="Manage Seats"
+        subtitle="Create capacity buckets for your students"
+      />
 
       {/* --- ADD NEW INVENTORY FORM --- */}
-      <View className="bg-white p-4 rounded-2xl mb-8 border border-borderLight">
+      <View className="bg-white p-4 m-6 rounded-2xl mb-8 border border-borderLight">
         <Text className="font-bold text-textDark text-lg mb-4">
           Add New Category
         </Text>
@@ -210,7 +209,7 @@ export default function ManageSeatsScreen() {
       </View>
 
       {/* --- CURRENT INVENTORY LIST --- */}
-      <Text className="font-bold text-textDark text-lg mb-4">
+      <Text className="font-bold text-textDark text-lg mb-4 ml-7">
         Current Capacity
       </Text>
 
@@ -224,7 +223,7 @@ export default function ManageSeatsScreen() {
         inventory.map((item) => (
           <View
             key={item.id}
-            className="bg-white p-4 rounded-2xl mb-3 flex-row justify-between items-center border border-borderLight"
+            className="bg-white p-4 rounded-2xl mb-3 mx-6 flex-row justify-between items-center border border-borderLight"
           >
             <View>
               {/* Displaying formatting cleanly back to the user */}

@@ -2,7 +2,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { createLibraryProfile } from "@/features/owner/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Location from "expo-location"; // 📌 NEW: Import Location
+import * as Location from "expo-location";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
@@ -14,6 +14,9 @@ import {
   View,
 } from "react-native";
 
+// 📌 Define your available options as a constant array
+const AVAILABLE_AMENITIES = ["AC", "WIFI", "CCTV", "RO WATER", "PARKING"];
+
 export default function CreateLibraryWizard() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -24,23 +27,22 @@ export default function CreateLibraryWizard() {
   const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
 
-  // 📌 NEW: Geolocation State
+  // Geolocation State
   const [coords, setCoords] = useState({ latitude: null, longitude: null });
 
-  // Amenities State
-  const [amenities, setAmenities] = useState({
-    ac: false,
-    wifi: false,
-    cctv: false,
-    ro_water: false,
-    parking: false,
-  });
+  // 📌 THE FIX: Amenities is now a clean array of strings
+  const [selectedAmenities, setSelectedAmenities] = useState([]);
 
-  const toggleAmenity = (key) => {
-    setAmenities((prev) => ({ ...prev, [key]: !prev[key] }));
+  // 📌 THE FIX: Toggles strings in and out of the array
+  const toggleAmenity = (amenity) => {
+    setSelectedAmenities(
+      (prev) =>
+        prev.includes(amenity)
+          ? prev.filter((item) => item !== amenity) // Remove it if already selected
+          : [...prev, amenity], // Add it if not selected
+    );
   };
 
-  // 📌 NEW: Function to auto-fetch GPS coordinates
   const fetchCurrentLocation = async () => {
     setLocationLoading(true);
     try {
@@ -87,9 +89,9 @@ export default function CreateLibraryWizard() {
       name: name.trim(),
       city: city.trim(),
       address: address.trim(),
-      latitude: coords.latitude, // 📌 Include in payload
-      longitude: coords.longitude, // 📌 Include in payload
-      amenities,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      amenities: selectedAmenities, // 📌 Perfect format for Fastify now: ["AC", "WIFI"]
     });
 
     setLoading(false);
@@ -150,7 +152,7 @@ export default function CreateLibraryWizard() {
             onChangeText={setAddress}
           />
 
-          {/* 📌 NEW: Location Fetcher UI */}
+          {/* Location Fetcher UI */}
           <View className="mt-4 p-4 rounded-xl border border-borderLight bg-surface">
             <Text className="font-bold text-textDark mb-2">Map Location</Text>
             {coords.latitude ? (
@@ -186,23 +188,29 @@ export default function CreateLibraryWizard() {
       {step === 2 && (
         <View>
           <View className="flex-row flex-wrap justify-between">
-            {Object.keys(amenities).map((key) => (
-              <TouchableOpacity
-                key={key}
-                onPress={() => toggleAmenity(key)}
-                className={`w-[48%] p-4 rounded-xl border mb-4 items-center ${
-                  amenities[key]
-                    ? "border-brand bg-brand/10"
-                    : "border-borderLight bg-surface"
-                }`}
-              >
-                <Text
-                  className={`font-bold capitalize ${amenities[key] ? "text-brand" : "text-textDark"}`}
+            {/* 📌 THE FIX: Render from array, check if selected via .includes() */}
+            {AVAILABLE_AMENITIES.map((amenity) => {
+              const isSelected = selectedAmenities.includes(amenity);
+              return (
+                <TouchableOpacity
+                  key={amenity}
+                  onPress={() => toggleAmenity(amenity)}
+                  className={`w-[48%] p-4 rounded-xl border mb-4 items-center ${
+                    isSelected
+                      ? "border-brand bg-brand/10"
+                      : "border-borderLight bg-surface"
+                  }`}
                 >
-                  {key.replace("_", " ")}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    className={`font-bold capitalize ${
+                      isSelected ? "text-brand" : "text-textDark"
+                    }`}
+                  >
+                    {amenity}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           <View className="flex-row justify-between mt-8">
