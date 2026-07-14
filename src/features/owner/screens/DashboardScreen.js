@@ -381,7 +381,10 @@ export default function DashboardScreen() {
                       </Text>
                     </View>
                     <Text className="text-sm font-m text-textLight">
-                      {req.seat_type} • Approved {req.start_date}
+                      {req.seat_type}
+                    </Text>
+                    <Text className="text-sm font-m text-textLight">
+                      Approved {req.start_date}
                     </Text>
 
                     {/* Info Banner */}

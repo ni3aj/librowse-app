@@ -1,22 +1,46 @@
+import apiClient from "@/api/client";
 import Button from "@/components/ui/Button"; // Adjust path
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme"; // Adjust path
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { useState } from "react";
-import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function OwnerProfileScreen() {
-  // Dummy state (We will replace this with an API call later)
-  const [owner, setOwner] = useState({
-    full_name: "Rahul Sharma",
-    phone: "9876543210",
-  });
+  const [owner, setOwner] = useState(null);
+  const [libraries, setLibraries] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [libraries, setLibraries] = useState([
-    { id: "1", name: "Focus Study Library", city: "Pune", status: "VERIFIED" },
-    // { id: "2", name: "Focus Branch 2", city: "Mumbai", status: "PENDING_ADMIN_APPROVAL" }
-  ]);
+  // 📌 useFocusEffect triggers every time the user lands on this screen.
+  // This ensures if they edit their name or add a library, it updates immediately!
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfileData();
+    }, []),
+  );
+
+  const fetchProfileData = async () => {
+    try {
+      setLoading(true);
+      const res = await apiClient.get("/owner/profile");
+      if (res.data.success) {
+        setOwner(res.data.owner);
+        setLibraries(res.data.libraries);
+      }
+    } catch (error) {
+      console.log("Error fetching profile:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert("Logout", "Are you sure you want to log out?", [
@@ -24,13 +48,25 @@ export default function OwnerProfileScreen() {
       {
         text: "Logout",
         style: "destructive",
-        onPress: () => {
-          // Add AsyncStorage clear logic here
-          router.replace("/");
+        onPress: async () => {
+          try {
+            await AsyncStorage.clear(); // Wipes JWT and user data
+            router.replace("/"); // Redirects to Login/Onboarding
+          } catch (e) {
+            console.error("Logout failed", e);
+          }
         },
       },
     ]);
   };
+
+  if (loading || !owner) {
+    return (
+      <View className="flex-1 bg-background justify-center items-center">
+        <ActivityIndicator size="large" color={COLORS.brand} />
+      </View>
+    );
+  }
 
   return (
     <ScrollView className="flex-1 bg-background">
@@ -74,13 +110,15 @@ export default function OwnerProfileScreen() {
         <View className="mb-4">
           <View className="flex-row justify-between items-center mb-4 ml-1">
             <Text className="text-lg font-m-bold text-textDark">
-              My Study Rooms
+              My Libraries
             </Text>
-            <TouchableOpacity
-              onPress={() => router.push("/(owner)/create-library-wizard")}
-            >
-              <Text className="text-brand font-m-bold mr-3">+ Add New</Text>
-            </TouchableOpacity>
+            {libraries.length < 3 && (
+              <TouchableOpacity
+                onPress={() => router.push("/(owner)/create-library-wizard")}
+              >
+                <Text className="text-brand font-m-bold mr-3">+ Add New</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {libraries.map((lib) => (
