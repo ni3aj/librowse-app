@@ -20,7 +20,7 @@ import {
   View,
 } from "react-native";
 // 📌 Uncommented for production!
-// import RazorpayCheckout from "react-native-razorpay";
+import RazorpayCheckout from "react-native-razorpay";
 
 export default function OwnerBillingScreen() {
   const [loading, setLoading] = useState(true);
@@ -256,7 +256,7 @@ export default function OwnerBillingScreen() {
         <Text className="text-sm font-m-bold text-textLight uppercase tracking-wider mb-3 ml-1">
           Current Subscription
         </Text>
-        <View className="bg-white rounded-2xl p-5 mb-8 border border-borderLight shadow-sm shadow-black/5">
+        <View className="bg-white rounded-2xl p-5 mb-8 border border-borderLight shadow-black/5">
           <View className="flex-row justify-between items-center mb-2">
             <Text className="text-xl font-m-bold text-textDark">
               {billingData?.currentTier?.name || "Loading Plan..."}

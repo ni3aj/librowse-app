@@ -39,6 +39,24 @@ export default function SetupProfileScreen() {
     }
   };
 
+  const handleStartOver = async () => {
+    Alert.alert(
+      "Start Over",
+      "Are you sure you want to reset and start over?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Yes, Start Over",
+          style: "destructive",
+          onPress: async () => {
+            await AsyncStorage.clear(); // Wipes the old token!
+            router.replace("/"); // Sends them back to the onboarding/login screen
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -52,7 +70,6 @@ export default function SetupProfileScreen() {
           Let's get your profile set up.
         </Text>
       </View>
-
       <View className="mb-8">
         <Input
           label="Full Name"
@@ -61,11 +78,9 @@ export default function SetupProfileScreen() {
           onChangeText={setFullName}
         />
       </View>
-
       <Text className="text-sm font-bold text-textDark mb-4 uppercase tracking-wider">
         I am a...
       </Text>
-
       {/* Role Selection Cards */}
       <View className="flex-row justify-between mb-10">
         <TouchableOpacity
@@ -98,8 +113,13 @@ export default function SetupProfileScreen() {
           </Text>
         </TouchableOpacity>
       </View>
-
       <Button title="Continue" onPress={handleNext} loading={loading} />
+      <TouchableOpacity onPress={handleStartOver} className="m-6 items-center">
+        <Text className="text-textLight font-m text-sm">
+          Logged in with wrong number?{" "}
+          <Text className="text-brand font-m-bold">Start Over</Text>
+        </Text>
+      </TouchableOpacity>
     </KeyboardAvoidingView>
   );
 }

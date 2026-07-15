@@ -1,3 +1,4 @@
+import Header from "@/components/ui/Header";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
@@ -142,30 +143,21 @@ export default function OwnerStudentsListScreen() {
   }
 
   return (
-    <View className="flex-1 bg-background px-6 pt-6 mt-12">
-      <View className="flex-row items-center mb-6">
-        <TouchableOpacity
-          onPress={() => router.back()}
-          className="p-2 rounded-full mr-4"
-        >
-          <Ionicons name="chevron-back" size={24} color={COLORS.textDark} />
-        </TouchableOpacity>
-        <Text className="text-2xl font-m-extra text-textDark">
-          Student Directory
-        </Text>
-      </View>
+    <View className="flex-1 bg-background">
+      <Header title="My Students" subtitle="Manage your students" />
 
       <FlatList
         data={students}
         keyExtractor={(item) => item.user_id}
         renderItem={renderStudent}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 20 }}
         ListEmptyComponent={
           <Text className="text-center text-textLight mt-10">
             No students found.
           </Text>
         }
+        className="m-6"
       />
     </View>
   );

@@ -10,7 +10,6 @@ const apiClient = axios.create({
 
 const PUBLIC_ROUTES = ["/auth/send-otp", "/auth/verify-otp"];
 
-// --- REQUEST INTERCEPTOR ---
 apiClient.interceptors.request.use(
   async (config) => {
     const isPublicRoute = PUBLIC_ROUTES.some((route) =>
@@ -24,20 +23,9 @@ apiClient.interceptors.request.use(
       }
     }
 
-    // 📌 THE FIX: Removed JSON.stringify to prevent thread locking
-    if (__DEV__) {
-      console.log(
-        `🚀 [API REQUEST] ${config.method?.toUpperCase()} ${config.url}`,
-      );
-      if (config.data) {
-        console.log(`📦 [API PAYLOAD]`, config.data);
-      }
-    }
-
     return config;
   },
   (error) => {
-    if (__DEV__) console.error(`❌ [API REQUEST ERROR]`, error);
     return Promise.reject(error);
   },
 );
@@ -45,13 +33,6 @@ apiClient.interceptors.request.use(
 // --- RESPONSE INTERCEPTOR ---
 apiClient.interceptors.response.use(
   (response) => {
-    // 📌 THE FIX: Removed JSON.stringify here too
-    if (__DEV__) {
-      console.log(
-        `✅ [API RESPONSE] ${response.config.method?.toUpperCase()} ${response.config.url} | Status: ${response.status}`,
-      );
-      console.log(`📄 [API DATA]`, response.data);
-    }
     return response;
   },
   async (error) => {
@@ -66,7 +47,6 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // Existing Global 401 Logout Logic
     if (error.response && error.response.status === 401) {
       console.warn("Global Interceptor: Token expired! Logging user out.");
       await AsyncStorage.clear();

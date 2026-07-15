@@ -1,5 +1,5 @@
-import EditLibraryDetailsScreen from "@/features/owner/screens/EditLibraryDetails";
+import EditLibraryDetails from "@/features/owner/screens/EditLibraryDetails";
 
 export default function EditLibraryRoute() {
-  return <EditLibraryDetailsScreen />;
+  return <EditLibraryDetails />;
 }

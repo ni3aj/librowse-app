@@ -2,11 +2,14 @@
 
 import apiClient from "@/api/client";
 import Button from "@/components/ui/Button";
+import Header from "@/components/ui/Header";
 import Input from "@/components/ui/Input";
 import { COLORS } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as ImagePicker from "expo-image-picker";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,31 +20,37 @@ import {
   View,
 } from "react-native";
 
-// Using Expo ImagePicker for photos
-// import * as ImagePicker from "expo-image-picker";
-
 export default function EditLibraryDetailsScreen() {
-  const { id } = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
 
-  // Form State
+  // Controls the button state and text during the save process
+  const [saving, setSaving] = useState(false);
+  const [saveStatusText, setSaveStatusText] = useState("Save Changes");
+
+  // Form State (Data going to the DB)
   const [formData, setFormData] = useState({
     name: "",
     city: "",
     address: "",
     amenities: [],
-    photos: [], // Array of image URLs/URIs
+    photos: [], // ONLY contains existing, already-uploaded Cloudflare URLs
   });
 
-  useEffect(() => {
-    fetchLibraryDetails();
-  }, [id]);
+  // 📌 NEW: Temporary state just for newly picked device photos
+  const [localPhotos, setLocalPhotos] = useState([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchLibraryDetails();
+      setLocalPhotos([]); // WIPE the local photos array clean on entry!
+    }, []),
+  );
 
   const fetchLibraryDetails = async () => {
+    const storedLibId = await AsyncStorage.getItem("libraryId");
     try {
       setLoading(true);
-      const res = await apiClient.get(`/owner/library/${id}`);
+      const res = await apiClient.get(`/owner/library/${storedLibId}`);
       if (res.data.success) {
         const lib = res.data.library;
         setFormData({
@@ -78,7 +87,6 @@ export default function EditLibraryDetailsScreen() {
   };
 
   const pickImage = async () => {
-    // Request permission first
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
       Alert.alert(
@@ -96,19 +104,49 @@ export default function EditLibraryDetailsScreen() {
     });
 
     if (!result.canceled) {
-      // In a real production app, you would upload this URI to AWS S3 / Cloudinary here
-      // and then save the returned cloud URL to the state.
-      // For now, we'll store the local URI to show in the UI.
-      const newUri = result.assets[0].uri;
-      setFormData((prev) => ({ ...prev, photos: [...prev.photos, newUri] }));
+      const localUri = result.assets[0].uri;
+      // 📌 REFACTORED: Do NOT upload yet. Just save to local UI state.
+      setLocalPhotos((prev) => [...prev, localUri]);
     }
   };
 
-  const removePhoto = (indexToRemove) => {
+  const removeExistingPhoto = (indexToRemove) => {
     setFormData((prev) => ({
       ...prev,
       photos: prev.photos.filter((_, index) => index !== indexToRemove),
     }));
+  };
+
+  const removeLocalPhoto = (indexToRemove) => {
+    setLocalPhotos((prev) =>
+      prev.filter((_, index) => index !== indexToRemove),
+    );
+  };
+
+  // 📌 REFACTORED: Helper function to upload a single image to R2
+  const uploadSinglePhotoToR2 = async (localUri) => {
+    try {
+      const urlRes = await apiClient.post("/owner/library/upload-url");
+      if (!urlRes.data.success) throw new Error("Failed to get upload ticket");
+
+      const { uploadUrl, publicUrl } = urlRes.data;
+
+      const imageResponse = await fetch(localUri);
+      const imageBlob = await imageResponse.blob();
+
+      const uploadRes = await fetch(uploadUrl, {
+        method: "PUT",
+        body: imageBlob,
+        headers: { "Content-Type": "image/jpeg" },
+      });
+
+      if (!uploadRes.ok) throw new Error("Cloudflare rejected the upload");
+
+      return publicUrl;
+    } catch (error) {
+      console.error("Upload error for URI:", localUri, error);
+      throw error; // Rethrow so Promise.all catches it
+    }
   };
 
   const handleSave = async () => {
@@ -119,15 +157,43 @@ export default function EditLibraryDetailsScreen() {
 
     try {
       setSaving(true);
-      const res = await apiClient.put(`/owner/library/${id}`, formData);
+
+      let finalPhotoUrls = [...formData.photos];
+
+      // 📌 REFACTORED: If there are new local photos, upload them NOW.
+      if (localPhotos.length > 0) {
+        setSaveStatusText("Uploading Photos...");
+
+        // Promise.all uploads all images in parallel for maximum speed!
+        const newUploadedUrls = await Promise.all(
+          localPhotos.map((uri) => uploadSinglePhotoToR2(uri)),
+        );
+
+        // Combine the existing Cloudflare URLs with the newly uploaded ones
+        finalPhotoUrls = [...finalPhotoUrls, ...newUploadedUrls];
+      }
+
+      setSaveStatusText("Saving Details...");
+
+      // Prepare the final payload for the backend
+      const payload = {
+        ...formData,
+        photos: finalPhotoUrls,
+      };
+
+      const storedLibId = await AsyncStorage.getItem("libraryId");
+      const res = await apiClient.put(`/owner/library/${storedLibId}`, payload);
+
       if (res.data.success) {
         Alert.alert("Success", "Library details updated successfully!");
-        router.back(); // Goes back to the profile screen, which will auto-refresh via useFocusEffect!
+        setLocalPhotos([]);
+        router.back();
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to update library details.");
+      Alert.alert("Error", "Failed to save changes. Please try again.");
     } finally {
       setSaving(false);
+      setSaveStatusText("Save Changes");
     }
   };
 
@@ -141,22 +207,13 @@ export default function EditLibraryDetailsScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      {/* Simple Header */}
-      <View className="pt-14 pb-4 px-6 flex-row items-center border-b border-borderLight bg-surface">
-        <TouchableOpacity onPress={() => router.back()} className="mr-4 p-1">
-          <Ionicons name="arrow-back" size={24} color={COLORS.textDark} />
-        </TouchableOpacity>
-        <Text className="text-xl font-m-bold text-textDark">
-          Edit Library Details
-        </Text>
-      </View>
+      <Header title="Edit Library" subtitle="Update your library details" />
 
       <ScrollView
         className="flex-1 p-6"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
       >
-        {/* Basic Info */}
         <Text className="text-lg font-m-bold text-textDark mb-4">
           Basic Information
         </Text>
@@ -180,12 +237,11 @@ export default function EditLibraryDetailsScreen() {
           multiline
         />
 
-        {/* Amenities Selection */}
-        <Text className="text-lg font-m-bold text-textDark mt-6 mb-3">
+        <Text className="text-lg font-m-bold text-textDark mb-4 ml-2 mt-6">
           Amenities
         </Text>
-        <View className="flex-row flex-wrap gap-3 mb-6">
-          {["AC", "NON_AC", "WIFI", "RO_WATER"].map((item) => {
+        <View className="flex-row flex-wrap gap-3 mb-6 ml-2">
+          {["AC", "WIFI", "RO WATER", "CCTV"].map((item) => {
             const isSelected = formData.amenities.includes(item);
             return (
               <TouchableOpacity
@@ -207,8 +263,7 @@ export default function EditLibraryDetailsScreen() {
           })}
         </View>
 
-        {/* Photos Section */}
-        <Text className="text-lg font-m-bold text-textDark mb-3">
+        <Text className="text-lg font-m-bold text-textDark mb-3 ml-2">
           Library Photos
         </Text>
         <ScrollView
@@ -219,22 +274,40 @@ export default function EditLibraryDetailsScreen() {
           {/* Add Photo Button */}
           <TouchableOpacity
             onPress={pickImage}
-            className="w-24 h-24 bg-surface border-2 border-dashed border-borderLight rounded-xl items-center justify-center mr-4"
+            disabled={saving}
+            className="w-24 h-24 ml-2 bg-surface border-2 border-dashed border-borderLight rounded-xl items-center justify-center mr-4"
           >
             <Ionicons name="camera" size={28} color={COLORS.textLight} />
             <Text className="text-xs text-textLight mt-1 font-m-bold">Add</Text>
           </TouchableOpacity>
 
-          {/* Render Existing/Selected Photos */}
+          {/* Render Existing Photos (Already on Cloudflare) */}
           {formData.photos.map((photoUri, index) => (
-            <View key={index} className="w-24 h-24 mr-4 relative">
+            <View key={`existing-${index}`} className="w-24 h-24 mr-4 relative">
               <Image
                 source={{ uri: photoUri }}
-                className="w-full h-full rounded-xl"
+                className="w-full h-full rounded-xl bg-gray-200"
                 resizeMode="cover"
               />
               <TouchableOpacity
-                onPress={() => removePhoto(index)}
+                onPress={() => removeExistingPhoto(index)}
+                className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1 border-2 border-white"
+              >
+                <Ionicons name="close" size={14} color="white" />
+              </TouchableOpacity>
+            </View>
+          ))}
+
+          {/* Render Local Photos (Waiting to be uploaded) */}
+          {localPhotos.map((localUri, index) => (
+            <View key={`local-${index}`} className="w-24 h-24 mr-4 relative">
+              <Image
+                source={{ uri: localUri }}
+                className="w-full h-full rounded-xl bg-gray-200 opacity-80" // Slightly transparent to indicate it's not saved yet
+                resizeMode="cover"
+              />
+              <TouchableOpacity
+                onPress={() => removeLocalPhoto(index)}
                 className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1 border-2 border-white"
               >
                 <Ionicons name="close" size={14} color="white" />
@@ -244,13 +317,14 @@ export default function EditLibraryDetailsScreen() {
         </ScrollView>
       </ScrollView>
 
-      {/* Fixed Bottom Save Button */}
-      <View className="p-6 pt-2 border-t border-borderLight bg-background pb-8">
+      <View className="p-6 pt-4 border-t border-borderLight bg-background pb-4">
         <Button
-          title="Save Changes"
+          title={saveStatusText}
           onPress={handleSave}
           loading={saving}
-          disabled={saving}
+          disabled={
+            saving || (formData.photos.length === 0 && localPhotos.length === 0)
+          }
         />
       </View>
     </View>

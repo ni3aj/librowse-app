@@ -5,6 +5,35 @@ export const fetchOwnerDashboardStats = async (libraryId) => {
   /* ... */
 };
 
+export const updateInventoryBucket = async (inventoryId, payload) => {
+  try {
+    const response = await apiClient.put(
+      `/owner/library/inventory/${inventoryId}`,
+      payload,
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.response?.data?.error || "Failed to update category",
+    };
+  }
+};
+
+export const deleteInventoryBucket = async (inventoryId) => {
+  try {
+    const response = await apiClient.delete(
+      `/owner/library/inventory/${inventoryId}`,
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.response?.data?.error || "Failed to delete category",
+    };
+  }
+};
+
 // 📌 NEW: Fetch the library's seat inventory
 export const getLibraryInventory = async (libraryId) => {
   try {

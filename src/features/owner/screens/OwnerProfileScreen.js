@@ -50,8 +50,8 @@ export default function OwnerProfileScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            await AsyncStorage.clear(); // Wipes JWT and user data
-            router.replace("/"); // Redirects to Login/Onboarding
+            await AsyncStorage.clear();
+            router.replace("/");
           } catch (e) {
             console.error("Logout failed", e);
           }
@@ -147,7 +147,7 @@ export default function OwnerProfileScreen() {
               <View className="flex-row space-x-3 mt-2">
                 <TouchableOpacity
                   className="flex-1 bg-background py-2 rounded-xl border border-borderLight items-center mr-2"
-                  onPress={() => router.push(`/profile/library/${lib.id}/edit`)}
+                  onPress={() => router.push(`/edit-library`)}
                 >
                   <Text className="text-textDark font-m-bold text-sm">
                     Edit Details
@@ -155,9 +155,7 @@ export default function OwnerProfileScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   className="flex-1 bg-background py-2 rounded-xl border border-borderLight items-center"
-                  onPress={() =>
-                    router.push(`/profile/library/${lib.id}/inventory`)
-                  }
+                  onPress={() => router.push(`/manage-seats`)}
                 >
                   <Text className="text-textDark font-m-bold text-sm">
                     Manage Seats
@@ -216,9 +214,9 @@ export default function OwnerProfileScreen() {
         {/* LOGOUT BUTTON */}
         <Button
           title="Logout"
-          variant="outline"
+          variant="primary"
           onPress={handleLogout}
-          className="mt-4 border-brandAccent text-brandAccent"
+          className="border-brandAccent text-brandAccent"
         />
       </View>
     </ScrollView>

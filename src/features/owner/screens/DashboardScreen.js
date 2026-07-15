@@ -364,9 +364,8 @@ export default function DashboardScreen() {
                 ))}
 
                 {/* --- AWAITING PAYMENT (APPROVED STUDENTS) --- */}
-                {/* --- AWAITING PAYMENT (APPROVED STUDENTS) --- */}
                 {stats.awaitingPayment.length > 0 && (
-                  <Text className="text-lg font-m-bold px-1 text-textDark mb-4 mt-4">
+                  <Text className="text-lg font-m-bold px-1 text-textDark mb-4 mt-2">
                     Awaiting Payment
                   </Text>
                 )}
