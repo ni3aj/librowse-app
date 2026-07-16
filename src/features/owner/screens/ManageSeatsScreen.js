@@ -12,10 +12,12 @@ import {
 } from "@/features/owner/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -28,7 +30,6 @@ export default function ManageSeatsScreen() {
   const [libraryId, setLibraryId] = useState(null);
   const scrollViewRef = useRef(null);
 
-  // Track if we are editing an existing category
   const [editingId, setEditingId] = useState(null);
 
   // Form State
@@ -38,10 +39,17 @@ export default function ManageSeatsScreen() {
   const [seats, setSeats] = useState("");
   const [price, setPrice] = useState("");
 
+  // 📌 TIME PICKER STATE
+  const [startTime, setStartTime] = useState(""); // Stores "HH:mm" for backend
+  const [endTime, setEndTime] = useState(""); // Stores "HH:mm" for backend
+  const [startDate, setStartDate] = useState(new Date()); // Feeds the native picker
+  const [endDate, setEndDate] = useState(new Date()); // Feeds the native picker
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
+
   const [seatPrefix, setSeatPrefix] = useState("Seat_");
   const [seatNumbers, setSeatNumbers] = useState([]);
 
-  // Options Constants
   const SHIFT_OPTIONS = ["DAY", "NIGHT", "FULL_DAY"];
   const AMENITY_OPTIONS = ["AC", "NON_AC"];
   const RESERVATION_OPTIONS = ["RESERVED", "UNRESERVED"];
@@ -63,7 +71,6 @@ export default function ManageSeatsScreen() {
     init();
   }, []);
 
-  // Auto-Generate Seat Numbers
   useEffect(() => {
     if (reservation === "RESERVED" && seats) {
       const count = parseInt(seats) || 0;
@@ -86,7 +93,37 @@ export default function ManageSeatsScreen() {
     setLoading(false);
   };
 
-  // Populate the form when Edit is clicked
+  // 📌 FORMATTER: Converts "14:30" backend string to "02:30 PM" UI string
+  const formatTimeForUI = (timeString) => {
+    if (!timeString) return "Select Time";
+    const [hours, minutes] = timeString.split(":");
+    const h = parseInt(hours, 10);
+    const ampm = h >= 12 ? "PM" : "AM";
+    const formattedHours = h % 12 || 12;
+    return `${formattedHours.toString().padStart(2, "0")}:${minutes} ${ampm}`;
+  };
+
+  // 📌 PICKER HANDLERS
+  const onStartChange = (event, selectedDate) => {
+    setShowStartPicker(Platform.OS === "ios"); // iOS stays open, Android auto-closes
+    if (selectedDate) {
+      setStartDate(selectedDate);
+      const hh = selectedDate.getHours().toString().padStart(2, "0");
+      const mm = selectedDate.getMinutes().toString().padStart(2, "0");
+      setStartTime(`${hh}:${mm}`);
+    }
+  };
+
+  const onEndChange = (event, selectedDate) => {
+    setShowEndPicker(Platform.OS === "ios");
+    if (selectedDate) {
+      setEndDate(selectedDate);
+      const hh = selectedDate.getHours().toString().padStart(2, "0");
+      const mm = selectedDate.getMinutes().toString().padStart(2, "0");
+      setEndTime(`${hh}:${mm}`);
+    }
+  };
+
   const handleEditClick = (item) => {
     setEditingId(item.id);
     setShift(item.shift);
@@ -95,18 +132,30 @@ export default function ManageSeatsScreen() {
     setPrice(item.price ? String(item.price) : "");
     setSeats(item.total_seats ? String(item.total_seats) : "");
 
+    // 📌 Restore Times securely
+    if (item.start_time) {
+      const cleanStart = item.start_time.substring(0, 5);
+      setStartTime(cleanStart);
+      const dStart = new Date();
+      dStart.setHours(cleanStart.split(":")[0], cleanStart.split(":")[1], 0);
+      setStartDate(dStart);
+    }
+
+    if (item.end_time) {
+      const cleanEnd = item.end_time.substring(0, 5);
+      setEndTime(cleanEnd);
+      const dEnd = new Date();
+      dEnd.setHours(cleanEnd.split(":")[0], cleanEnd.split(":")[1], 0);
+      setEndDate(dEnd);
+    }
+
     if (
       item.reservation === "RESERVED" &&
       item.seat_numbers &&
       item.seat_numbers.length > 0
     ) {
-      const firstSeat = item.seat_numbers[0];
-      const match = firstSeat.match(/^(.*?)(\d+)$/);
-      if (match) {
-        setSeatPrefix(match[1]);
-      } else {
-        setSeatPrefix("");
-      }
+      const match = item.seat_numbers[0].match(/^(.*?)(\d+)$/);
+      setSeatPrefix(match ? match[1] : "");
     } else {
       setSeatPrefix("Seat_");
     }
@@ -114,7 +163,6 @@ export default function ManageSeatsScreen() {
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
   };
 
-  // Clear the form and exit edit mode
   const handleCancelEdit = () => {
     setEditingId(null);
     setShift("");
@@ -123,12 +171,14 @@ export default function ManageSeatsScreen() {
     setSeats("");
     setPrice("");
     setSeatPrefix("Seat_");
+    setStartTime("");
+    setEndTime("");
   };
 
   const handleDeleteClick = (id) => {
     Alert.alert(
       "Delete Category",
-      "Are you sure you want to delete this seat category? This cannot be undone.",
+      "Are you sure you want to delete this seat category?",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -137,11 +187,8 @@ export default function ManageSeatsScreen() {
           onPress: async () => {
             setLoading(true);
             const { success, error } = await deleteInventoryBucket(id);
-            if (error) {
-              Alert.alert("Cannot Delete", error); // This will show the "Active Students" warning!
-            } else {
-              loadInventory(libraryId);
-            }
+            if (error) Alert.alert("Cannot Delete", error);
+            else loadInventory(libraryId);
             setLoading(false);
           },
         },
@@ -150,12 +197,21 @@ export default function ManageSeatsScreen() {
   };
 
   const handleSave = async () => {
-    if (!shift || !amenity || !reservation || !seats || !price) {
+    if (
+      !shift ||
+      !amenity ||
+      !reservation ||
+      !seats ||
+      !price ||
+      !startTime ||
+      !endTime
+    ) {
       return Alert.alert(
         "Hold on",
-        "Please select all options and fill all fields.",
+        "Please select all options and ensure times are set.",
       );
     }
+
     if (!libraryId) return Alert.alert("Error", "Library ID is missing.");
 
     setLoading(true);
@@ -167,6 +223,8 @@ export default function ManageSeatsScreen() {
       total_seats: parseInt(seats),
       price: parseFloat(price),
       seat_numbers: reservation === "RESERVED" ? seatNumbers : [],
+      start_time: startTime,
+      end_time: endTime,
     };
 
     if (editingId) {
@@ -174,25 +232,21 @@ export default function ManageSeatsScreen() {
         editingId,
         payload,
       );
-      if (error) {
-        Alert.alert("Error", error);
-      } else {
+      if (error) Alert.alert("Error", error);
+      else {
         Alert.alert("Success", "Seat category updated!");
         handleCancelEdit();
         loadInventory(libraryId);
       }
-      setLoading(false);
-      return;
-    }
-
-    const { success, error } = await addInventoryBucket(libraryId, payload);
-    if (error) {
-      Alert.alert("Error", error);
     } else {
-      Alert.alert("Success", "Seat category added!");
-      await AsyncStorage.setItem("hasInventory", "true");
-      handleCancelEdit();
-      loadInventory(libraryId);
+      const { success, error } = await addInventoryBucket(libraryId, payload);
+      if (error) Alert.alert("Error", error);
+      else {
+        Alert.alert("Success", "Seat category added!");
+        await AsyncStorage.setItem("hasInventory", "true");
+        handleCancelEdit();
+        loadInventory(libraryId);
+      }
     }
     setLoading(false);
   };
@@ -204,7 +258,6 @@ export default function ManageSeatsScreen() {
         subtitle="Create and edit capacity buckets"
       />
 
-      {/* --- ADD / EDIT INVENTORY FORM --- */}
       <View
         className={`p-4 m-6 rounded-2xl mb-8 border ${editingId ? "bg-brand/5 border-brand/30" : "bg-white border-borderLight"}`}
       >
@@ -232,11 +285,7 @@ export default function ManageSeatsScreen() {
               <TouchableOpacity
                 key={opt}
                 onPress={() => setShift(opt)}
-                className={`px-4 py-2 rounded-lg border mr-2 mb-2 ${
-                  shift === opt
-                    ? "bg-brand border-brand"
-                    : "bg-surface border-borderLight"
-                }`}
+                className={`px-4 py-2 rounded-lg border mr-2 mb-2 ${shift === opt ? "bg-brand border-brand" : "bg-surface border-borderLight"}`}
               >
                 <Text
                   className={`font-bold ${shift === opt ? "text-white" : "text-textDark"}`}
@@ -245,6 +294,67 @@ export default function ManageSeatsScreen() {
                 </Text>
               </TouchableOpacity>
             ))}
+          </View>
+        </View>
+
+        {/* 📌 TIME PICKER UI REPLACEMENT */}
+        <View className="flex-row justify-between mb-4">
+          <View className="flex-1 mr-2">
+            <Text className="text-textDark font-bold mb-2 text-sm ml-1">
+              Start Time
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowStartPicker(true)}
+              className="flex-row items-center bg-background border border-borderLight rounded-xl p-4 h-14"
+            >
+              <Ionicons
+                name="time-outline"
+                size={20}
+                color={COLORS.textLight}
+              />
+              <Text
+                className={`ml-2 font-m ${startTime ? "text-textDark font-bold" : "text-textLight"}`}
+              >
+                {formatTimeForUI(startTime)}
+              </Text>
+            </TouchableOpacity>
+            {showStartPicker && (
+              <DateTimePicker
+                value={startDate}
+                mode="time"
+                display="default"
+                onChange={onStartChange}
+              />
+            )}
+          </View>
+
+          <View className="flex-1 ml-2">
+            <Text className="text-textDark font-bold mb-2 text-sm ml-1">
+              End Time
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowEndPicker(true)}
+              className="flex-row items-center bg-background border border-borderLight rounded-xl p-4 h-14"
+            >
+              <Ionicons
+                name="time-outline"
+                size={20}
+                color={COLORS.textLight}
+              />
+              <Text
+                className={`ml-2 font-m ${endTime ? "text-textDark font-bold" : "text-textLight"}`}
+              >
+                {formatTimeForUI(endTime)}
+              </Text>
+            </TouchableOpacity>
+            {showEndPicker && (
+              <DateTimePicker
+                value={endDate}
+                mode="time"
+                display="default"
+                onChange={onEndChange}
+              />
+            )}
           </View>
         </View>
 
@@ -258,11 +368,7 @@ export default function ManageSeatsScreen() {
               <TouchableOpacity
                 key={opt}
                 onPress={() => setAmenity(opt)}
-                className={`px-4 py-2 rounded-lg border mr-2 mb-2 ${
-                  amenity === opt
-                    ? "bg-brand border-brand"
-                    : "bg-surface border-borderLight"
-                }`}
+                className={`px-4 py-2 rounded-lg border mr-2 mb-2 ${amenity === opt ? "bg-brand border-brand" : "bg-surface border-borderLight"}`}
               >
                 <Text
                   className={`font-bold ${amenity === opt ? "text-white" : "text-textDark"}`}
@@ -284,11 +390,7 @@ export default function ManageSeatsScreen() {
               <TouchableOpacity
                 key={opt}
                 onPress={() => setReservation(opt)}
-                className={`px-4 py-2 rounded-lg border mr-2 mb-2 ${
-                  reservation === opt
-                    ? "bg-brand border-brand"
-                    : "bg-surface border-borderLight"
-                }`}
+                className={`px-4 py-2 rounded-lg border mr-2 mb-2 ${reservation === opt ? "bg-brand border-brand" : "bg-surface border-borderLight"}`}
               >
                 <Text
                   className={`font-bold ${reservation === opt ? "text-white" : "text-textDark"}`}
@@ -300,8 +402,8 @@ export default function ManageSeatsScreen() {
           </View>
         </View>
 
-        {/* Dynamic Inputs based on Reservation Type */}
-        <View className="flex-row justify-between">
+        {/* Dynamic Inputs */}
+        <View className="flex-row justify-between mb-4">
           <View className="flex-1 mr-2">
             <Input
               label="No. of Seats"
@@ -311,7 +413,6 @@ export default function ManageSeatsScreen() {
               placeholder="e.g., 20"
             />
           </View>
-
           {reservation === "RESERVED" ? (
             <View className="flex-1 ml-2">
               <Input
@@ -334,7 +435,6 @@ export default function ManageSeatsScreen() {
           )}
         </View>
 
-        {/* Visual Seat Preview (Only shows for RESERVED) */}
         {reservation === "RESERVED" && seatNumbers.length > 0 && (
           <View className="mb-6 p-4 bg-brand/5 rounded-xl border border-brand/10">
             <Text className="text-xs font-bold text-textLight mb-3 uppercase tracking-wider">
@@ -359,9 +459,8 @@ export default function ManageSeatsScreen() {
           </View>
         )}
 
-        {/* Extra Price Row if Reserved */}
         {reservation === "RESERVED" && (
-          <View>
+          <View className="mb-2">
             <Input
               label="Monthly Price (₹)"
               value={price}
@@ -383,7 +482,6 @@ export default function ManageSeatsScreen() {
       <Text className="font-bold text-textDark text-lg mb-4 ml-7">
         Current Capacity
       </Text>
-
       {loading && inventory.length === 0 ? (
         <ActivityIndicator size="large" color={COLORS.textDark} />
       ) : inventory.length === 0 ? (
@@ -396,24 +494,25 @@ export default function ManageSeatsScreen() {
             key={item.id}
             className="bg-white p-4 rounded-2xl mb-3 mx-6 flex-row justify-between items-center border border-borderLight"
           >
-            {/* Left Side: Info */}
             <View className="flex-1 pr-2">
               <Text className="font-bold text-textDark text-lg uppercase leading-tight">
                 {item.shift.replace(/_/g, " ")} •{" "}
                 {item.amenity.replace(/_/g, " ")}
               </Text>
-              <Text className="text-brandAccent font-bold text-xs uppercase mt-1">
+              <Text className="text-textLight font-bold text-xs mt-0.5">
+                {item.start_time
+                  ? `${formatTimeForUI(item.start_time.substring(0, 5))} - ${formatTimeForUI(item.end_time.substring(0, 5))}`
+                  : "Timings not set"}
+              </Text>
+              <Text className="text-brandAccent font-bold text-xs uppercase mt-1.5">
                 {item.reservation || "UNRESERVED"}
               </Text>
               <Text className="text-textLight font-medium mt-1">
                 ₹{item.price} / month
               </Text>
             </View>
-
-            {/* Right Side: Seat Badge & Vertical Actions */}
             <View className="flex-row items-center">
-              {/* Seat Count Badge */}
-              <View className="bg-brand/10 px-5 py-4 rounded-xl items-center mr-3 min-w-[60px]">
+              <View className="bg-brand/10 px-4 py-4 rounded-xl items-center mr-3 min-w-[60px]">
                 <Text className="text-brand font-black text-2xl">
                   {item.total_seats}
                 </Text>
@@ -421,8 +520,6 @@ export default function ManageSeatsScreen() {
                   Seats
                 </Text>
               </View>
-
-              {/* Vertical Action Buttons (Edit / Delete) */}
               <View className="justify-center">
                 <TouchableOpacity
                   onPress={() => handleEditClick(item)}
@@ -430,7 +527,6 @@ export default function ManageSeatsScreen() {
                 >
                   <Ionicons name="pencil" size={16} color="#2563EB" />
                 </TouchableOpacity>
-
                 <TouchableOpacity
                   onPress={() => handleDeleteClick(item.id)}
                   className="w-8 h-8 bg-red-50 rounded-full items-center justify-center border border-red-100"
