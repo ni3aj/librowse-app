@@ -1,5 +1,6 @@
 // app/owner/manage-seats.js
 
+import apiClient from "@/api/client"; // 📌 1. Added apiClient
 import Button from "@/components/ui/Button";
 import Header from "@/components/ui/Header";
 import Input from "@/components/ui/Input";
@@ -10,6 +11,7 @@ import {
   getLibraryInventory,
   updateInventoryBucket,
 } from "@/features/owner/api";
+import { useLibraryStore } from "@/store/libraryStore"; // 📌 2. Added global store
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -23,6 +25,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Toast from "react-native-toast-message";
 
 export default function ManageSeatsScreen() {
   const [inventory, setInventory] = useState([]);
@@ -93,7 +96,6 @@ export default function ManageSeatsScreen() {
     setLoading(false);
   };
 
-  // 📌 FORMATTER: Converts "14:30" backend string to "02:30 PM" UI string
   const formatTimeForUI = (timeString) => {
     if (!timeString) return "Select Time";
     const [hours, minutes] = timeString.split(":");
@@ -103,9 +105,8 @@ export default function ManageSeatsScreen() {
     return `${formattedHours.toString().padStart(2, "0")}:${minutes} ${ampm}`;
   };
 
-  // 📌 PICKER HANDLERS
   const onStartChange = (event, selectedDate) => {
-    setShowStartPicker(Platform.OS === "ios"); // iOS stays open, Android auto-closes
+    setShowStartPicker(Platform.OS === "ios");
     if (selectedDate) {
       setStartDate(selectedDate);
       const hh = selectedDate.getHours().toString().padStart(2, "0");
@@ -132,7 +133,6 @@ export default function ManageSeatsScreen() {
     setPrice(item.price ? String(item.price) : "");
     setSeats(item.total_seats ? String(item.total_seats) : "");
 
-    // 📌 Restore Times securely
     if (item.start_time) {
       const cleanStart = item.start_time.substring(0, 5);
       setStartTime(cleanStart);
@@ -196,6 +196,52 @@ export default function ManageSeatsScreen() {
     );
   };
 
+  // 📌 3. THE FIX: Smart background check for "Photos First, Seats Second"
+  const checkAndUpgradeStatus = async (libId) => {
+    try {
+      const currentStatus = useLibraryStore.getState().libraryStatus;
+
+      // We only care if they are stuck in UNVERIFIED
+      if (currentStatus === "UNVERIFIED") {
+        const res = await apiClient.get(`/owner/library/${libId}`);
+
+        if (res.data.success) {
+          const lib = res.data.library;
+          const photos = lib.photos || [];
+
+          // If they ALREADY uploaded photos, they are officially done with setup!
+          if (photos.length > 0) {
+            const payload = {
+              name: lib.name,
+              city: lib.city,
+              address: lib.address,
+              amenities:
+                typeof lib.amenities === "string"
+                  ? JSON.parse(lib.amenities)
+                  : lib.amenities || [],
+              photos: photos,
+              status: "PENDING_ADMIN_APPROVAL", // 📌 Upgrade the status!
+            };
+
+            await apiClient.put(`/owner/library/${libId}`, payload);
+            useLibraryStore
+              .getState()
+              .setLibraryStatus("PENDING_ADMIN_APPROVAL");
+
+            // Show a celebratory toast
+            Toast.show({
+              type: "success",
+              text1: "Setup Complete! 🎉",
+              text2: "Your library is now pending admin approval.",
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to upgrade status:", error);
+    }
+  };
+
   const handleSave = async () => {
     if (
       !shift ||
@@ -206,10 +252,11 @@ export default function ManageSeatsScreen() {
       !startTime ||
       !endTime
     ) {
-      return Alert.alert(
-        "Hold on",
-        "Please select all options and ensure times are set.",
-      );
+      return Toast.show({
+        type: "error",
+        text1: "Hold on",
+        text2: "Please select all options and ensure times are set.",
+      });
     }
 
     if (!libraryId) return Alert.alert("Error", "Library ID is missing.");
@@ -244,6 +291,10 @@ export default function ManageSeatsScreen() {
       else {
         Alert.alert("Success", "Seat category added!");
         await AsyncStorage.setItem("hasInventory", "true");
+
+        // 📌 4. Run the check right after seats are added!
+        await checkAndUpgradeStatus(libraryId);
+
         handleCancelEdit();
         loadInventory(libraryId);
       }
@@ -297,7 +348,7 @@ export default function ManageSeatsScreen() {
           </View>
         </View>
 
-        {/* 📌 TIME PICKER UI REPLACEMENT */}
+        {/* Time Picker */}
         <View className="flex-row justify-between mb-4">
           <View className="flex-1 mr-2">
             <Text className="text-textDark font-bold mb-2 text-sm ml-1">
@@ -403,7 +454,7 @@ export default function ManageSeatsScreen() {
         </View>
 
         {/* Dynamic Inputs */}
-        <View className="flex-row justify-between mb-4">
+        <View className="flex-row justify-between">
           <View className="flex-1 mr-2">
             <Input
               label="No. of Seats"
@@ -436,7 +487,7 @@ export default function ManageSeatsScreen() {
         </View>
 
         {reservation === "RESERVED" && seatNumbers.length > 0 && (
-          <View className="mb-6 p-4 bg-brand/5 rounded-xl border border-brand/10">
+          <View className="mb-6 p-4 bg-brand/5 rounded-xl border border-brand/10 items-center">
             <Text className="text-xs font-bold text-textLight mb-3 uppercase tracking-wider">
               Seat Layout Preview
             </Text>
@@ -444,7 +495,7 @@ export default function ManageSeatsScreen() {
               {seatNumbers.map((seat) => (
                 <View
                   key={seat}
-                  className="bg-white border border-borderLight w-12 h-12 rounded-lg items-center justify-center"
+                  className="bg-white border border-borderLight w-16 h-16 rounded-lg items-center justify-center"
                 >
                   <Text
                     className="text-textDark font-bold text-xs"
@@ -460,7 +511,7 @@ export default function ManageSeatsScreen() {
         )}
 
         {reservation === "RESERVED" && (
-          <View className="mb-2">
+          <View>
             <Input
               label="Monthly Price (₹)"
               value={price}

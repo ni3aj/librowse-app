@@ -4,11 +4,12 @@ import Button from "@/components/ui/Button";
 import Header from "@/components/ui/Header";
 import RefreshableScrollView from "@/components/ui/RefreshableScrollView";
 import { COLORS } from "@/constants/theme";
+import { useLibraryStore } from "@/store/libraryStore";
 import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +19,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Toast from "react-native-toast-message";
 
 export default function DashboardScreen() {
   const [alertConfig, setAlertConfig] = useState({
@@ -28,6 +30,7 @@ export default function DashboardScreen() {
   });
   const hideAlert = () =>
     setAlertConfig((prev) => ({ ...prev, visible: false }));
+
   const [libraries, setLibraries] = useState([]);
   const [selectedLibrary, setSelectedLibrary] = useState(null);
   const [stats, setStats] = useState(null);
@@ -35,55 +38,71 @@ export default function DashboardScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [hasInventory, setHasInventory] = useState(true);
 
+  const libraryStatus = useLibraryStore((state) => state.libraryStatus);
+
+  const isPending =
+    selectedLibrary && libraryStatus === "PENDING_ADMIN_APPROVAL";
+  const isUnverified = selectedLibrary && libraryStatus === "UNVERIFIED";
+
+  // Combine them into a master lock
+  const isLocked = isPending || isUnverified;
+
   useEffect(() => {
     fetchMyLibraries();
-    checkSetupStatus();
   }, []);
 
   useEffect(() => {
     if (selectedLibrary) fetchDashboardStats(selectedLibrary.id);
   }, [selectedLibrary]);
 
+  useFocusEffect(
+    useCallback(() => {
+      checkSetupStatus();
+    }, []),
+  );
+
+  const checkSetupStatus = async () => {
+    const inventoryFlag = await AsyncStorage.getItem("hasInventory");
+    setHasInventory(inventoryFlag !== "false");
+  };
+
   const handleMarkAsPaid = (enrollmentId, studentName) => {
     setAlertConfig({
       visible: true,
-      type: "warning", // Uses the Amber warning colors
+      type: "warning",
       title: "Confirm Offline Payment",
       message: `Did ${studentName} pay you directly? This will instantly activate their seat and log the revenue.`,
       primaryButtonText: "Mark as Paid",
       secondaryButtonText: "Cancel",
       onPrimaryPress: async () => {
-        // 2. When they click Yes, fire the API
         try {
           const response = await apiClient.patch(
             `/owner/requests/${enrollmentId}/mark-paid`,
           );
 
           if (response.data.success) {
-            // 3. Update the modal to a Success state!
             setAlertConfig({
               visible: true,
-              type: "success", // Smoothly animates to the Emerald checkmark
+              type: "success",
               title: "Success!",
               message: `${studentName}'s seat is now Active!`,
               primaryButtonText: "Awesome",
-              secondaryButtonText: null, // Hides the cancel button
+              secondaryButtonText: null,
               onPrimaryPress: () => {
-                hideAlert(); // Close the modal
-                fetchDashboardStats(selectedLibrary.id); // Refresh the UI
+                hideAlert();
+                fetchDashboardStats(selectedLibrary.id);
               },
             });
           }
         } catch (error) {
-          // 4. Update the modal to an Error state!
           setAlertConfig({
             visible: true,
-            type: "error", // Smoothly animates to the Coral Red cross
+            type: "error",
             title: "Error",
             message: error.response?.data?.error || "Failed to mark as paid.",
             primaryButtonText: "OK",
             secondaryButtonText: null,
-            onPrimaryPress: hideAlert, // Close the modal on click
+            onPrimaryPress: hideAlert,
           });
         }
       },
@@ -91,17 +110,11 @@ export default function DashboardScreen() {
   };
 
   const handlePullToRefresh = async () => {
+    await checkSetupStatus();
     if (selectedLibrary) {
       await fetchDashboardStats(selectedLibrary.id);
     } else {
       await fetchMyLibraries();
-    }
-  };
-
-  const checkSetupStatus = async () => {
-    const inventoryFlag = await AsyncStorage.getItem("hasInventory");
-    if (inventoryFlag === "false") {
-      setHasInventory(false);
     }
   };
 
@@ -125,9 +138,13 @@ export default function DashboardScreen() {
     try {
       const response = await apiClient.get(`/owner/dashboard/${libraryId}`);
       if (response.data.success) {
+        useLibraryStore
+          .getState()
+          .setLibraryStatus(response.data.libraryStatus);
         setStats(response.data);
       }
     } catch (error) {
+      console.error("DASHBOARD FETCH ERROR:", error);
       Alert.alert("Error", "Failed to fetch stats.");
     } finally {
       setLoading(false);
@@ -141,11 +158,14 @@ export default function DashboardScreen() {
       );
 
       if (response.data.success) {
-        Alert.alert("Success", "Student approved! Awaiting their payment.");
+        Toast.show({
+          type: "success",
+          text1: "Approved!",
+          text2: "Awaiting their payment.",
+        });
         fetchDashboardStats(selectedLibrary.id);
       }
     } catch (error) {
-      console.log(error);
       Alert.alert(
         "Error",
         error.response?.data?.error || "Failed to approve student.",
@@ -173,7 +193,7 @@ export default function DashboardScreen() {
             } catch (error) {
               Alert.alert(
                 "Error",
-                error.response?.data?.error || "Failed to reject student.",
+                error.response?.data?.error || "Failed to reject.",
               );
             }
           },
@@ -193,26 +213,47 @@ export default function DashboardScreen() {
         label: "Payment Due",
         value: "Pay Now",
         color: "red-500",
-        bg: "red-50",
+        iconColor: "#EF4444",
+        iconName: "warning-outline",
       };
     } else if (sub.daysRemaining <= 5) {
       return {
         label: "Expiring Soon",
         value: `${sub.daysRemaining} days`,
         color: "orange-500",
-        bg: "orange-50",
+        iconColor: "#F97316",
+        iconName: "time-outline",
       };
     } else {
       return {
         label: "Subscription",
         value: "Active",
         color: "green-600",
-        bg: "green-50",
+        iconColor: "#16A34A",
+        iconName: "shield-checkmark-outline",
       };
     }
   };
 
   const subUI = getSubscriptionUI();
+
+  const handleLockedClick = () => {
+    if (isUnverified) {
+      Toast.show({
+        type: "error",
+        text1: "Setup Incomplete",
+        text2: "Please upload your library photos to unlock these features.",
+        position: "top",
+      });
+    } else {
+      Toast.show({
+        type: "info",
+        text1: "Library Under Review",
+        text2: "This feature will unlock once your library is verified.",
+        position: "top",
+      });
+    }
+  };
 
   return (
     <View className="flex-1 bg-background">
@@ -229,7 +270,6 @@ export default function DashboardScreen() {
               <Text className="text-textDark font-m-bold text-sm mr-2">
                 {selectedLibrary?.name || "Select"}
               </Text>
-
               <Ionicons name="chevron-down" size={16} color={COLORS.textDark} />
             </TouchableOpacity>
           )
@@ -240,6 +280,46 @@ export default function DashboardScreen() {
         className="px-6 mt-6"
         onRefresh={handlePullToRefresh}
       >
+        {/* 📌 THE FIX: Added `hasInventory` check so this ONLY shows after seats are added */}
+        {isUnverified && hasInventory && (
+          <View className="bg-red-50 border border-red-200 p-4 rounded-2xl mb-6 flex-row items-start">
+            <Text className="text-xl mr-3">🛑</Text>
+            <View className="flex-1">
+              <Text className="text-red-900 font-m-bold text-base mb-2">
+                Setup Incomplete
+              </Text>
+              <Text className="text-red-800 text-sm font-m leading-5 mb-3">
+                Your library is currently Unverified. Students cannot book seats
+                until you upload library photos and submit your profile for
+                admin review.
+              </Text>
+              <Button
+                title="Complete Profile"
+                variant="primary"
+                onPress={() => router.push("/edit-library")}
+                className="py-2"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Conditional PENDING Orange Banner */}
+        {isPending && (
+          <View className="bg-orange-50 border border-orange-200 p-4 rounded-2xl mb-6 flex-row items-start">
+            <Text className="text-xl mr-3">⚠️</Text>
+            <View className="flex-1">
+              <Text className="text-orange-900 font-m-bold text-base mb-2">
+                Library Under Review
+              </Text>
+              <Text className="text-orange-800 text-sm font-m leading-5">
+                Your library is currently being verified. You can set up your
+                seat category in the Seats tab below, but student requests and
+                payments are temporarily disabled.
+              </Text>
+            </View>
+          </View>
+        )}
+
         {loading ? (
           <ActivityIndicator
             className="mt-20"
@@ -248,7 +328,7 @@ export default function DashboardScreen() {
           />
         ) : stats ? (
           <>
-            {/* 📌 EMPTY STATE */}
+            {/* 📌 EMPTY STATE (Only shows if they HAVE a library but NO seats) */}
             {!hasInventory && (
               <View className="bg-white p-6 rounded-3xl border border-brandAccent/30 mb-6 items-center mt-4">
                 <View className="bg-brand/10 h-16 w-16 rounded-full items-center justify-center mb-4">
@@ -263,7 +343,7 @@ export default function DashboardScreen() {
                   prices!
                 </Text>
                 <Button
-                  title="Add Seats Now"
+                  title="Add Seats"
                   onPress={() => router.push("/manage-seats")}
                   className="w-full"
                 />
@@ -273,158 +353,180 @@ export default function DashboardScreen() {
             {/* 📌 FULL DASHBOARD */}
             {hasInventory && (
               <>
-                {/* --- 2x2 METRICS GRID --- */}
                 <View className="flex-row flex-wrap justify-between mb-4">
                   <MetricCard
-                    label="Pending"
+                    label="Pending Requests"
                     value={stats.metrics.pending_count}
                     color="brandAccent"
+                    iconName="person-add-outline"
+                    iconColor={COLORS.brandAccent}
                   />
                   <MetricCard
-                    label="Unpaid"
+                    label="Unpaid Students"
                     value={stats.metrics.awaiting_payment_count}
                     color="textLight"
+                    iconName="wallet-outline"
+                    iconColor={COLORS.textLight}
                   />
                   <MetricCard
                     label="Occupied seats"
                     value={`${stats.metrics.active_users_count}/${stats.metrics.total_capacity}`}
                     color="brand"
+                    iconName="grid-outline"
+                    iconColor={COLORS.brand}
                   />
                   <MetricCard
                     label="Active Students"
-                    onPress={() =>
-                      router.push({
-                        pathname: "/students-list",
-                        params: { id: selectedLibrary?.id },
-                      })
+                    onPress={
+                      isLocked
+                        ? handleLockedClick
+                        : () =>
+                            router.push({
+                              pathname: "/students-list",
+                              params: { id: selectedLibrary?.id },
+                            })
                     }
                     value={`${stats.metrics.active_users_count}/${stats.metrics.total_students_count}`}
                     color="brand"
+                    iconName="people-outline"
+                    iconColor={COLORS.brand}
                   />
                   <MetricCard
                     label="My Revenue"
                     value={`₹${Math.round(stats.metrics.monthly_revenue)}`}
                     color="textDark"
+                    iconName="trending-up-outline"
+                    iconColor={COLORS.textDark}
                   />
                   <MetricCard
                     label={subUI.label}
                     value={subUI.value}
-                    color={subUI.color} // You may need to update MetricCard component to accept hex/tailwind colors directly
-                    onPress={() => router.push("/billing")}
+                    color={subUI.color}
+                    iconName={subUI.iconName}
+                    iconColor={subUI.iconColor}
+                    onPress={
+                      isLocked
+                        ? handleLockedClick
+                        : () => router.push("/billing")
+                    }
                   />
                 </View>
 
-                {/* --- PENDING APPROVALS --- */}
-                {stats.pendingRequests.length > 0 && (
-                  <Text className="text-lg font-m-bold px-1 text-textDark mb-4">
-                    New Requests
-                  </Text>
-                )}
-                {stats.pendingRequests.map((req) => (
-                  <Pressable
-                    key={req.id}
-                    onPress={() => router.push(`/user/${req.student_id}`)}
-                    className="bg-white p-4 rounded-2xl mb-3 border border-borderLight active:opacity-70"
-                  >
-                    <View className="flex-row justify-between items-center">
-                      <Text className="font-m-bold text-textDark text-lg">
-                        {req.student_name}
+                {/* Wrap actions in master isLocked check */}
+                <View
+                  pointerEvents={isLocked ? "none" : "auto"}
+                  className={isLocked ? "opacity-50" : ""}
+                >
+                  {/* --- PENDING APPROVALS --- */}
+                  {stats.pendingRequests.length > 0 && (
+                    <Text className="text-lg font-m-bold px-1 text-textDark mb-4">
+                      New Requests
+                    </Text>
+                  )}
+                  {stats.pendingRequests.map((req) => (
+                    <Pressable
+                      key={req.id}
+                      onPress={() => router.push(`/user/${req.student_id}`)}
+                      className="bg-white p-4 rounded-2xl mb-3 border border-borderLight active:opacity-70"
+                    >
+                      <View className="flex-row justify-between items-center">
+                        <Text className="font-m-bold text-textDark text-lg">
+                          {req.student_name}
+                        </Text>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={18}
+                          color={COLORS.textLight}
+                        />
+                      </View>
+                      <Text className="text-sm font-m text-textLight mt-1">
+                        {req.seat_type}
                       </Text>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={18}
-                        color={COLORS.textLight}
-                      />
-                    </View>
-                    <Text className="text-sm font-m text-textLight mt-1">
-                      {req.seat_type}
-                    </Text>
-                    <Text className="text-sm font-m text-textLight mt-1">
-                      Requested on {formatCleanDate(req.start_date)}
-                    </Text>
-                    <View className="flex-row mt-4">
-                      <View className="flex-1 mr-2">
-                        <Button
-                          title="Accept"
-                          variant="primary"
-                          className="py-2 w-full"
-                          onPress={() => handleAcceptRequest(req.id)}
-                        />
-                      </View>
-                      <View className="flex-1 ml-2">
-                        <Button
-                          title="Deny"
-                          variant="outline"
-                          className="py-2 w-full"
-                          onPress={() => handleDenyRequest(req.id)}
-                        />
-                      </View>
-                    </View>
-                  </Pressable>
-                ))}
-
-                {/* --- AWAITING PAYMENT (APPROVED STUDENTS) --- */}
-                {stats.awaitingPayment.length > 0 && (
-                  <Text className="text-lg font-m-bold px-1 text-textDark mb-4 mt-2">
-                    Awaiting Payment
-                  </Text>
-                )}
-                {stats.awaitingPayment.map((req) => (
-                  <View
-                    key={req.id}
-                    className="bg-white p-4 rounded-2xl mb-3 border border-borderLight active:opacity-70"
-                  >
-                    <View className="flex-row justify-between items-center mb-1">
-                      <Text className="font-m-bold text-textDark text-lg">
-                        {req.student_name}
+                      <Text className="text-sm font-m text-textLight mt-1">
+                        Requested on {formatCleanDate(req.start_date)}
                       </Text>
-                    </View>
-                    <Text className="text-sm font-m text-textLight">
-                      {req.seat_type}
-                    </Text>
-                    <Text className="text-sm font-m text-textLight">
-                      Approved {req.start_date}
-                    </Text>
 
-                    {/* Info Banner */}
-                    <View className="mt-3 bg-brandAccent/10 py-2 px-3 rounded-lg flex-row items-center mb-3">
-                      <Ionicons
-                        name="time-outline"
-                        size={16}
-                        color={COLORS.brandAccent}
-                        className="mr-2"
-                      />
-                      <Text className="font-m-bold text-brandAccent ml-2 text-sm flex-1">
-                        Waiting for Student to Pay
+                      <View className="flex-row mt-4">
+                        <View className="flex-1 mr-2">
+                          <Button
+                            title="Accept"
+                            variant="primary"
+                            className="py-2 w-full"
+                            onPress={() => handleAcceptRequest(req.id)}
+                          />
+                        </View>
+                        <View className="flex-1 ml-2">
+                          <Button
+                            title="Deny"
+                            variant="outline"
+                            className="py-2 w-full"
+                            onPress={() => handleDenyRequest(req.id)}
+                          />
+                        </View>
+                      </View>
+                    </Pressable>
+                  ))}
+
+                  {/* --- AWAITING PAYMENT --- */}
+                  {stats.awaitingPayment.length > 0 && (
+                    <Text className="text-lg font-m-bold px-1 text-textDark mb-4 mt-2">
+                      Awaiting Payment
+                    </Text>
+                  )}
+                  {stats.awaitingPayment.map((req) => (
+                    <View
+                      key={req.id}
+                      className="bg-white p-4 rounded-2xl mb-3 border border-borderLight active:opacity-70"
+                    >
+                      <View className="flex-row justify-between items-center mb-1">
+                        <Text className="font-m-bold text-textDark text-lg">
+                          {req.student_name}
+                        </Text>
+                      </View>
+                      <Text className="text-sm font-m text-textLight">
+                        {req.seat_type}
                       </Text>
-                    </View>
+                      <Text className="text-sm font-m text-textLight">
+                        Approved {req.start_date}
+                      </Text>
 
-                    {/* 📌 NEW: Offline Payment Button */}
-                    <View className="flex-row mt-2 border-t border-borderLight pt-4">
-                      {/* Left Side: View Profile */}
-                      <View className="flex-1 mr-2">
-                        <Button
-                          title="View Profile"
-                          variant="outline"
-                          className="py-1 w-full"
-                          onPress={() => router.push(`/user/${req.student_id}`)}
+                      <View className="mt-3 bg-brandAccent/10 py-2 px-3 rounded-lg flex-row items-center mb-3">
+                        <Ionicons
+                          name="time-outline"
+                          size={16}
+                          color={COLORS.brandAccent}
+                          className="mr-2"
                         />
+                        <Text className="font-m-bold text-brandAccent ml-2 text-sm flex-1">
+                          Waiting for Student to Pay
+                        </Text>
                       </View>
 
-                      {/* Right Side: Mark as Paid */}
-                      <View className="flex-1 ml-2">
-                        <Button
-                          title="Mark as Paid"
-                          variant="primary"
-                          className="py-2 w-full"
-                          onPress={() =>
-                            handleMarkAsPaid(req.id, req.student_name)
-                          }
-                        />
+                      <View className="flex-row mt-2 border-t border-borderLight pt-4">
+                        <View className="flex-1 mr-2">
+                          <Button
+                            title="View Profile"
+                            variant="outline"
+                            className="py-1 w-full"
+                            onPress={() =>
+                              router.push(`/user/${req.student_id}`)
+                            }
+                          />
+                        </View>
+                        <View className="flex-1 ml-2">
+                          <Button
+                            title="Mark as Paid"
+                            variant="primary"
+                            className="py-2 w-full"
+                            onPress={() =>
+                              handleMarkAsPaid(req.id, req.student_name)
+                            }
+                          />
+                        </View>
                       </View>
                     </View>
-                  </View>
-                ))}
+                  ))}
+                </View>
               </>
             )}
           </>
@@ -471,6 +573,7 @@ export default function DashboardScreen() {
           </View>
         </View>
       </Modal>
+
       <AlertModal
         visible={alertConfig.visible}
         type={alertConfig.type}
@@ -486,21 +589,47 @@ export default function DashboardScreen() {
   );
 }
 
-// Small helper component for the metrics
-function MetricCard({ label, value, color, onPress }) {
+function MetricCard({ label, value, color, iconName, iconColor, onPress }) {
   const CardContainer = onPress ? TouchableOpacity : View;
 
   return (
     <CardContainer
       onPress={onPress}
       activeOpacity={onPress ? 0.7 : 1}
-      className={`w-[48%] bg-white p-5 rounded-3xl mb-4 border border-borderLight`}
+      className="w-[48%] bg-white p-4 rounded-[24px] mb-4 border border-borderLight"
     >
-      <Text className="text-xs font-m-bold text-textLight uppercase tracking-widest mb-1">
-        {label}
-      </Text>
-      {/* 📌 Dynamic text color based on status */}
-      <Text className={`text-2xl font-m-extra text-${color}`}>{value}</Text>
+      <View className="flex-row items-center mb-3">
+        <View
+          className="w-8 h-8 rounded-full items-center justify-center border"
+          style={{
+            backgroundColor: `${iconColor}15`,
+            borderColor: `${iconColor}30`,
+          }}
+        >
+          <Ionicons name={iconName} size={16} color={iconColor} />
+        </View>
+
+        <Text
+          className={`text-2xl font-m-extra ml-3 text-${color}`}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+        >
+          {value}
+        </Text>
+      </View>
+      <View className="flex-row">
+        <Text className="text-[10px] font-m-bold text-textLight uppercase tracking-widest">
+          {label}
+        </Text>
+        {onPress && (
+          <Ionicons
+            name="chevron-forward"
+            className="ml-1"
+            size={14}
+            color={COLORS.textLight}
+          />
+        )}
+      </View>
     </CardContainer>
   );
 }

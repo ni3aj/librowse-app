@@ -1,3 +1,4 @@
+import { toastConfig } from "@/components/ui/ToastConfig";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import {
   Montserrat_400Regular,
@@ -7,10 +8,11 @@ import {
   Montserrat_800ExtraBold,
   useFonts,
 } from "@expo-google-fonts/montserrat";
-import { Slot } from "expo-router";
+import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { Text, TextInput } from "react-native";
+import Toast from "react-native-toast-message";
 import "../global.css";
 
 SplashScreen.preventAutoHideAsync();
@@ -46,5 +48,10 @@ export default function RootLayout() {
     return null;
   }
 
-  return <Slot />;
+  return (
+    <>
+      <Stack screenOptions={{ headerShown: false }} />
+      <Toast config={toastConfig} position="bottom" bottomOffset={80} />
+    </>
+  );
 }

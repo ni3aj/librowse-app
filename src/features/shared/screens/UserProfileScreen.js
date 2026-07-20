@@ -1,4 +1,5 @@
 import apiClient from "@/api/client";
+import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -15,9 +16,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Toast from "react-native-toast-message"; // 📌 Added Toast
 
 export default function UserProfileScreen() {
-  const { id } = useLocalSearchParams(); // Captures libraryId if passed by Owner
+  const { id } = useLocalSearchParams();
   const [user, setUser] = useState(null);
   const [enrollment, setEnrollment] = useState(null);
   const [payments, setPayments] = useState([]);
@@ -38,7 +40,11 @@ export default function UserProfileScreen() {
         setPayments(response.data.payments || []);
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to load user profile.");
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to load user profile.",
+      });
       router.back();
     } finally {
       setLoading(false);
@@ -49,32 +55,106 @@ export default function UserProfileScreen() {
   const openMap = () => {
     if (user.latitude && user.longitude) {
       Linking.openURL(
-        `https://maps.google.com/?q=${user.latitude},${user.longitude}`,
+        `http://maps.google.com/maps?q=${user.latitude},${user.longitude}`,
       );
     } else {
-      Alert.alert(
-        "Location Unavailable",
-        "This user hasn't set exact coordinates.",
-      );
+      Toast.show({
+        type: "info",
+        text1: "Location Unavailable",
+        text2: "This user hasn't set exact coordinates.",
+      });
     }
   };
 
-  // Action Handlers (Connect these to your actual Fastify patch routes later)
+  // 📌 1. LIVE API Action Handlers
   const handleApprove = async () => {
-    Alert.alert(
-      "Approve",
-      "Student approved! (Wire this to /requests/:id/approve)",
-    );
+    try {
+      const response = await apiClient.patch(
+        `/owner/requests/${enrollment.enrollment_id}/approve`,
+      );
+      if (response.data.success) {
+        Toast.show({
+          type: "success",
+          text1: "Approved!",
+          text2: "Awaiting student payment.",
+        });
+        fetchUserProfile(); // Refresh data
+      }
+    } catch (error) {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error.response?.data?.error || "Failed to approve.",
+      });
+    }
   };
 
   const handleDeny = async () => {
-    Alert.alert("Deny", "Student denied! (Wire this to /requests/:id/deny)");
+    Alert.alert(
+      "Deny Request",
+      "Are you sure you want to reject this student?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reject",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const response = await apiClient.patch(
+                `/owner/requests/${enrollment.enrollment_id}/reject`,
+              );
+              if (response.data.success) {
+                Toast.show({
+                  type: "success",
+                  text1: "Rejected",
+                  text2: "Student request removed.",
+                });
+                fetchUserProfile(); // Refresh data
+              }
+            } catch (error) {
+              Toast.show({
+                type: "error",
+                text1: "Error",
+                text2: error.response?.data?.error || "Failed to reject.",
+              });
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleMarkPaid = async () => {
     Alert.alert(
-      "Mark Paid",
-      "Payment marked successful! (Wire to /requests/:id/mark-paid)",
+      "Confirm Payment",
+      `Did ${user.full_name} pay you directly offline?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Mark as Paid",
+          onPress: async () => {
+            try {
+              const response = await apiClient.patch(
+                `/owner/requests/${enrollment.enrollment_id}/mark-paid`,
+              );
+              if (response.data.success) {
+                Toast.show({
+                  type: "success",
+                  text1: "Success!",
+                  text2: "Seat is now Active.",
+                });
+                fetchUserProfile(); // Refresh data
+              }
+            } catch (error) {
+              Toast.show({
+                type: "error",
+                text1: "Error",
+                text2: error.response?.data?.error || "Failed to mark paid.",
+              });
+            }
+          },
+        },
+      ],
     );
   };
 
@@ -99,10 +179,15 @@ export default function UserProfileScreen() {
 
   const calculateDaysLeft = (endDate) => {
     const diff = new Date(endDate) - new Date();
-    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24))); // Added Math.max to prevent negative days
   };
 
   const totalLTV = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+
+  // 📌 Clean seat string generator
+  const seatInfo = enrollment
+    ? `${enrollment.shift.replace("_", " ")} • ${enrollment.amenity.replace("_", " ")} • ${enrollment.reservation}`
+    : "";
 
   if (loading) {
     return (
@@ -115,25 +200,15 @@ export default function UserProfileScreen() {
   if (!user) return null;
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      {/* Header */}
-      <View className="flex-row items-center px-6 pt-4 pb-4">
-        <TouchableOpacity onPress={() => router.back()} className="mr-4">
-          <Ionicons name="arrow-back" size={24} color={COLORS.textDark} />
-        </TouchableOpacity>
-        <Text className="text-xl font-m-bold text-textDark">User Profile</Text>
-      </View>
-
+    <View className="flex-1 bg-background">
+      <Header title="User Profile" />
       <ScrollView
         className="flex-1 px-6"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
       >
-        {/* --------------------------------------------------- */}
         {/* 1. MAIN PROFILE CARD */}
-        {/* --------------------------------------------------- */}
-        <View className="bg-surface p-6 rounded-3xl border border-borderLight items-center mt-2">
-          {/* Avatar or Photo */}
+        <View className="bg-surface p-6 rounded-3xl border border-borderLight items-center mt-6">
           {user.profile_photo ? (
             <Image
               source={{ uri: user.profile_photo }}
@@ -147,7 +222,6 @@ export default function UserProfileScreen() {
             </View>
           )}
 
-          {/* Name & KYC Badge */}
           <View className="flex-row items-center mb-4">
             <Text className="text-2xl font-m-bold text-textDark mr-2">
               {user.full_name}
@@ -157,9 +231,7 @@ export default function UserProfileScreen() {
             )}
           </View>
 
-          {/* Contact Details List */}
           <View className="w-full bg-background/50 rounded-2xl p-4 border border-borderLight/50 space-y-4">
-            {/* Phone */}
             <View className="flex-row items-center mb-4">
               <View className="w-10 h-10 bg-white rounded-full items-center justify-center mr-3 border border-borderLight">
                 <Ionicons name="call" size={18} color={COLORS.brand} />
@@ -174,9 +246,8 @@ export default function UserProfileScreen() {
               </View>
             </View>
 
-            {/* Email (If Available) */}
             {user.email && (
-              <View className="flex-row items-center">
+              <View className="flex-row items-center mb-4">
                 <View className="w-10 h-10 bg-white rounded-full items-center justify-center mr-3 border border-borderLight">
                   <Ionicons name="mail" size={18} color={COLORS.brand} />
                 </View>
@@ -191,9 +262,8 @@ export default function UserProfileScreen() {
               </View>
             )}
 
-            {/* Location */}
             {(user.city || user.address) && (
-              <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center justify-between mb-4">
                 <View className="flex-row items-center flex-1 pr-2">
                   <View className="w-10 h-10 bg-white rounded-full items-center justify-center mr-3 border border-borderLight">
                     <Ionicons name="location" size={18} color={COLORS.brand} />
@@ -221,7 +291,6 @@ export default function UserProfileScreen() {
               </View>
             )}
 
-            {/* Member Since */}
             <View className="flex-row items-center">
               <View className="w-10 h-10 bg-white rounded-full items-center justify-center mr-3 border border-borderLight">
                 <Ionicons name="calendar" size={18} color={COLORS.brand} />
@@ -238,16 +307,13 @@ export default function UserProfileScreen() {
           </View>
         </View>
 
-        {/* --------------------------------------------------- */}
-        {/* 2. ENROLLMENT CRM CONTROLS (Only visible to Owner) */}
-        {/* --------------------------------------------------- */}
+        {/* 2. ENROLLMENT CRM CONTROLS */}
         {enrollment && (
           <View className="mt-6">
             <Text className="text-lg font-m-bold text-textDark mb-3 ml-1">
               Current Enrollment
             </Text>
 
-            {/* ACTIVE BANNER */}
             {enrollment.status === "ACTIVE" && (
               <View className="bg-green-50 border border-green-200 p-4 rounded-2xl mb-4">
                 <View className="flex-row justify-between items-center mb-2">
@@ -267,14 +333,11 @@ export default function UserProfileScreen() {
                   </Text>
                 </Text>
                 <Text className="text-green-700 text-sm font-m-bold">
-                  {enrollment.shift.replace("_", " ")} •{" "}
-                  {enrollment.amenity.replace("_", " ")} •{" "}
-                  {enrollment.reservation}
+                  {seatInfo}
                 </Text>
               </View>
             )}
 
-            {/* PENDING APPROVAL CONTROLS */}
             {enrollment.status === "PENDING" && (
               <View className="bg-orange-50 border border-orange-200 p-4 rounded-2xl mb-4">
                 <Text className="text-orange-800 font-m-bold text-base mb-1">
@@ -284,11 +347,7 @@ export default function UserProfileScreen() {
                   Requested on: {formatDate(enrollment.requested_on)}
                 </Text>
                 <Text className="text-orange-800 text-sm mb-4">
-                  Prefers:{" "}
-                  <Text className="font-m-bold">
-                    {enrollment.shift} • {enrollment.amenity.replace("_", " ")}{" "}
-                    • {enrollment.reservation}
-                  </Text>
+                  Prefers: <Text className="font-m-bold">{seatInfo}</Text>
                 </Text>
 
                 <View className="flex-row space-x-3">
@@ -308,32 +367,38 @@ export default function UserProfileScreen() {
               </View>
             )}
 
-            {/* PENDING PAYMENT CONTROLS */}
             {enrollment.status === "PAYMENT_PENDING" && (
               <View className="bg-blue-50 border border-blue-200 p-4 rounded-2xl mb-4">
                 <Text className="text-blue-800 font-m-bold text-base mb-1">
                   Awaiting Student Payment
                 </Text>
-                <Text className="text-blue-700 text-sm mb-4">
+                <Text className="text-blue-700 text-sm mb-1">
                   Approved on: {formatDate(enrollment.status_updated_at)}
+                </Text>
+                <Text className="text-blue-800 text-sm mb-4 font-m-bold">
+                  {seatInfo}
                 </Text>
                 <TouchableOpacity
                   onPress={handleMarkPaid}
                   className="w-full bg-blue-600 py-3 rounded-xl items-center"
                 >
-                  <Text className="text-white font-m-bold">Mark as Paid</Text>
+                  <Text className="text-white font-m-bold">
+                    Mark as Paid Offline
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
 
-            {/* EXPIRED CONTROLS */}
             {enrollment.status === "EXPIRED" && (
               <View className="bg-red-50 border border-red-200 p-4 rounded-2xl mb-4">
                 <Text className="text-red-800 font-m-bold text-base mb-1">
                   Subscription Expired
                 </Text>
-                <Text className="text-red-700 text-sm mb-4">
+                <Text className="text-red-700 text-sm mb-1">
                   Expired on: {formatDate(enrollment.end_date)}
+                </Text>
+                <Text className="text-red-800 text-sm mb-4 font-m-bold">
+                  Previous Seat: {seatInfo}
                 </Text>
                 <TouchableOpacity
                   onPress={handleSendReminder}
@@ -349,21 +414,29 @@ export default function UserProfileScreen() {
           </View>
         )}
 
-        {/* --------------------------------------------------- */}
-        {/* 3. PAYMENT LEDGER (Only visible to Owner) */}
-        {/* --------------------------------------------------- */}
-        {payments.length > 0 && (
-          <View className="mt-6">
-            <View className="flex-row justify-between items-center mb-3 px-1">
-              <Text className="text-lg font-m-bold text-textDark">
-                Payment Ledger
-              </Text>
-              <Text className="text-brand font-m-bold">
-                Revenue: ₹{totalLTV}
+        {/* 3. PAYMENT LEDGER */}
+        <View className="mt-2">
+          <View className="flex-row justify-between items-center mb-3 px-1">
+            <Text className="text-lg font-m-bold text-textDark">
+              Payment Ledger
+            </Text>
+            <Text className="text-brand font-m-bold">Revenue: ₹{totalLTV}</Text>
+          </View>
+
+          {payments.length === 0 ? (
+            <View className="bg-surface border border-borderLight p-6 rounded-2xl items-center">
+              <Ionicons
+                name="receipt-outline"
+                size={32}
+                color={COLORS.textLight}
+                className="mb-2"
+              />
+              <Text className="text-textLight font-m mt-2">
+                No payment history yet.
               </Text>
             </View>
-
-            {payments.map((payment, index) => (
+          ) : (
+            payments.map((payment, index) => (
               <View
                 key={index}
                 className="bg-surface border border-borderLight p-4 rounded-2xl mb-3"
@@ -393,8 +466,8 @@ export default function UserProfileScreen() {
 
                 <View className="bg-background/50 p-3 rounded-xl mt-1 border border-borderLight/50">
                   <Text className="text-xs text-textDark font-m-bold mb-1">
-                    {payment.shift} • {payment.amenity.replace("_", " ")} •{" "}
-                    {payment.reservation}
+                    {payment.shift.replace("_", " ")} •{" "}
+                    {payment.amenity.replace("_", " ")} • {payment.reservation}
                   </Text>
                   <Text className="text-xs text-textLight font-m">
                     Valid: {formatDate(payment.start_date)} -{" "}
@@ -402,10 +475,10 @@ export default function UserProfileScreen() {
                   </Text>
                 </View>
               </View>
-            ))}
-          </View>
-        )}
+            ))
+          )}
+        </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

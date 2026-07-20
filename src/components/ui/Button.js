@@ -1,5 +1,11 @@
-import { ActivityIndicator, Text, TouchableOpacity } from "react-native";
-import { COLORS } from "../../constants/theme"; // 📌 Single Source of Truth
+import { LinearGradient } from "expo-linear-gradient";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+} from "react-native";
+import { COLORS } from "../../constants/theme";
 
 export default function Button({
   title,
@@ -10,23 +16,21 @@ export default function Button({
   className = "",
   ...props
 }) {
-  // Tailwind classes mapping (using your config keys)
-  const baseStyle = "py-3 px-4 rounded-2xl items-center justify-center";
+  const baseStyle =
+    "py-3 px-4 rounded-2xl items-center justify-center overflow-hidden";
 
   const variants = {
-    primary: "bg-brand",
+    primary: "bg-transparent",
     outline: "bg-transparent border border-borderLight",
     dark: "bg-textDark",
   };
 
   const textStyles = {
-    primary: "text-white font-m-bold text-lg", // White is the only universal color for brand background
+    primary: "text-white font-m-bold text-lg",
     outline: "text-textLight font-m-semi text-lg",
     dark: "text-white font-m-bold text-lg",
   };
 
-  // Dynamic loader color based on variant
-  // Primary buttons need a white spinner, Outline buttons need the Clay Brown spinner
   const loaderColor = variant === "primary" ? "#FFFFFF" : COLORS.textLight;
 
   return (
@@ -37,10 +41,27 @@ export default function Button({
       className={`${baseStyle} ${variants[variant]} ${disabled ? "opacity-50" : ""} ${className}`}
       {...props}
     >
+      {variant === "primary" && (
+        <LinearGradient
+          colors={[COLORS.brand, COLORS.brandAccent]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      )}
+
       {loading ? (
         <ActivityIndicator color={loaderColor} />
       ) : (
-        <Text className={textStyles[variant]}>{title}</Text>
+        // 📌 THE FIX: Added numberOfLines, adjustsFontSizeToFit, and text-center
+        <Text
+          className={`${textStyles[variant]} text-center`}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7} // Allows text to shrink up to 30% to make it fit
+        >
+          {title}
+        </Text>
       )}
     </TouchableOpacity>
   );

@@ -1,10 +1,10 @@
-// app/profile/library/[id]/edit.js
-
 import apiClient from "@/api/client";
 import Button from "@/components/ui/Button";
 import Header from "@/components/ui/Header";
 import Input from "@/components/ui/Input";
 import { COLORS } from "@/constants/theme";
+// 📌 1. Import your global store
+import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
@@ -33,10 +33,9 @@ export default function EditLibraryDetailsScreen() {
     city: "",
     address: "",
     amenities: [],
-    photos: [], // ONLY contains existing, already-uploaded Cloudflare URLs
+    photos: [],
   });
 
-  // 📌 NEW: Temporary state just for newly picked device photos
   const [localPhotos, setLocalPhotos] = useState([]);
 
   useFocusEffect(
@@ -105,7 +104,6 @@ export default function EditLibraryDetailsScreen() {
 
     if (!result.canceled) {
       const localUri = result.assets[0].uri;
-      // 📌 REFACTORED: Do NOT upload yet. Just save to local UI state.
       setLocalPhotos((prev) => [...prev, localUri]);
     }
   };
@@ -123,7 +121,6 @@ export default function EditLibraryDetailsScreen() {
     );
   };
 
-  // 📌 REFACTORED: Helper function to upload a single image to R2
   const uploadSinglePhotoToR2 = async (localUri) => {
     try {
       const urlRes = await apiClient.post("/owner/library/upload-url");
@@ -145,7 +142,7 @@ export default function EditLibraryDetailsScreen() {
       return publicUrl;
     } catch (error) {
       console.error("Upload error for URI:", localUri, error);
-      throw error; // Rethrow so Promise.all catches it
+      throw error;
     }
   };
 
@@ -160,31 +157,41 @@ export default function EditLibraryDetailsScreen() {
 
       let finalPhotoUrls = [...formData.photos];
 
-      // 📌 REFACTORED: If there are new local photos, upload them NOW.
       if (localPhotos.length > 0) {
         setSaveStatusText("Uploading Photos...");
 
-        // Promise.all uploads all images in parallel for maximum speed!
         const newUploadedUrls = await Promise.all(
           localPhotos.map((uri) => uploadSinglePhotoToR2(uri)),
         );
 
-        // Combine the existing Cloudflare URLs with the newly uploaded ones
         finalPhotoUrls = [...finalPhotoUrls, ...newUploadedUrls];
       }
 
       setSaveStatusText("Saving Details...");
 
+      const inventoryFlag = await AsyncStorage.getItem("hasInventory");
+      const hasSeats = inventoryFlag === "true"; // Evaluates to true only if they added seats
+
+      // 📌 2. THE LOGIC FIX: They only graduate from UNVERIFIED if they have BOTH photos AND seats!
+      const currentStatus = useLibraryStore.getState().libraryStatus;
+      const isUpgrading =
+        currentStatus === "UNVERIFIED" && finalPhotoUrls.length > 0 && hasSeats;
+      const newStatus = isUpgrading ? "PENDING_ADMIN_APPROVAL" : currentStatus;
+
       // Prepare the final payload for the backend
       const payload = {
         ...formData,
         photos: finalPhotoUrls,
+        status: newStatus, // 📌 3. Tell the database to officially upgrade the library!
       };
 
       const storedLibId = await AsyncStorage.getItem("libraryId");
       const res = await apiClient.put(`/owner/library/${storedLibId}`, payload);
 
       if (res.data.success) {
+        // 📌 4. Instantly update the Global Store so the Dashboard banner changes!
+        useLibraryStore.getState().setLibraryStatus(newStatus);
+
         Alert.alert("Success", "Library details updated successfully!");
         setLocalPhotos([]);
         router.back();
@@ -281,7 +288,7 @@ export default function EditLibraryDetailsScreen() {
             <Text className="text-xs text-textLight mt-1 font-m-bold">Add</Text>
           </TouchableOpacity>
 
-          {/* Render Existing Photos (Already on Cloudflare) */}
+          {/* Render Existing Photos */}
           {formData.photos.map((photoUri, index) => (
             <View key={`existing-${index}`} className="w-24 h-24 mr-4 relative">
               <Image
@@ -298,12 +305,12 @@ export default function EditLibraryDetailsScreen() {
             </View>
           ))}
 
-          {/* Render Local Photos (Waiting to be uploaded) */}
+          {/* Render Local Photos */}
           {localPhotos.map((localUri, index) => (
             <View key={`local-${index}`} className="w-24 h-24 mr-4 relative">
               <Image
                 source={{ uri: localUri }}
-                className="w-full h-full rounded-xl bg-gray-200 opacity-80" // Slightly transparent to indicate it's not saved yet
+                className="w-full h-full rounded-xl bg-gray-200 opacity-80"
                 resizeMode="cover"
               />
               <TouchableOpacity

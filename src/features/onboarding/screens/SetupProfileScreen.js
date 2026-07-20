@@ -1,5 +1,6 @@
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import { ONBOARDING_ROUTE_MAP } from "@/constants/config";
 import { completeUserProfile } from "@/features/onboarding/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
@@ -33,7 +34,7 @@ export default function SetupProfileScreen() {
 
     if (success) {
       await AsyncStorage.setItem("jwt_token", token);
-      router.replace("/setup-mpin");
+      router.replace(ONBOARDING_ROUTE_MAP.REQUIRES_MPIN);
     } else {
       Alert.alert("Error", error);
     }

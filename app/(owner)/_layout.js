@@ -27,9 +27,9 @@ export default function OwnerTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="manage-seats"
+        name="activities"
         options={{
-          title: "Seats",
+          title: "Activities",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="grid" size={size} color={color} />
           ),
@@ -48,6 +48,7 @@ export default function OwnerTabLayout() {
       <Tabs.Screen name="create-library-wizard" options={{ href: null }} />
       <Tabs.Screen name="billing" options={{ href: null }} />
       <Tabs.Screen name="edit-library" options={{ href: null }} />
+      <Tabs.Screen name="manage-seats" options={{ href: null }} />
     </Tabs>
   );
 }
