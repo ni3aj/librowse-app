@@ -4,6 +4,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { ONBOARDING_ROUTE_MAP } from "@/constants/config";
 import { fetchCurrentUserStatus } from "@/features/auth/api";
+import { useAuthStore } from "@/store/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as LocalAuthentication from "expo-local-authentication";
@@ -28,8 +29,10 @@ export default function LoginScreen() {
   const [isChecking, setIsChecking] = useState(true);
 
   const [biometricSupported, setBiometricSupported] = useState(false);
-  // Cache the state so the fingerprint button doesn't need a network call
   const [cachedRouteState, setCachedRouteState] = useState(null);
+
+  // 📌 THE FIX: Pull the unified setAuthData function from Zustand
+  const setAuthData = useAuthStore((state) => state.setAuthData);
 
   useFocusEffect(
     useCallback(() => {
@@ -68,7 +71,12 @@ export default function LoginScreen() {
           data.hasInventory ? "true" : "false",
         );
 
-        // 📌 THE FIX: We define currentState here
+        // 📌 THE FIX: Hydrate Zustand on Auto-Login (App Refresh)
+        // Ensure your fetchCurrentUserStatus API returns data.user.role and data.user.id
+        if (data.user) {
+          setAuthData(data.user.role, data.user.id);
+        }
+
         const currentState = data.account_state;
         setCachedRouteState(currentState);
 
@@ -81,7 +89,6 @@ export default function LoginScreen() {
             setStep(3);
           }
         } else {
-          // 📌 THE FIX: Changed 'finalState' to 'currentState'
           const nextRoute = ONBOARDING_ROUTE_MAP[currentState];
           if (!nextRoute) {
             Alert.alert(
@@ -210,6 +217,9 @@ export default function LoginScreen() {
           await AsyncStorage.setItem("mpin_configured", "true");
         }
 
+        // 📌 THE FIX: Hydrate Zustand on OTP Login
+        setAuthData(response.data.user?.role, response.data.user?.id);
+
         const nextRoute = ONBOARDING_ROUTE_MAP[finalState];
         if (!nextRoute) {
           Alert.alert(
@@ -252,7 +262,9 @@ export default function LoginScreen() {
           );
         }
 
-        // 📌 THE FIX: Extract currentState from the login response!
+        // 📌 THE FIX: Hydrate Zustand on MPIN Login
+        setAuthData(response.data.user?.role, response.data.user?.id);
+
         const currentState = data.account_state;
         const nextRoute = ONBOARDING_ROUTE_MAP[currentState];
 

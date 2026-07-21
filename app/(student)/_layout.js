@@ -27,11 +27,20 @@ export default function StudentLayout() {
         }}
       />
       <Tabs.Screen
-        name="booking" // Changed from "bookings" to match your folder "booking"
+        name="bookings" // Changed from "bookings" to match your folder "booking"
         options={{
           title: "Bookings",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calendar" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="activities"
+        options={{
+          title: "Activities",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="grid" size={size} color={color} />
           ),
         }}
       />
@@ -44,16 +53,7 @@ export default function StudentLayout() {
           ),
         }}
       />
-      {/* library folder contains [id], so we target 'library' to hide the whole thing */}
-      <Tabs.Screen
-        name="library/[id]"
-        options={{
-          href: null,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="library/[id]" options={{ href: null }} />
     </Tabs>
   );
 }

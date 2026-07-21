@@ -1,22 +1,13 @@
+import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import { Text, TextInput, View } from "react-native";
+import { TextInput, View } from "react-native";
 
 export default function ExploreHeader() {
   return (
-    <View className="px-6 pb-2 bg-background">
-      <View className="flex-row justify-between items-center">
-        <Text className="text-3xl pt-6 font-m-extra text-textDark mb-6">
-          Explore
-        </Text>
-        <Ionicons
-          name="notifications-outline"
-          size={24}
-          color={COLORS.textDark}
-        />
-      </View>
-
-      <View className="flex-row items-center bg-white rounded-2xl px-4 py-4 border border-borderLight">
+    <View>
+      <Header title="Explore" subtitle="Find library" />
+      <View className="flex-row items-center bg-white rounded-2xl px-4 py-2 m-4 border border-borderLight">
         <Ionicons
           name="search"
           size={20}

@@ -1,11 +1,15 @@
+import WriteReviewModal from "@/components/home/WriteReviewModal";
 import Button from "@/components/ui/Button";
 import { COLORS } from "@/constants/theme";
+import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Dimensions, // 📌 1. Imported Dimensions for full-screen width
+  FlatList, // 📌 2. Imported FlatList for the slider
   Image,
   Linking,
   Modal,
@@ -17,7 +21,8 @@ import {
 } from "react-native";
 import { studentApi } from "../api";
 
-// Helper function to pick an icon based on amenity text
+const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+
 const getAmenityIcon = (name) => {
   const n = name.toLowerCase();
   if (n.includes("wi-fi") || n.includes("wifi")) return "wifi";
@@ -34,26 +39,40 @@ const getAmenityIcon = (name) => {
 
 export default function LibraryDetailScreen() {
   const { id } = useLocalSearchParams();
-
-  // Core Data State
+  const [myReview, setMyReview] = useState(null);
   const [library, setLibrary] = useState(null);
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSeat, setSelectedSeat] = useState(null);
   const [myEnrollment, setMyEnrollment] = useState(null);
   const [futureEnrollment, setFutureEnrollment] = useState(null);
-  // Loading States
   const [isBooking, setIsBooking] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
 
-  // 📌 NEW: Change Plan Modal State
   const [isChangeModalVisible, setIsChangeModalVisible] = useState(false);
   const [selectedFutureSeat, setSelectedFutureSeat] = useState(null);
   const [isChangingPlan, setIsChangingPlan] = useState(false);
+  const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
+
+  // 📌 3. States for the Airbnb-style Full Screen Image Slider
+  const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
     fetchLibraryDetails();
+    fetchMyReview();
   }, [id]);
+
+  const fetchMyReview = async () => {
+    try {
+      const response = await studentApi.fetchMyReview(id);
+      if (response.data.success && response.data.review) {
+        setMyReview(response.data.review);
+      }
+    } catch (error) {
+      console.log("No existing review found.");
+    }
+  };
 
   const handleOpenMaps = async () => {
     const { latitude, longitude, name } = library;
@@ -66,7 +85,6 @@ export default function LibraryDetailScreen() {
       return;
     }
 
-    // Standard native URI schemes for iOS maps and Android geo intents
     const label = encodeURIComponent(name);
     const iosUrl = `maps://app?daddr=${latitude},${longitude}&q=${label}`;
     const androidUrl = `geo:${latitude},${longitude}?q=${latitude},${longitude}(${label})`;
@@ -78,7 +96,6 @@ export default function LibraryDetailScreen() {
       if (supported) {
         await Linking.openURL(url);
       } else {
-        // Fallback to web browser mapping if deep linking scheme fails
         const browserUrl = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
         await Linking.openURL(browserUrl);
       }
@@ -104,7 +121,6 @@ export default function LibraryDetailScreen() {
 
   const fetchLibraryDetails = async () => {
     try {
-      // 📌 Uses separated API
       const response = await studentApi.getLibraryDetails(id);
 
       if (response.data.success) {
@@ -136,7 +152,6 @@ export default function LibraryDetailScreen() {
     setIsBooking(true);
     try {
       const today = new Date().toISOString().split("T")[0];
-      // 📌 Uses separated API
       const response = await studentApi.enrollSeat(selectedSeat.id, today);
 
       if (response.data.success) {
@@ -172,7 +187,6 @@ export default function LibraryDetailScreen() {
           onPress: async () => {
             setIsCancelling(true);
             try {
-              // 📌 Uses separated API
               const response = await studentApi.cancelEnrollment(
                 myEnrollment.id,
               );
@@ -203,7 +217,7 @@ export default function LibraryDetailScreen() {
         { text: "No, Keep It", style: "cancel" },
         {
           text: "Yes, Cancel Plan",
-          style: "destructive", // Makes the button red on iOS!
+          style: "destructive",
           onPress: async () => {
             setIsCancelling(true);
             try {
@@ -211,8 +225,8 @@ export default function LibraryDetailScreen() {
                 futureEnrollment.id,
               );
               if (response.data.success) {
-                setFutureEnrollment(null); // Instantly hide the upcoming card
-                fetchLibraryDetails(); // Refresh data from server
+                setFutureEnrollment(null);
+                fetchLibraryDetails();
                 Alert.alert(
                   "Cancelled",
                   "Your request for next month has been withdrawn.",
@@ -232,13 +246,11 @@ export default function LibraryDetailScreen() {
     );
   };
 
-  // 📌 NEW: Handle Future Change Request
   const handleFutureChange = async () => {
     if (!selectedFutureSeat) return;
     setIsChangingPlan(true);
 
     try {
-      // 📌 Uses separated API
       const response = await studentApi.requestFuturePlanChange(
         myEnrollment.id,
         selectedFutureSeat.id,
@@ -250,7 +262,7 @@ export default function LibraryDetailScreen() {
           "Plan Updated! 🔄",
           "Your request for next month has been sent to the owner.",
         );
-        fetchLibraryDetails(); // Refresh to show pending status!
+        fetchLibraryDetails();
       }
     } catch (error) {
       Alert.alert(
@@ -272,35 +284,33 @@ export default function LibraryDetailScreen() {
 
   if (!library) return null;
 
-  const amenitiesList = library.amenities
-    ? Object.entries(library.amenities)
-        .filter(([key, value]) => value === true)
-        .map(([key]) => {
-          if (key === "ac") return "AC";
-          if (key === "cctv") return "CCTV";
-          if (key === "wifi") return "Wi-Fi";
-          if (key === "ro_water") return "RO Water";
-          return key.charAt(0).toUpperCase() + key.slice(1).replace("_", " ");
-        })
-    : [];
-
   const futureSeat = futureEnrollment
     ? inventory.find((s) => s.id === futureEnrollment.inventory_id)
     : null;
+
+  // Safe fallback for photos
+  const photosArray =
+    library.photos?.length > 0
+      ? library.photos
+      : ["https://images.unsplash.com/photo-1497366216548-37526070297c?w=800"];
+  const coverPhoto = photosArray[0];
 
   return (
     <View className="flex-1 bg-background">
       <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
         {/* --- HEADER IMAGE & ACTIONS --- */}
         <View className="relative">
-          <Image
-            source={{
-              uri:
-                library.image_url ||
-                "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800",
-            }}
-            className="w-full h-72 bg-surface"
-          />
+          {/* 📌 4. Wrapped image in TouchableOpacity to open slider */}
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => setIsImageViewerVisible(true)}
+          >
+            <Image
+              source={{ uri: coverPhoto }}
+              className="w-full h-72 bg-surface"
+            />
+          </TouchableOpacity>
+
           <View className="absolute top-12 left-6 right-6 flex-row justify-between items-center">
             <TouchableOpacity
               onPress={() => router.back()}
@@ -317,13 +327,29 @@ export default function LibraryDetailScreen() {
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Review Badge (Bottom Left) */}
           <View className="absolute bottom-4 left-6 bg-black/70 px-3 py-1.5 rounded-full flex-row items-center">
             <Ionicons name="star" size={14} color="#fff" />
             <Text className="text-white font-m-bold ml-1 text-sm">
               {library.rating || "New"}{" "}
-              <Text className="font-normal text-gray-300">• 0 reviews</Text>
+              <Text className="font-normal text-gray-300">
+                • {library.total_reviews || 0} reviews
+              </Text>
             </Text>
           </View>
+
+          {/* 📌 5. Image Counter Badge (Bottom Right - Airbnb Style) */}
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => setIsImageViewerVisible(true)}
+            className="absolute bottom-4 right-6 bg-black/70 px-3 py-1.5 rounded-full flex-row items-center border border-white/20"
+          >
+            <Ionicons name="images-outline" size={14} color="#fff" />
+            <Text className="text-white font-m-bold ml-1.5 text-xs tracking-widest">
+              1 / {photosArray.length}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* --- DETAILS SECTION --- */}
@@ -345,7 +371,7 @@ export default function LibraryDetailScreen() {
               </View>
             </View>
             <TouchableOpacity
-              onPress={handleOpenMaps} // 📌 PLUGGED IN MAP DEEP LINK
+              onPress={handleOpenMaps}
               className="bg-surface p-3 rounded-2xl border border-borderLight active:opacity-70"
             >
               <Ionicons name="map-outline" size={24} color={COLORS.brand} />
@@ -353,12 +379,20 @@ export default function LibraryDetailScreen() {
           </View>
 
           <View className="flex-row items-center mt-4 border-b border-borderLight pb-6">
-            <View className="bg-brand/20 px-3 py-1.5 rounded-full flex-row items-center mr-3">
-              <View className="w-2 h-2 rounded-full bg-brand mr-1.5" />
-              <Text className="text-brand font-m-bold text-sm">Open Now</Text>
+            <View
+              className={`px-3 py-1.5 rounded-full flex-row items-center mr-3 ${library.is_open ? "bg-emerald-500" : "bg-gray-200"}`}
+            >
+              <View
+                className={`w-2 h-2 rounded-full mr-1.5 ${library.is_open ? "bg-white" : "bg-gray-500"}`}
+              />
+              <Text
+                className={`font-m-bold text-sm ${library.is_open ? "text-white" : "text-gray-600"}`}
+              >
+                {library.is_open ? "Open Now" : "Closed"}
+              </Text>
             </View>
             <Text className="text-textLight text-sm font-medium">
-              8:00 AM – 10:00 PM
+              {library.timing_string}
             </Text>
           </View>
 
@@ -366,60 +400,108 @@ export default function LibraryDetailScreen() {
             Amenities
           </Text>
           <View className="flex-row flex-wrap justify-between">
-            {amenitiesList.map((amenity, index) => (
-              <View
-                key={index}
-                className="w-[48%] bg-white border border-borderLight rounded-2xl p-3 flex-row items-center mb-3"
-              >
-                <View className="bg-surface p-2 rounded-full mr-3">
-                  <Ionicons
-                    name={getAmenityIcon(amenity)}
-                    size={18}
-                    color={COLORS.brand}
-                  />
-                </View>
-                <Text className="text-textDark font-medium flex-1 text-sm">
-                  {amenity}
-                </Text>
-              </View>
-            ))}
+            {Array.isArray(library.amenities)
+              ? library.amenities.map((amenity, index) => {
+                  const normalized = amenity.toLowerCase();
+                  let displayAmenity =
+                    amenity.charAt(0).toUpperCase() +
+                    amenity.slice(1).toLowerCase();
+
+                  if (normalized === "ac") displayAmenity = "AC";
+                  if (normalized === "cctv") displayAmenity = "CCTV";
+                  if (normalized === "wifi" || normalized === "wi-fi")
+                    displayAmenity = "Wi-Fi";
+                  if (normalized === "ro water" || normalized === "ro_water")
+                    displayAmenity = "RO Water";
+
+                  return (
+                    <View
+                      key={index}
+                      className="w-[48%] bg-white border border-borderLight rounded-2xl p-3 flex-row items-center mb-3"
+                    >
+                      <View className="bg-surface p-1 rounded-full mr-3">
+                        <Ionicons
+                          name={getAmenityIcon(amenity)}
+                          size={18}
+                          color={COLORS.brand}
+                        />
+                      </View>
+                      <Text className="text-textDark font-medium flex-1 text-sm">
+                        {displayAmenity}
+                      </Text>
+                    </View>
+                  );
+                })
+              : null}
           </View>
 
           {/* --- SMART ENROLLMENT UI --- */}
           {myEnrollment ? (
             <View className="mt-6">
-              <View className="flex-row items-center mb-4">
-                <Ionicons
-                  name="checkmark-circle"
-                  size={24}
-                  color={COLORS.brand}
-                  className="mr-2"
-                />
-                <Text className="text-xl font-m-bold text-textDark">
-                  Your Enrollment
-                </Text>
+              <View className="flex-row justify-between items-center mb-4">
+                <View className="flex-row items-center">
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={24}
+                    color={COLORS.brand}
+                    className="mr-2"
+                  />
+                  <Text className="text-xl font-m-bold text-textDark">
+                    Your Enrollment
+                  </Text>
+                </View>
+
+                {myEnrollment.status === "ACTIVE" && (
+                  <TouchableOpacity
+                    onPress={() => setIsReviewModalVisible(true)}
+                    className="flex-row items-center bg-orange-50 px-3 py-1.5 rounded-full border border-orange-200"
+                  >
+                    <Ionicons name="star" size={14} color="#F59E0B" />
+                    <Text className="text-orange-700 font-m-bold text-xs ml-1">
+                      {myReview ? "Edit Review" : "Rate"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
+
               <View className="bg-white rounded-3xl p-5 mb-2 border border-borderLight">
-                <Text className="text-xs font-m-bold text-textLight uppercase tracking-wider mb-1">
-                  Status
-                </Text>
-                <Text className="text-lg font-m-extra text-brand mb-4">
-                  {myEnrollment.status
-                    ? String(myEnrollment.status).replace("_", " ")
-                    : "N/A"}
-                </Text>
+                <View className="flex-row justify-between items-start mb-4">
+                  <View>
+                    <Text className="text-xs font-m-bold text-textLight uppercase tracking-wider mb-1">
+                      Status
+                    </Text>
+                    <Text className="text-lg font-m-extra text-brand">
+                      {myEnrollment.status
+                        ? String(myEnrollment.status).replace("_", " ")
+                        : "N/A"}
+                    </Text>
+                  </View>
+
+                  {myEnrollment.end_date && (
+                    <View className="items-end">
+                      <Text className="text-xs font-m-bold text-textLight uppercase tracking-wider mb-1 text-right">
+                        Expires on
+                      </Text>
+                      <Text className="text-sm font-m-extra text-textDark text-right">
+                        {formatCleanDate(myEnrollment.end_date)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
                 <Text className="text-xs font-m-bold text-textLight uppercase tracking-wider mb-1">
                   Current Plan
                 </Text>
                 <Text className="text-base font-m-bold text-textDark mb-1">
                   {selectedSeat?.amenity?.replace("_", " ")} •{" "}
-                  {selectedSeat?.shift?.replace("_", " ")}
+                  {selectedSeat?.shift?.replace("_", " ")} •{" "}
+                  {selectedSeat?.reservation}
                 </Text>
                 <Text className="text-sm font-m text-textLight">
                   ₹{selectedSeat?.price} / month
                 </Text>
               </View>
-              {/* 📌 2. UPCOMING PLAN CARD */}
+
               {futureEnrollment && (
                 <View className="mb-2 mt-4">
                   <View className="flex-row items-center mb-4">
@@ -468,7 +550,7 @@ export default function LibraryDetailScreen() {
                       variant="outline"
                       className="py-2 px-2 mt-4"
                       loading={isCancelling}
-                      onPress={handleCancelFuturePlan} // 📌 Just plug in the new function!
+                      onPress={handleCancelFuturePlan}
                     />
                   </View>
                 </View>
@@ -543,7 +625,7 @@ export default function LibraryDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* --- DYNAMIC BOTTOM BOOKING BAR --- */}
+      {/* --- BOTTOM ACTIONS / BOOKING BAR (Unchanged) --- */}
       <View className="absolute bottom-0 w-full bg-white border-t border-borderLight px-6 py-4 pb-4 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.1)]">
         {myEnrollment?.status === "PENDING" ? (
           <View className="flex-row justify-between items-center">
@@ -592,7 +674,6 @@ export default function LibraryDetailScreen() {
                 Seat is Active
               </Text>
             </View>
-            {/* 📌 OPEN MODAL INSTEAD OF ROUTING */}
             <Button
               title="Change Plan"
               variant="outline"
@@ -629,7 +710,73 @@ export default function LibraryDetailScreen() {
         )}
       </View>
 
-      {/* 📌 NEW: CHANGE PLAN MODAL (BOTTOM SHEET) */}
+      {/* --- MODALS --- */}
+
+      <WriteReviewModal
+        visible={isReviewModalVisible}
+        onClose={() => setIsReviewModalVisible(false)}
+        libraryId={id}
+        existingReview={myReview}
+        onSuccess={() => {
+          fetchLibraryDetails();
+          fetchMyReview();
+        }}
+      />
+
+      {/* 📌 THE CLEANED AIRBNB-STYLE IMAGE VIEWER MODAL */}
+      <Modal
+        visible={isImageViewerVisible}
+        transparent={false}
+        animationType="slide"
+        onRequestClose={() => setIsImageViewerVisible(false)}
+      >
+        <View className="flex-1 bg-black">
+          <View className="absolute top-12 left-0 right-0 z-10 flex-row justify-between items-center px-6">
+            <TouchableOpacity
+              onPress={() => setIsImageViewerVisible(false)}
+              className="p-2 bg-black/50 rounded-full"
+            >
+              <Ionicons name="close" size={24} color="#fff" />
+            </TouchableOpacity>
+
+            <Text className="text-white font-m-bold text-base">
+              {currentImageIndex + 1} / {photosArray.length}
+            </Text>
+
+            <View className="w-10" />
+          </View>
+
+          <FlatList
+            data={photosArray}
+            keyExtractor={(item, index) => index.toString()}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(e) => {
+              const index = Math.round(
+                e.nativeEvent.contentOffset.x / screenWidth,
+              );
+              setCurrentImageIndex(index);
+            }}
+            renderItem={({ item }) => (
+              <View
+                style={{
+                  width: screenWidth,
+                  height: screenHeight,
+                  justifyContent: "center",
+                }}
+              >
+                <Image
+                  source={{ uri: item }}
+                  style={{ width: "100%", height: undefined, aspectRatio: 1 }}
+                  resizeMode="contain"
+                />
+              </View>
+            )}
+          />
+        </View>
+      </Modal>
+
       <Modal
         visible={isChangeModalVisible}
         transparent={true}
@@ -639,7 +786,7 @@ export default function LibraryDetailScreen() {
         <View className="flex-1 justify-end bg-black/50">
           <View className="bg-background rounded-t-3xl p-6 pb-10 shadow-lg">
             {/* Modal Header */}
-            <View className="flex-row justify-between items-center mb-6">
+            <View className="flex-row justify-between items-center mb-2">
               <Text className="text-xl font-m-bold text-textDark">
                 Change Seat for Next Month
               </Text>
@@ -651,86 +798,131 @@ export default function LibraryDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text className="text-sm text-textLight mb-4 leading-5">
-              Select a new seat plan. This change will take effect immediately
-              after your current billing cycle expires.
-            </Text>
+            {/* 📌 THE FIX: Pre-calculate available plans */}
+            {(() => {
+              const availablePlans = inventory.filter(
+                (item) => item.id !== myEnrollment?.inventory_id,
+              );
 
-            {/* List Available Seats (Excluding current) */}
-            <ScrollView
-              className="max-h-80 mb-6"
-              showsVerticalScrollIndicator={false}
-            >
-              {inventory
-                .filter((item) => item.id !== myEnrollment?.inventory_id)
-                .map((item) => {
-                  const isSelected = selectedFutureSeat?.id === item.id;
-                  const seatsAvailable =
-                    parseInt(item.total_seats) - parseInt(item.occupied_seats);
-                  const isSoldOut = seatsAvailable <= 0;
+              if (availablePlans.length === 0) {
+                // EMPTY STATE: User is already on the only available plan
+                return (
+                  <View className="items-center py-6 px-4">
+                    <View className="w-12 h-12 bg-brand/10 rounded-full items-center justify-center mb-4">
+                      <Ionicons
+                        name="information"
+                        size={24}
+                        color={COLORS.brand}
+                      />
+                    </View>
+                    <Text className="text-lg font-m-bold text-textDark text-center mb-2">
+                      No Other Plans Available
+                    </Text>
+                    <Text className="text-sm text-textLight text-center leading-5">
+                      You are already enrolled in the only seat category offered
+                      by this library. There are no other plans to switch to at
+                      this time.
+                    </Text>
+                  </View>
+                );
+              }
 
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      onPress={() => !isSoldOut && setSelectedFutureSeat(item)}
-                      activeOpacity={isSoldOut ? 1 : 0.8}
-                      className={`flex-row justify-between items-center p-4 rounded-2xl mb-3 border-2 
-                        ${
-                          isSoldOut
-                            ? "border-transparent bg-surface opacity-60"
-                            : isSelected
-                              ? "border-brand bg-brand"
-                              : "border-borderLight bg-white"
-                        }`}
-                    >
-                      <View className="flex-row items-center flex-1">
-                        <Ionicons
-                          name={
-                            isSelected ? "radio-button-on" : "radio-button-off"
+              // NORMAL STATE: Render the list of options
+              return (
+                <>
+                  <Text className="text-sm text-textLight mb-4 leading-5">
+                    Select a new seat plan. This change will take effect
+                    immediately after your current billing cycle expires.
+                  </Text>
+
+                  <ScrollView
+                    className="max-h-80 mb-6"
+                    showsVerticalScrollIndicator={false}
+                  >
+                    {availablePlans.map((item) => {
+                      const isSelected = selectedFutureSeat?.id === item.id;
+                      const seatsAvailable =
+                        parseInt(item.total_seats) -
+                        parseInt(item.occupied_seats);
+                      const isSoldOut = seatsAvailable <= 0;
+
+                      return (
+                        <TouchableOpacity
+                          key={item.id}
+                          onPress={() =>
+                            !isSoldOut && setSelectedFutureSeat(item)
                           }
-                          size={20}
-                          color={isSelected ? "#fff" : COLORS.textLight}
-                          style={{ marginRight: 12 }}
-                        />
-                        <View>
-                          <Text
-                            className={`text-base font-m-bold ${isSelected ? "text-white" : "text-textDark"}`}
-                          >
-                            {item.amenity?.replace("_", " ")}
-                          </Text>
-                          <Text
-                            className={`text-xs mt-0.5 ${isSelected ? "text-white/80" : "text-textLight"}`}
-                          >
-                            {item.shift?.replace("_", " ")}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View className="items-end">
-                        <Text
-                          className={`text-lg font-m-extra ${isSelected ? "text-white" : "text-brand"}`}
+                          activeOpacity={isSoldOut ? 1 : 0.8}
+                          className={`flex-row justify-between items-center p-4 rounded-2xl mb-3 border-2 
+                            ${
+                              isSoldOut
+                                ? "border-transparent bg-surface opacity-60"
+                                : isSelected
+                                  ? "border-brand bg-brand"
+                                  : "border-borderLight bg-white"
+                            }`}
                         >
-                          ₹{item.price}
-                        </Text>
-                        {isSoldOut && (
-                          <Text className="text-[10px] font-m-bold text-red-500 mt-1 uppercase tracking-wider">
-                            Waitlist Full
-                          </Text>
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-            </ScrollView>
+                          <View className="flex-row items-center flex-1">
+                            <Ionicons
+                              name={
+                                isSelected
+                                  ? "radio-button-on"
+                                  : "radio-button-off"
+                              }
+                              size={20}
+                              color={isSelected ? "#fff" : COLORS.textLight}
+                              style={{ marginRight: 12 }}
+                            />
+                            <View>
+                              <Text
+                                className={`text-base font-m-bold ${
+                                  isSelected ? "text-white" : "text-textDark"
+                                }`}
+                              >
+                                {item.amenity?.replace("_", " ")}
+                              </Text>
+                              <Text
+                                className={`text-xs mt-0.5 ${
+                                  isSelected
+                                    ? "text-white/80"
+                                    : "text-textLight"
+                                }`}
+                              >
+                                {item.shift?.replace("_", " ")}
+                              </Text>
+                            </View>
+                          </View>
 
-            <Button
-              title="Request Change"
-              variant="primary"
-              disabled={!selectedFutureSeat}
-              loading={isChangingPlan}
-              onPress={handleFutureChange}
-              className="w-full py-4"
-            />
+                          <View className="items-end">
+                            <Text
+                              className={`text-lg font-m-extra ${
+                                isSelected ? "text-white" : "text-brand"
+                              }`}
+                            >
+                              ₹{item.price}
+                            </Text>
+                            {isSoldOut && (
+                              <Text className="text-[10px] font-m-bold text-red-500 mt-1 uppercase tracking-wider">
+                                Waitlist Full
+                              </Text>
+                            )}
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+
+                  <Button
+                    title="Request Change"
+                    variant="primary"
+                    disabled={!selectedFutureSeat}
+                    loading={isChangingPlan}
+                    onPress={handleFutureChange}
+                    className="w-full py-4"
+                  />
+                </>
+              );
+            })()}
           </View>
         </View>
       </Modal>

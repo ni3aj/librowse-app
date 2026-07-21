@@ -24,4 +24,7 @@ export const studentApi = {
         new_inventory_id: newInventoryId,
       },
     ),
+
+  fetchMyReview: (libraryId) =>
+    apiClient.get(`/reviews/libraries/${libraryId}/me`),
 };
