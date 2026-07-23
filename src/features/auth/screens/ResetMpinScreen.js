@@ -78,7 +78,7 @@ export default function ResetMpinScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <View className="flex-1 bg-background">
-        <Header title="Change MPIN" subtitle="Secure your account" />
+        <Header title="Change MPIN" />
 
         <ScrollView
           className="flex-1 px-6 pt-6"

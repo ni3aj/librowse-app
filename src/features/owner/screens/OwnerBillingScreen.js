@@ -243,10 +243,7 @@ export default function OwnerBillingScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Header
-        title="Billing & Plans"
-        subtitle="Manage your subscriptions and view history"
-      />
+      <Header title="Billing & Plans" />
 
       <ScrollView
         className="flex-1 px-6 pt-4"

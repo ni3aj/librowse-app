@@ -214,7 +214,7 @@ export default function EditLibraryDetailsScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Header title="Edit Library" subtitle="Update your library details" />
+      <Header title="Edit Library" />
 
       <ScrollView
         className="flex-1 p-6"

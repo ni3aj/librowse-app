@@ -15,6 +15,8 @@ import {
 // import { useAuth } from "@/context/AuthContext"; // Import your auth context/store here
 import apiClient from "@/api/client"; // Your configured axios instance
 import Header from "@/components/ui/Header";
+import { useAuthStore } from "@/store/authStore";
+import { useLibraryStore } from "@/store/libraryStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // 📌 REUSABLE COMPONENT: Keeps the menu list clean and consistent
@@ -71,6 +73,8 @@ export default function StudentProfileScreen() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isPhotoViewerVisible, setIsPhotoViewerVisible] = useState(false);
+  const clearAuth = useAuthStore((state) => state.clearAuth);
+  const clearLibrary = useLibraryStore((state) => state.clearLibrary);
 
   useEffect(() => {
     fetchUserData();
@@ -97,6 +101,8 @@ export default function StudentProfileScreen() {
         style: "destructive",
         onPress: async () => {
           await AsyncStorage.clear();
+          clearAuth();
+          clearLibrary();
           router.replace("/");
         },
       },
@@ -120,7 +126,7 @@ export default function StudentProfileScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Header title="My Profile" subtitle="Manage your profile" />
+      <Header title="My Profile" />
 
       <ScrollView
         showsVerticalScrollIndicator={false}

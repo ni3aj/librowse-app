@@ -144,7 +144,7 @@ export default function OwnerStudentsListScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Header title="My Students" subtitle="Manage your students" />
+      <Header title="My Students" />
 
       <FlatList
         data={students}

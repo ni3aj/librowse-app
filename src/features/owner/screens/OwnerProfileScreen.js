@@ -2,6 +2,8 @@ import apiClient from "@/api/client";
 import Button from "@/components/ui/Button"; // Adjust path
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme"; // Adjust path
+import { useAuthStore } from "@/store/authStore";
+import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage"; // 📌 Added missing import for logout
 import { router, useFocusEffect } from "expo-router";
@@ -19,6 +21,8 @@ export default function OwnerProfileScreen() {
   const [owner, setOwner] = useState(null);
   const [libraries, setLibraries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const clearAuth = useAuthStore((state) => state.clearAuth);
+  const clearLibrary = useLibraryStore((state) => state.clearLibrary);
 
   // 📌 useFocusEffect triggers every time the user lands on this screen.
   // This ensures if they edit their name or add a library, it updates immediately!
@@ -52,6 +56,8 @@ export default function OwnerProfileScreen() {
         onPress: async () => {
           try {
             await AsyncStorage.clear();
+            clearAuth();
+            clearLibrary();
             router.replace("/");
           } catch (e) {
             console.error("Logout failed", e);
@@ -72,7 +78,7 @@ export default function OwnerProfileScreen() {
   return (
     <ScrollView className="flex-1 bg-background">
       {/* HEADER */}
-      <Header title="Profile" subtitle="Manage your account and libraries" />
+      <Header title="Profile" />
 
       <View className="px-6 pt-6 pb-12">
         {/* SECTION 1: OWNER DETAILS */}

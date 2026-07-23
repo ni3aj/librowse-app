@@ -69,10 +69,10 @@ export default function UserProfileScreen() {
   };
 
   // 📌 1. LIVE API Action Handlers
-  const handleApprove = async () => {
+  const handleApprove = async (enrollment_id) => {
     try {
       const response = await apiClient.patch(
-        `/owner/requests/${enrollment.enrollment_id}/approve`,
+        `/owner/requests/${enrollment_id}/approve`,
       );
       if (response.data.success) {
         Toast.show({
@@ -91,7 +91,7 @@ export default function UserProfileScreen() {
     }
   };
 
-  const handleDeny = async () => {
+  const handleDeny = async (enrollment_id) => {
     Alert.alert(
       "Deny Request",
       "Are you sure you want to reject this student?",
@@ -103,7 +103,7 @@ export default function UserProfileScreen() {
           onPress: async () => {
             try {
               const response = await apiClient.patch(
-                `/owner/requests/${enrollment.enrollment_id}/reject`,
+                `/owner/requests/${enrollment_id}/reject`,
               );
               if (response.data.success) {
                 Toast.show({
@@ -126,7 +126,7 @@ export default function UserProfileScreen() {
     );
   };
 
-  const handleMarkPaid = async () => {
+  const handleMarkPaid = async (enrollment_id) => {
     Alert.alert(
       "Confirm Payment",
       `Did ${user.full_name} pay you directly offline?`,
@@ -137,7 +137,7 @@ export default function UserProfileScreen() {
           onPress: async () => {
             try {
               const response = await apiClient.patch(
-                `/owner/requests/${enrollment.enrollment_id}/mark-paid`,
+                `/owner/requests/${enrollment_id}/mark-paid`,
               );
               if (response.data.success) {
                 Toast.show({
@@ -354,13 +354,13 @@ export default function UserProfileScreen() {
 
                 <View className="flex-row space-x-3">
                   <TouchableOpacity
-                    onPress={handleApprove}
+                    onPress={() => handleApprove(enrollment.enrollment_id)}
                     className="flex-1 bg-brand py-3 rounded-xl items-center mr-2"
                   >
                     <Text className="text-white font-m-bold">Approve</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={handleDeny}
+                    onPress={() => handleDeny(enrollment.enrollment_id)}
                     className="flex-1 bg-red-100 border border-red-300 py-3 rounded-xl items-center"
                   >
                     <Text className="text-red-700 font-m-bold">Deny</Text>
@@ -381,7 +381,7 @@ export default function UserProfileScreen() {
                   {seatInfo}
                 </Text>
                 <TouchableOpacity
-                  onPress={handleMarkPaid}
+                  onPress={() => handleMarkPaid(enrollment.enrollment_id)}
                   className="w-full bg-blue-600 py-3 rounded-xl items-center"
                 >
                   <Text className="text-white font-m-bold">
@@ -416,32 +416,91 @@ export default function UserProfileScreen() {
           </View>
         )}
 
-        {futureEnrollment && futureEnrollment.status === "PENDING" && (
-          <View className="bg-orange-50 border border-orange-200 p-4 rounded-2xl mb-4">
-            <Text className="text-orange-800 font-m-bold text-base mb-1">
-              Awaiting Your Approval
-            </Text>
-            <Text className="text-orange-700 text-sm mb-3">
-              Requested on: {formatDate(enrollment.requested_on)}
-            </Text>
-            <Text className="text-orange-800 text-sm mb-4">
-              Prefers: <Text className="font-m-bold">{seatInfo}</Text>
+        {/* --- FUTURE UPCOMING REQUEST CARD (FLAT STYLE) --- */}
+        {futureEnrollment && (
+          <View className="mt-2 mb-2">
+            <Text className="text-lg font-m-bold text-textDark mb-3 ml-1">
+              Future Enrollment
             </Text>
 
-            <View className="flex-row space-x-3">
-              <TouchableOpacity
-                onPress={handleApprove}
-                className="flex-1 bg-brand py-3 rounded-xl items-center mr-2"
-              >
-                <Text className="text-white font-m-bold">Approve</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleDeny}
-                className="flex-1 bg-red-100 border border-red-300 py-3 rounded-xl items-center"
-              >
-                <Text className="text-red-700 font-m-bold">Deny</Text>
-              </TouchableOpacity>
-            </View>
+            {futureEnrollment.status === "PENDING" && (
+              <View className="bg-orange-50 border border-orange-200 p-4 rounded-2xl mb-4">
+                <Text className="text-orange-800 font-m-bold text-base mb-1">
+                  Awaiting Your Approval
+                </Text>
+                <Text className="text-orange-700 text-sm mb-3">
+                  Requested on: {formatCleanDate(futureEnrollment.requested_on)}
+                </Text>
+                <Text className="text-orange-800 text-sm mb-4">
+                  Prefers:{" "}
+                  <Text className="font-m-bold">
+                    {futureEnrollment.shift.replace("_", " ")} •{" "}
+                    {futureEnrollment.amenity.replace("_", " ")}
+                  </Text>
+                </Text>
+
+                <View className="flex-row space-x-3">
+                  <TouchableOpacity
+                    onPress={() =>
+                      handleApprove(futureEnrollment.enrollment_id)
+                    }
+                    className="flex-1 bg-brand py-3 rounded-xl items-center mr-2"
+                  >
+                    <Text className="text-white font-m-bold">Approve</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleDeny(futureEnrollment.enrollment_id)}
+                    className="flex-1 bg-red-100 border border-red-300 py-3 rounded-xl items-center"
+                  >
+                    <Text className="text-red-700 font-m-bold">Deny</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {futureEnrollment.status === "PAYMENT_PENDING" && (
+              <View className="bg-blue-50 border border-blue-200 p-4 rounded-2xl mb-4">
+                <Text className="text-blue-800 font-m-bold text-base mb-1">
+                  Approved - Awaiting Payment
+                </Text>
+                <Text className="text-blue-700 text-sm mb-3">
+                  Approved on: {formatDate(futureEnrollment.status_updated_at)}
+                </Text>
+                <Text className="text-blue-800 text-sm mb-4">
+                  Prefers:{" "}
+                  <Text className="font-m-bold">
+                    {futureEnrollment.shift.replace("_", " ")} •{" "}
+                    {futureEnrollment.amenity.replace("_", " ")}
+                  </Text>
+                </Text>
+
+                <TouchableOpacity
+                  onPress={() => handleMarkPaid(futureEnrollment.enrollment_id)}
+                  className="w-full bg-blue-600 py-3 rounded-xl items-center"
+                >
+                  <Text className="text-white font-m-bold">Mark as Paid</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {futureEnrollment.status === "ACTIVE" && (
+              <View className="bg-green-50 border border-green-200 p-4 rounded-2xl mb-4">
+                <Text className="text-green-800 font-m-bold text-base mb-1">
+                  Upcoming Active Plan
+                </Text>
+                <Text className="text-green-700 text-sm mb-3">
+                  Starts on: {formatDate(futureEnrollment.start_date)}
+                </Text>
+                <Text className="text-green-800 text-sm">
+                  Seat:{" "}
+                  <Text className="font-m-bold">
+                    {futureEnrollment.shift.replace("_", " ")} •{" "}
+                    {futureEnrollment.amenity.replace("_", " ")} •{" "}
+                    {futureEnrollment.reservation}
+                  </Text>
+                </Text>
+              </View>
+            )}
           </View>
         )}
 

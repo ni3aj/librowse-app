@@ -304,10 +304,7 @@ export default function ManageSeatsScreen() {
 
   return (
     <ScrollView ref={scrollViewRef} className="flex-1 bg-background">
-      <Header
-        title="Manage Seats"
-        subtitle="Create and edit capacity buckets"
-      />
+      <Header title="Manage Seats" />
 
       <View
         className={`p-4 m-6 rounded-2xl mb-8 border ${editingId ? "bg-brand/5 border-brand/30" : "bg-white border-borderLight"}`}

@@ -203,8 +203,8 @@ export default function DashboardScreen() {
 
   const getSubscriptionUI = () => {
     const sub = stats?.platformSubscription || {
-      status: "ACTIVE",
-      daysRemaining: 30,
+      status: "",
+      daysRemaining: 0,
     };
 
     if (sub.daysRemaining <= 0) {
@@ -248,7 +248,8 @@ export default function DashboardScreen() {
       Toast.show({
         type: "info",
         text1: "Library Under Review",
-        text2: "This feature will unlock once your library is verified.",
+        text2:
+          "This feature will unlock once your library is verified by LiBrowse team.",
         position: "top",
       });
     }
@@ -259,7 +260,7 @@ export default function DashboardScreen() {
       {/* --- HEADER --- */}
       <Header
         title="Dashboard"
-        subtitle="View statistics and manage students"
+        enableBack={false}
         rightComponent={
           libraries?.length > 1 && (
             <TouchableOpacity
@@ -623,7 +624,7 @@ function MetricCard({ label, value, color, iconName, iconColor, onPress }) {
         </View>
 
         <Text
-          className={`text-2xl font-m-extra ml-3 text-${color}`}
+          className={`text-2xl font-m-extra ml-3 mb-1 text-${color}`}
           numberOfLines={1}
           adjustsFontSizeToFit
         >

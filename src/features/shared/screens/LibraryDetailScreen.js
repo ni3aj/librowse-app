@@ -235,7 +235,7 @@ export default function LibraryDetailScreen() {
             } catch (error) {
               Alert.alert(
                 "Error",
-                error.response?.data?.error || "Failed to cancel.",
+                error.response?.data?.message || "Failed to cancel.",
               );
             } finally {
               setIsCancelling(false);
@@ -504,7 +504,7 @@ export default function LibraryDetailScreen() {
 
               {futureEnrollment && (
                 <View className="mb-2 mt-4">
-                  <View className="flex-row items-center mb-4">
+                  <View className="flex-row items-center mb-4 ml-1">
                     <Ionicons
                       name="calendar"
                       size={24}
@@ -540,18 +540,21 @@ export default function LibraryDetailScreen() {
                     </Text>
                     <Text className="text-base font-m-bold text-textDark mb-1">
                       {futureSeat?.amenity?.replace("_", " ")} •{" "}
-                      {futureSeat?.shift?.replace("_", " ")}
+                      {futureSeat?.shift?.replace("_", " ")} •{" "}
+                      {futureSeat?.reservation}
                     </Text>
                     <Text className="text-sm font-m text-textLight">
                       ₹{futureSeat?.price} / month
                     </Text>
-                    <Button
-                      title="Cancel Request"
-                      variant="outline"
-                      className="py-2 px-2 mt-4"
-                      loading={isCancelling}
-                      onPress={handleCancelFuturePlan}
-                    />
+                    {futureEnrollment.status !== "ACTIVE" && (
+                      <Button
+                        title="Cancel Request"
+                        variant="outline"
+                        className="py-2 px-2 mt-4"
+                        loading={isCancelling}
+                        onPress={handleCancelFuturePlan}
+                      />
+                    )}
                   </View>
                 </View>
               )}
@@ -675,9 +678,10 @@ export default function LibraryDetailScreen() {
               </Text>
             </View>
             <Button
-              title="Change Plan"
+              title={futureEnrollment ? "Plan Queued" : "Change Plan"}
               variant="outline"
               className="py-3 px-6"
+              disabled={!!futureEnrollment}
               onPress={() => setIsChangeModalVisible(true)}
             />
           </View>

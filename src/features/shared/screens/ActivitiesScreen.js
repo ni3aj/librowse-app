@@ -234,7 +234,7 @@ export default function ActivitiesScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
-        <Header title="Activities" subtitle="Library Chat & Announcements" />
+        <Header title="Activities" />
 
         {loading ? (
           <View className="flex-1 justify-center items-center">

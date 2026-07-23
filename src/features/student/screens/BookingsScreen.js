@@ -45,7 +45,7 @@ export default function BookingsScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Header title="My Bookings" subtitle="Manage your active seats" />
+      <Header title="My Bookings" />
 
       {loading ? (
         <View className="flex-1 justify-center items-center">
