@@ -121,7 +121,7 @@ export default function CreateLibraryWizard() {
           Step {step} of 2
         </Text>
         <Text className="text-3xl font-bold text-textDark mb-2">
-          {step === 1 ? "Your Study Room" : "Amenities"}
+          {step === 1 ? "Create New Library" : "Amenities"}
         </Text>
         <Text className="text-base text-textLight">
           {step === 1
@@ -154,11 +154,13 @@ export default function CreateLibraryWizard() {
 
           {/* Location Fetcher UI */}
           <View className="mt-4 p-4 rounded-xl border border-borderLight bg-surface">
-            <Text className="font-bold text-textDark mb-2">Map Location</Text>
+            <Text className="font-bold text-textDark mb-4">
+              Location on Map
+            </Text>
             {coords.latitude ? (
               <View className="flex-row items-center">
                 <Text className="text-green-600 font-bold mr-2">
-                  ✓ Location Captured
+                  ✓ Location Saved
                 </Text>
                 <TouchableOpacity onPress={fetchCurrentLocation}>
                   <Text className="text-brand text-sm underline">Retake</Text>
@@ -173,7 +175,7 @@ export default function CreateLibraryWizard() {
                   <ActivityIndicator color="#C13383" size="small" />
                 ) : (
                   <Text className="text-brand font-bold">
-                    📍 Detect My Location
+                    📍 Get Current Location
                   </Text>
                 )}
               </TouchableOpacity>

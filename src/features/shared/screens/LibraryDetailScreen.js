@@ -831,12 +831,13 @@ export default function LibraryDetailScreen() {
               return (
                 <>
                   <Text className="text-sm text-textLight mb-4 leading-5">
-                    Select a new seat plan. This change will take effect
-                    immediately after your current billing cycle expires.
+                    Select a new seat plan. This change will take effect after
+                    your current billing cycle expires on{" "}
+                    {formatCleanDate(myEnrollment.end_date)}.
                   </Text>
 
                   <ScrollView
-                    className="max-h-80 mb-6"
+                    className="max-h-80 mb-2"
                     showsVerticalScrollIndicator={false}
                   >
                     {availablePlans.map((item) => {

@@ -22,6 +22,7 @@ export default function UserProfileScreen() {
   const { id } = useLocalSearchParams();
   const [user, setUser] = useState(null);
   const [enrollment, setEnrollment] = useState(null);
+  const [futureEnrollment, setFutureEnrollment] = useState(null);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,6 +38,7 @@ export default function UserProfileScreen() {
       if (response.data.success) {
         setUser(response.data.user);
         setEnrollment(response.data.enrollment);
+        setFutureEnrollment(response.data.future_enrollment);
         setPayments(response.data.payments || []);
       }
     } catch (error) {
@@ -414,6 +416,35 @@ export default function UserProfileScreen() {
           </View>
         )}
 
+        {futureEnrollment && futureEnrollment.status === "PENDING" && (
+          <View className="bg-orange-50 border border-orange-200 p-4 rounded-2xl mb-4">
+            <Text className="text-orange-800 font-m-bold text-base mb-1">
+              Awaiting Your Approval
+            </Text>
+            <Text className="text-orange-700 text-sm mb-3">
+              Requested on: {formatDate(enrollment.requested_on)}
+            </Text>
+            <Text className="text-orange-800 text-sm mb-4">
+              Prefers: <Text className="font-m-bold">{seatInfo}</Text>
+            </Text>
+
+            <View className="flex-row space-x-3">
+              <TouchableOpacity
+                onPress={handleApprove}
+                className="flex-1 bg-brand py-3 rounded-xl items-center mr-2"
+              >
+                <Text className="text-white font-m-bold">Approve</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleDeny}
+                className="flex-1 bg-red-100 border border-red-300 py-3 rounded-xl items-center"
+              >
+                <Text className="text-red-700 font-m-bold">Deny</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* 3. PAYMENT LEDGER */}
         <View className="mt-2">
           <View className="flex-row justify-between items-center mb-3 px-1">
@@ -460,7 +491,7 @@ export default function UserProfileScreen() {
                     className="mr-1"
                   />
                   <Text className="text-xs text-textLight font-m ml-1">
-                    Paid on {formatDate(payment.paid_on)}
+                    Paid on {formatDate(payment.paid_on)} ({payment.mode})
                   </Text>
                 </View>
 

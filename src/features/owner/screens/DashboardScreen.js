@@ -5,7 +5,6 @@ import Header from "@/components/ui/Header";
 import RefreshableScrollView from "@/components/ui/RefreshableScrollView";
 import { COLORS } from "@/constants/theme";
 import { useLibraryStore } from "@/store/libraryStore";
-import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
@@ -427,42 +426,56 @@ export default function DashboardScreen() {
                     <Pressable
                       key={req.id}
                       onPress={() => router.push(`/user/${req.student_id}`)}
-                      className="bg-white p-4 rounded-2xl mb-3 border border-borderLight active:opacity-70"
+                      className="bg-white rounded-2xl p-3.5 flex-row items-center mb-2 border border-borderLight active:opacity-70"
                     >
-                      <View className="flex-row justify-between items-center">
-                        <Text className="font-m-bold text-textDark text-lg">
+                      {/* 1. Avatar (Auto-generated initials based on student name) */}
+                      <View className="w-10 h-10 rounded-full bg-brand/10 items-center justify-center mr-3">
+                        <Text className="text-brand font-m-bold text-base">
+                          {req.student_name?.charAt(0)?.toUpperCase()}
+                        </Text>
+                      </View>
+
+                      {/* 2. Text Details */}
+                      <View className="flex-1 pr-2">
+                        <Text
+                          className="text-[14px] font-m-bold text-textDark"
+                          numberOfLines={1}
+                        >
                           {req.student_name}
                         </Text>
-                        <Ionicons
-                          name="chevron-forward"
-                          size={18}
-                          color={COLORS.textLight}
-                        />
+                        <Text
+                          className="text-[12px] font-m text-textLight mt-0.5"
+                          numberOfLines={1}
+                        >
+                          {req.seat_type}
+                        </Text>
                       </View>
-                      <Text className="text-sm font-m text-textLight mt-1">
-                        {req.seat_type}
-                      </Text>
-                      <Text className="text-sm font-m text-textLight mt-1">
-                        Requested on {formatCleanDate(req.start_date)}
-                      </Text>
 
-                      <View className="flex-row mt-4">
-                        <View className="flex-1 mr-2">
-                          <Button
-                            title="Accept"
-                            variant="primary"
-                            className="py-2 w-full"
-                            onPress={() => handleAcceptRequest(req.id)}
+                      {/* 3. Action Buttons (Compact Squares) */}
+                      <View className="flex-row items-center">
+                        {/* Approve Button */}
+                        <TouchableOpacity
+                          onPress={() => handleAcceptRequest(req.id)}
+                          activeOpacity={0.7}
+                          className="w-10 h-10 rounded-3xl items-center justify-center"
+                          style={{ backgroundColor: "#D1FAE5" }} // Soft Green
+                        >
+                          <Ionicons
+                            name="checkmark"
+                            size={20}
+                            color="#059669"
                           />
-                        </View>
-                        <View className="flex-1 ml-2">
-                          <Button
-                            title="Deny"
-                            variant="outline"
-                            className="py-2 w-full"
-                            onPress={() => handleDenyRequest(req.id)}
-                          />
-                        </View>
+                        </TouchableOpacity>
+
+                        {/* Reject Button */}
+                        <TouchableOpacity
+                          onPress={() => handleDenyRequest(req.id)}
+                          activeOpacity={0.7}
+                          className="w-10 h-10 rounded-3xl items-center justify-center ml-2"
+                          style={{ backgroundColor: "#FEE2E2" }} // Soft Red
+                        >
+                          <Ionicons name="close" size={20} color="#DC2626" />
+                        </TouchableOpacity>
                       </View>
                     </Pressable>
                   ))}

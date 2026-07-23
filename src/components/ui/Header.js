@@ -1,63 +1,64 @@
-import { COLORS } from "@/constants/theme";
+import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import Constants from "expo-constants";
-import { LinearGradient } from "expo-linear-gradient";
+import { useNavigation } from "expo-router"; // 📌 Standard navigation
 import { ReactNode } from "react";
-import { Platform, Text, View } from "react-native";
+import { Platform, Text, TouchableOpacity, View } from "react-native";
 
 interface HeaderProps {
   title: string;
-  subtitle?: string;
   rightComponent?: ReactNode;
 }
 
-export default function Header({
-  title,
-  subtitle,
-  rightComponent,
-}: HeaderProps) {
+export default function Header({ title, rightComponent }: HeaderProps) {
   const notchHeight = Constants.statusBarHeight;
-  
-  // 📌 1. Check which platform the app is running on
   const isIOS = Platform.OS === "ios";
+  const navigation = useNavigation();
+
+  // 📌 1. Real Back Navigation
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack(); // Pops the literal stack layer, not just a router alias
+    }
+  };
 
   return (
-    <LinearGradient
-      colors={[COLORS.brand, COLORS.brandAccent]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      // 📌 2. Dynamic Platform Classes:
-      // If iOS, use the standard shadow and curves. If Android, use a flatter look to prevent scattering.
-      className={`border-b border-borderLight ${
-        isIOS ? "pb-6 rounded-b-3xl shadow-sm" : "pb-4 rounded-b-2xl"
-      }`}
+    // 📌 2. The Glass Effect
+    // "absolute" makes it float over your screen so content scrolls underneath and blurs
+    <BlurView
+      intensity={isIOS ? 60 : 90} // Android needs slightly higher intensity for the same effect
+      tint="dark" // Use "light" if your app has a white background, "dark" for dark themes
+      className="absolute top-0 left-0 right-0 z-50 border-b border-white/10"
       style={{
-        paddingTop: isIOS ? notchHeight + 10 : notchHeight + 20, // Android usually needs a bit more breathing room
+        paddingTop: isIOS ? notchHeight + 10 : notchHeight + 20,
+        paddingBottom: 16,
         paddingHorizontal: 24,
-        // 📌 Android explicitly requires 'elevation' for shadows, NativeWind 'shadow-sm' often fails on it
-        ...(isIOS
-          ? {}
-          : { elevation: 4 }), 
       }}
     >
-      <View className="flex-row justify-between items-start">
-        <View className="flex-1 pr-4">
+      <View className="flex-row items-center justify-between">
+        
+        {/* 📌 3. Left Side: Back Arrow + Title */}
+        <View className="flex-row items-center flex-1 pr-4">
+          <TouchableOpacity
+            onPress={handleBack}
+            activeOpacity={0.7}
+            className="mr-3 p-1 -ml-2"
+          >
+            <Ionicons name="chevron-back" size={28} color="#fff" />
+          </TouchableOpacity>
+
           <Text
-            className={`text-3xl font-m-extra text-white ${
-              subtitle ? "mb-2" : "mb-4"
-            }`}
+            className="text-2xl font-m-extra text-white flex-1"
+            numberOfLines={1}
           >
             {title}
           </Text>
-
-          {subtitle ? (
-            <Text className={`text-sm text-white/80 ${isIOS ? "pb-4" : "pb-2"}`}>
-              {subtitle}
-            </Text>
-          ) : null}
         </View>
 
-        {rightComponent}
+        {/* 📌 4. Right Side: Custom Component */}
+        {rightComponent && <View>{rightComponent}</View>}
+        
       </View>
-    </LinearGradient>
+    </BlurView>
   );
 }

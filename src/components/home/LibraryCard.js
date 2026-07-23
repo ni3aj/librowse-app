@@ -58,13 +58,13 @@ export default function LibraryCard({ library }) {
         </View>
 
         {/* Heart Icon */}
-        <TouchableOpacity className="absolute top-0 right-0 bg-white/90 p-2 rounded-full ">
+        <TouchableOpacity className="absolute top-1 right-1 bg-white/90 p-2 rounded-full ">
           <Ionicons name="heart-outline" size={20} color={COLORS.textDark} />
         </TouchableOpacity>
 
         {/* Exact Distance Badge */}
         {formattedDistance ? (
-          <View className="absolute bottom-2 right-2 bg-white/95 py-1 rounded-xl  border border-white">
+          <View className="absolute bottom-2 right-2 bg-white/95 py-1 px-2 rounded-xl  border border-white">
             <Text className="text-textDark font-m-bold text-xs">
               {formattedDistance} km away
             </Text>

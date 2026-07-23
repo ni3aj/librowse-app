@@ -208,7 +208,7 @@ export default function ActivitiesScreen() {
             {item.sender_role === "owner" && (
               <View className="ml-2 bg-blue-100 px-2 py-0.5 rounded-md">
                 <Text className="text-blue-700 text-[10px] font-m-bold">
-                  ADMIN
+                  Owner
                 </Text>
               </View>
             )}

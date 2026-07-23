@@ -1,9 +1,5 @@
-import { Text, View } from "react-native";
+import ProfileScreen from "@/features/student/screens/ProfileScreen";
 
-export default function PlaceholderScreen() {
-  return (
-    <View className="flex-1 justify-center items-center bg-white">
-      <Text className="text-xl font-m-bold">Placeholder Screen</Text>
-    </View>
-  );
+export default function ProfileRoute() {
+  return <ProfileScreen />;
 }

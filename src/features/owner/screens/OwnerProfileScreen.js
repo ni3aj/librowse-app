@@ -241,7 +241,7 @@ export default function OwnerProfileScreen() {
           title="Logout"
           variant="primary"
           onPress={handleLogout}
-          className="border-brandAccent text-brandAccent bg-transparent border-2" // Slightly tweaked this to give it a nice red-outline look
+          className="text-brandAccent bg-transparent"
         />
       </View>
     </ScrollView>
