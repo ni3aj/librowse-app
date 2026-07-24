@@ -159,6 +159,13 @@ export default function ActivitiesScreen() {
 
   const renderItem = ({ item }) => {
     const isAnnounce = item.type === "ANNOUNCEMENT";
+    console.log(
+      "item.sender_id => ",
+      item.sender_id,
+      " currentUserId => ",
+      currentUserId,
+    );
+    const isMyMessage = String(item.sender_id) === String(currentUserId);
     const canDelete =
       currentUserRole === "owner" || currentUserId === item.sender_id;
 
@@ -193,19 +200,33 @@ export default function ActivitiesScreen() {
         activeOpacity={0.8}
         delayLongPress={400}
         onLongPress={() => canDelete && confirmDelete(item.id)}
-        className="mb-4 bg-white border border-borderLight rounded-2xl p-4 ml-6 mr-6"
+        className={`mb-4 p-4 max-w-[85%] ${
+          isMyMessage
+            ? "self-end bg-brand/10 border border-brand/20 rounded-3xl rounded-tr-md mr-6" // 📌 My Message: Right Side, Tinted
+            : "self-start bg-white border border-borderLight rounded-3xl rounded-tl-md ml-6" // 📌 Other Message: Left Side, White
+        }`}
       >
-        <View className="flex-row justify-between items-center mb-2">
-          <View className="flex-row items-center">
-            <View className="w-8 h-8 bg-brand/10 rounded-full items-center justify-center mr-2 border border-brand/20">
-              <Text className="text-brand font-m-bold text-xs uppercase">
-                {item.sender_name?.charAt(0) || "U"}
-              </Text>
-            </View>
-            <Text className="text-textDark font-m-bold text-sm">
-              {item.sender_name}
+        <View className="flex-row justify-between items-center mb-1.5 gap-x-4">
+          <View className="flex-row items-center flex-1">
+            {/* Only show the Avatar for OTHER people's messages, keeps UI clean */}
+            {!isMyMessage && (
+              <View className="w-7 h-7 bg-brand/10 rounded-full items-center justify-center mr-2 border border-brand/20">
+                <Text className="text-brand font-m-bold text-xs uppercase">
+                  {item.sender_name?.charAt(0) || "U"}
+                </Text>
+              </View>
+            )}
+
+            {/* Sender Name ("You" if it's the current user) */}
+            <Text
+              className="text-textDark font-m-bold text-sm"
+              numberOfLines={1}
+            >
+              {isMyMessage ? "You" : item.sender_name}
             </Text>
-            {item.sender_role === "owner" && (
+
+            {/* Owner Badge */}
+            {item.sender_role === "owner" && !isMyMessage && (
               <View className="ml-2 bg-blue-100 px-2 py-0.5 rounded-md">
                 <Text className="text-blue-700 text-[10px] font-m-bold">
                   Owner
@@ -213,14 +234,18 @@ export default function ActivitiesScreen() {
               </View>
             )}
           </View>
-          <Text className="text-xs text-textLight font-m">
+
+          {/* Timestamp */}
+          <Text className="text-xs text-textLight font-m shrink-0">
             {new Date(item.created_at).toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
             })}
           </Text>
         </View>
-        <Text className="text-textDark font-m text-sm leading-5">
+
+        {/* Message Content */}
+        <Text className="text-textDark font-m text-[15px] leading-5 mt-1">
           {item.content}
         </Text>
       </TouchableOpacity>

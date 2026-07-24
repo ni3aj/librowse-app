@@ -1,12 +1,14 @@
 import apiClient from "@/api/client";
-import Button from "@/components/ui/Button"; // 📌 Ensure your Button is imported
+import Button from "@/components/ui/Button";
 import { COLORS } from "@/constants/theme";
-import * as Location from "expo-location"; // 📌 Import expo-location
+import * as Location from "expo-location";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert, // 📌 Added Alert
   FlatList,
-  RefreshControl, // 📌 Import RefreshControl
+  Linking, // 📌 Added Linking to open Phone Settings
+  RefreshControl,
   Text,
   View,
 } from "react-native";
@@ -30,7 +32,6 @@ export default function HomeScreen() {
     fetchLocationAndLibraries();
   }, []);
 
-  // 📌 THE FIX: Replaced fetchLibraries with dynamic location fetcher
   const fetchLocationAndLibraries = async () => {
     setLocationError(null);
     setLoading(true);
@@ -54,20 +55,41 @@ export default function HomeScreen() {
 
       // 3. Fetch from API using real coordinates
       const response = await apiClient.get("/student/libraries", {
-        params: { latitude, longitude, radius: 15 }, // Set a standard radius like 15km
+        params: { latitude, longitude, radius: 15 },
       });
 
       if (response.data.success) {
         setLibraries(response.data.libraries);
       }
     } catch (error) {
-      console.log(
-        "Error fetching libraries:",
-        error.response?.data || error.message,
+      console.log("Error fetching libraries:", error.message);
+      // 📌 THE FIX #1: If GPS fails to lock, show the retry button, NOT the "No Libraries" screen!
+      setLocationError(
+        "Failed to detect location. Please ensure your GPS is on.",
       );
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  // 📌 THE FIX #2: Safely handle OS-level permission blocks
+  const handleRetryLocation = async () => {
+    const { status } = await Location.getForegroundPermissionsAsync();
+
+    if (status === "denied") {
+      // If they permanently denied it, the OS hides the prompt. We MUST open settings.
+      Alert.alert(
+        "Permission Required",
+        "Please enable location services in your phone settings to find nearby study rooms.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Open Settings", onPress: () => Linking.openSettings() },
+        ],
+      );
+    } else {
+      // Otherwise, just retry fetching
+      fetchLocationAndLibraries();
     }
   };
 
@@ -76,7 +98,6 @@ export default function HomeScreen() {
       <FlatList
         data={libraries}
         keyExtractor={(item) => item.id.toString()}
-        // 📌 Added Pull-to-Refresh
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -100,8 +121,8 @@ export default function HomeScreen() {
                 </Text>
               </>
             ) : locationError ? (
-              // 📌 THE FIX: UI when location permission is denied
-              <View className="items-center bg-surface w-full p-8 rounded-[24px] border border-borderLight shadow-sm">
+              // 📌 UI when location is denied OR GPS fails
+              <View className="items-center bg-surface w-full p-8 rounded-[24px] border border-borderLight">
                 <View className="bg-brand/10 h-16 w-16 rounded-full items-center justify-center mb-4">
                   <Text className="text-3xl">📍</Text>
                 </View>
@@ -109,23 +130,25 @@ export default function HomeScreen() {
                   Location Required
                 </Text>
                 <Text className="text-textLight text-center mb-6 leading-5">
-                  We need your location to show you the closest study rooms.
+                  {locationError === "Permission Denied"
+                    ? "We need your location to show you the nearest libraries."
+                    : locationError}
                 </Text>
                 <Button
                   title="Enable Location"
-                  onPress={fetchLocationAndLibraries}
+                  onPress={handleRetryLocation} // 📌 Uses the new smart retry function
                   className="w-full"
                 />
               </View>
             ) : (
-              // 📌 Original Empty State
+              // 📌 Original Empty State (Only shows if GPS works perfectly but DB returns 0)
               <View className="items-center bg-surface w-full p-8 rounded-[24px] border border-borderLight shadow-sm">
                 <Text className="text-4xl mb-4">📭</Text>
                 <Text className="text-lg font-m-bold text-textDark mb-2">
                   No Libraries Found
                 </Text>
                 <Text className="text-textLight text-center font-m">
-                  No study rooms within 15km.
+                  No libraries found within 15km.
                 </Text>
               </View>
             )}

@@ -54,6 +54,7 @@ export default function StudentLayout() {
         }}
       />
       <Tabs.Screen name="library/[id]" options={{ href: null }} />
+      <Tabs.Screen name="edit-profile" options={{ href: null }} />
     </Tabs>
   );
 }

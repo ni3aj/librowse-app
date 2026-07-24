@@ -802,63 +802,63 @@ export default function LibraryDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* 📌 THE FIX: Pre-calculate available plans */}
-            {(() => {
-              const availablePlans = inventory.filter(
-                (item) => item.id !== myEnrollment?.inventory_id,
-              );
-
-              if (availablePlans.length === 0) {
-                // EMPTY STATE: User is already on the only available plan
-                return (
-                  <View className="items-center py-6 px-4">
-                    <View className="w-12 h-12 bg-brand/10 rounded-full items-center justify-center mb-4">
-                      <Ionicons
-                        name="information"
-                        size={24}
-                        color={COLORS.brand}
-                      />
-                    </View>
-                    <Text className="text-lg font-m-bold text-textDark text-center mb-2">
-                      No Other Plans Available
-                    </Text>
-                    <Text className="text-sm text-textLight text-center leading-5">
-                      You are already enrolled in the only seat category offered
-                      by this library. There are no other plans to switch to at
-                      this time.
-                    </Text>
-                  </View>
+            {myEnrollment &&
+              (() => {
+                const availablePlans = inventory.filter(
+                  (item) => item.id !== myEnrollment?.inventory_id,
                 );
-              }
 
-              // NORMAL STATE: Render the list of options
-              return (
-                <>
-                  <Text className="text-sm text-textLight mb-4 leading-5">
-                    Select a new seat plan. This change will take effect after
-                    your current billing cycle expires on{" "}
-                    {formatCleanDate(myEnrollment.end_date)}.
-                  </Text>
+                if (availablePlans.length === 0) {
+                  // EMPTY STATE: User is already on the only available plan
+                  return (
+                    <View className="items-center py-6 px-4">
+                      <View className="w-12 h-12 bg-brand/10 rounded-full items-center justify-center mb-4">
+                        <Ionicons
+                          name="information"
+                          size={24}
+                          color={COLORS.brand}
+                        />
+                      </View>
+                      <Text className="text-lg font-m-bold text-textDark text-center mb-2">
+                        No Other Plans Available
+                      </Text>
+                      <Text className="text-sm text-textLight text-center leading-5">
+                        You are already enrolled in the only seat category
+                        offered by this library. There are no other plans to
+                        switch to at this time.
+                      </Text>
+                    </View>
+                  );
+                }
 
-                  <ScrollView
-                    className="max-h-80 mb-2"
-                    showsVerticalScrollIndicator={false}
-                  >
-                    {availablePlans.map((item) => {
-                      const isSelected = selectedFutureSeat?.id === item.id;
-                      const seatsAvailable =
-                        parseInt(item.total_seats) -
-                        parseInt(item.occupied_seats);
-                      const isSoldOut = seatsAvailable <= 0;
+                // NORMAL STATE: Render the list of options
+                return (
+                  <>
+                    <Text className="text-sm text-textLight mb-4 leading-5">
+                      Select a new seat plan. This change will take effect after
+                      your current billing cycle expires on{" "}
+                      {formatCleanDate(myEnrollment.end_date)}.
+                    </Text>
 
-                      return (
-                        <TouchableOpacity
-                          key={item.id}
-                          onPress={() =>
-                            !isSoldOut && setSelectedFutureSeat(item)
-                          }
-                          activeOpacity={isSoldOut ? 1 : 0.8}
-                          className={`flex-row justify-between items-center p-4 rounded-2xl mb-3 border-2 
+                    <ScrollView
+                      className="max-h-80 mb-2"
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {availablePlans.map((item) => {
+                        const isSelected = selectedFutureSeat?.id === item.id;
+                        const seatsAvailable =
+                          parseInt(item.total_seats) -
+                          parseInt(item.occupied_seats);
+                        const isSoldOut = seatsAvailable <= 0;
+
+                        return (
+                          <TouchableOpacity
+                            key={item.id}
+                            onPress={() =>
+                              !isSoldOut && setSelectedFutureSeat(item)
+                            }
+                            activeOpacity={isSoldOut ? 1 : 0.8}
+                            className={`flex-row justify-between items-center p-4 rounded-2xl mb-3 border-2 
                             ${
                               isSoldOut
                                 ? "border-transparent bg-surface opacity-60"
@@ -866,68 +866,68 @@ export default function LibraryDetailScreen() {
                                   ? "border-brand bg-brand"
                                   : "border-borderLight bg-white"
                             }`}
-                        >
-                          <View className="flex-row items-center flex-1">
-                            <Ionicons
-                              name={
-                                isSelected
-                                  ? "radio-button-on"
-                                  : "radio-button-off"
-                              }
-                              size={20}
-                              color={isSelected ? "#fff" : COLORS.textLight}
-                              style={{ marginRight: 12 }}
-                            />
-                            <View>
-                              <Text
-                                className={`text-base font-m-bold ${
-                                  isSelected ? "text-white" : "text-textDark"
-                                }`}
-                              >
-                                {item.amenity?.replace("_", " ")}
-                              </Text>
-                              <Text
-                                className={`text-xs mt-0.5 ${
+                          >
+                            <View className="flex-row items-center flex-1">
+                              <Ionicons
+                                name={
                                   isSelected
-                                    ? "text-white/80"
-                                    : "text-textLight"
+                                    ? "radio-button-on"
+                                    : "radio-button-off"
+                                }
+                                size={20}
+                                color={isSelected ? "#fff" : COLORS.textLight}
+                                style={{ marginRight: 12 }}
+                              />
+                              <View>
+                                <Text
+                                  className={`text-base font-m-bold ${
+                                    isSelected ? "text-white" : "text-textDark"
+                                  }`}
+                                >
+                                  {item.amenity?.replace("_", " ")}
+                                </Text>
+                                <Text
+                                  className={`text-xs mt-0.5 ${
+                                    isSelected
+                                      ? "text-white/80"
+                                      : "text-textLight"
+                                  }`}
+                                >
+                                  {item.shift?.replace("_", " ")}
+                                </Text>
+                              </View>
+                            </View>
+
+                            <View className="items-end">
+                              <Text
+                                className={`text-lg font-m-extra ${
+                                  isSelected ? "text-white" : "text-brand"
                                 }`}
                               >
-                                {item.shift?.replace("_", " ")}
+                                ₹{item.price}
                               </Text>
+                              {isSoldOut && (
+                                <Text className="text-[10px] font-m-bold text-red-500 mt-1 uppercase tracking-wider">
+                                  Waitlist Full
+                                </Text>
+                              )}
                             </View>
-                          </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
 
-                          <View className="items-end">
-                            <Text
-                              className={`text-lg font-m-extra ${
-                                isSelected ? "text-white" : "text-brand"
-                              }`}
-                            >
-                              ₹{item.price}
-                            </Text>
-                            {isSoldOut && (
-                              <Text className="text-[10px] font-m-bold text-red-500 mt-1 uppercase tracking-wider">
-                                Waitlist Full
-                              </Text>
-                            )}
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-
-                  <Button
-                    title="Request Change"
-                    variant="primary"
-                    disabled={!selectedFutureSeat}
-                    loading={isChangingPlan}
-                    onPress={handleFutureChange}
-                    className="w-full py-4"
-                  />
-                </>
-              );
-            })()}
+                    <Button
+                      title="Request Change"
+                      variant="primary"
+                      disabled={!selectedFutureSeat}
+                      loading={isChangingPlan}
+                      onPress={handleFutureChange}
+                      className="w-full py-4"
+                    />
+                  </>
+                );
+              })()}
           </View>
         </View>
       </Modal>

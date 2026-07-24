@@ -1,5 +1,11 @@
+import apiClient from "@/api/client";
+import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
+import { useAuthStore } from "@/store/authStore";
+import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as ImagePicker from "expo-image-picker"; // 📌 1. Imported ImagePicker
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -12,14 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-// import { useAuth } from "@/context/AuthContext"; // Import your auth context/store here
-import apiClient from "@/api/client"; // Your configured axios instance
-import Header from "@/components/ui/Header";
-import { useAuthStore } from "@/store/authStore";
-import { useLibraryStore } from "@/store/libraryStore";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// 📌 REUSABLE COMPONENT: Keeps the menu list clean and consistent
 const ProfileMenuItem = ({
   icon,
   title,
@@ -72,7 +71,9 @@ const ProfileMenuItem = ({
 export default function StudentProfileScreen() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false); // 📌 2. Track upload state
   const [isPhotoViewerVisible, setIsPhotoViewerVisible] = useState(false);
+
   const clearAuth = useAuthStore((state) => state.clearAuth);
   const clearLibrary = useLibraryStore((state) => state.clearLibrary);
 
@@ -90,6 +91,63 @@ export default function StudentProfileScreen() {
       Alert.alert("Error", "Failed to load profile data.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 📌 3. Pick Image and Force Square Crop
+  const handlePickImage = async () => {
+    const permissionResult =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (permissionResult.granted === false) {
+      Alert.alert("Permission Required", "Please allow access to your photos.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true, // Turns on the cropping tool
+      aspect: [1, 1], // Forces a square crop
+      quality: 0.8, // Compresses image slightly for faster uploads
+    });
+
+    if (!result.canceled) {
+      uploadPhoto(result.assets[0].uri);
+    }
+  };
+
+  // 📌 4. Upload to Backend via FormData
+  const uploadPhoto = async (uri) => {
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      const filename = uri.split("/").pop();
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image/jpeg`;
+
+      formData.append("photo", { uri, name: filename, type });
+
+      // Send to your backend
+      const response = await apiClient.patch(
+        "/student/profile/photo",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        },
+      );
+
+      if (response.data.success) {
+        // Update local state instantly so the UI changes without a full refresh
+        setUser({ ...user, profile_photo: response.data.photo_url });
+        Alert.alert("Success", "Profile photo updated!");
+      }
+    } catch (error) {
+      Alert.alert(
+        "Upload Failed",
+        error.response?.data?.error || "Could not upload photo.",
+      );
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -117,7 +175,6 @@ export default function StudentProfileScreen() {
     );
   }
 
-  // Safe fallbacks for data
   const profilePhotoUrl =
     user?.profile_photo ||
     "https://ui-avatars.com/api/?name=" +
@@ -132,22 +189,33 @@ export default function StudentProfileScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
       >
-        {/* --- TOP SECTION: AVATAR & BASIC INFO --- */}
         <View className="items-center mt-8 mb-6 px-6">
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setIsPhotoViewerVisible(true)}
-            className="relative"
-          >
-            <Image
-              source={{ uri: profilePhotoUrl }}
-              className="w-28 h-28 rounded-full border-4 border-white bg-gray-100"
-            />
-            {/* Tiny edit badge on the avatar */}
-            <View className="absolute bottom-0 right-0 bg-brand w-8 h-8 rounded-full items-center justify-center border-2 border-white">
-              <Ionicons name="camera" size={14} color="#fff" />
-            </View>
-          </TouchableOpacity>
+          <View className="relative">
+            {/* 📌 View Photo */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setIsPhotoViewerVisible(true)}
+            >
+              <Image
+                source={{ uri: profilePhotoUrl }}
+                className="w-28 h-28 rounded-full border-4 border-white bg-gray-100"
+              />
+            </TouchableOpacity>
+
+            {/* 📌 Change Photo (Camera Badge) */}
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={handlePickImage}
+              disabled={isUploading}
+              className="absolute bottom-0 right-0 bg-brand w-9 h-9 rounded-full items-center justify-center border-2 border-white shadow-sm"
+            >
+              {isUploading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="camera" size={16} color="#fff" />
+              )}
+            </TouchableOpacity>
+          </View>
 
           <Text className="text-2xl font-m-extra text-textDark mt-4 text-center">
             {user?.full_name || "Student Name"}
@@ -160,9 +228,8 @@ export default function StudentProfileScreen() {
           </View>
         </View>
 
-        {/* --- MENU CARDS --- */}
+        {/* ... Rest of your menu cards remain unchanged ... */}
         <View className="px-6">
-          {/* Card 1: Account Settings */}
           <Text className="text-xs font-m-bold text-textLight uppercase tracking-wider mb-2 ml-2">
             Account Settings
           </Text>
@@ -177,7 +244,7 @@ export default function StudentProfileScreen() {
               icon="lock-closed-outline"
               title="Change MPIN"
               subtitle="Update your security PIN"
-              onPress={() => router.push("/reset-mpin")} // 📌 Plugs into your existing route
+              onPress={() => router.push("/auth/reset-mpin")}
             />
             <ProfileMenuItem
               icon="shield-checkmark-outline"
@@ -192,7 +259,6 @@ export default function StudentProfileScreen() {
             />
           </View>
 
-          {/* Card 2: App Preferences */}
           <Text className="text-xs font-m-bold text-textLight uppercase tracking-wider mb-2 ml-2">
             About & Support
           </Text>
@@ -212,7 +278,6 @@ export default function StudentProfileScreen() {
             />
           </View>
 
-          {/* Card 3: Danger Zone */}
           <View className="bg-white rounded-3xl px-5 py-1 border border-red-100 mb-6">
             <ProfileMenuItem
               icon="log-out-outline"
@@ -234,7 +299,6 @@ export default function StudentProfileScreen() {
       >
         <View className="flex-1 bg-black justify-center items-center">
           <View className="absolute top-12 left-0 right-0 z-10 flex-row justify-between items-center px-6">
-            {/* Empty view to balance flex layout */}
             <View className="w-10" />
             <Text className="text-white font-m-bold text-lg">
               Profile Photo
