@@ -1,4 +1,4 @@
-import WriteReviewModal from "@/components/home/WriteReviewModal";
+import WriteReviewModal from "@/components/student/WriteReviewModal";
 import Button from "@/components/ui/Button";
 import { COLORS } from "@/constants/theme";
 import { formatCleanDate } from "@/utils/dateFormatter";
@@ -8,8 +8,8 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Dimensions, // 📌 1. Imported Dimensions for full-screen width
-  FlatList, // 📌 2. Imported FlatList for the slider
+  Dimensions,
+  FlatList,
   Image,
   Linking,
   Modal,
@@ -43,7 +43,11 @@ export default function LibraryDetailScreen() {
   const [library, setLibrary] = useState(null);
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // 📌 1. Updated States for specific seat selection
   const [selectedSeat, setSelectedSeat] = useState(null);
+  const [selectedSeatNumber, setSelectedSeatNumber] = useState(null);
+
   const [myEnrollment, setMyEnrollment] = useState(null);
   const [futureEnrollment, setFutureEnrollment] = useState(null);
   const [isBooking, setIsBooking] = useState(false);
@@ -54,7 +58,6 @@ export default function LibraryDetailScreen() {
   const [isChangingPlan, setIsChangingPlan] = useState(false);
   const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
 
-  // 📌 3. States for the Airbnb-style Full Screen Image Slider
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -152,7 +155,13 @@ export default function LibraryDetailScreen() {
     setIsBooking(true);
     try {
       const today = new Date().toISOString().split("T")[0];
-      const response = await studentApi.enrollSeat(selectedSeat.id, today);
+
+      // 📌 Send the selectedSeatNumber along with the request!
+      const response = await studentApi.enrollSeat(
+        selectedSeat.id,
+        today,
+        selectedSeatNumber,
+      );
 
       if (response.data.success) {
         setMyEnrollment({
@@ -166,6 +175,7 @@ export default function LibraryDetailScreen() {
         );
       }
     } catch (error) {
+      console.log(error);
       Alert.alert(
         "Booking Failed",
         error.response?.data?.error || "Something went wrong.",
@@ -193,6 +203,7 @@ export default function LibraryDetailScreen() {
               if (response.data.success) {
                 setMyEnrollment(null);
                 setSelectedSeat(null);
+                setSelectedSeatNumber(null); // Clear specific seat too
                 Alert.alert("Cancelled", "Your request has been withdrawn.");
               }
             } catch (error) {
@@ -288,7 +299,6 @@ export default function LibraryDetailScreen() {
     ? inventory.find((s) => s.id === futureEnrollment.inventory_id)
     : null;
 
-  // Safe fallback for photos
   const photosArray =
     library.photos?.length > 0
       ? library.photos
@@ -298,9 +308,7 @@ export default function LibraryDetailScreen() {
   return (
     <View className="flex-1 bg-background">
       <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-        {/* --- HEADER IMAGE & ACTIONS --- */}
         <View className="relative">
-          {/* 📌 4. Wrapped image in TouchableOpacity to open slider */}
           <TouchableOpacity
             activeOpacity={0.9}
             onPress={() => setIsImageViewerVisible(true)}
@@ -328,7 +336,6 @@ export default function LibraryDetailScreen() {
             </View>
           </View>
 
-          {/* Review Badge (Bottom Left) */}
           <View className="absolute bottom-4 left-6 bg-black/70 px-3 py-1.5 rounded-full flex-row items-center">
             <Ionicons name="star" size={14} color="#fff" />
             <Text className="text-white font-m-bold ml-1 text-sm">
@@ -339,7 +346,6 @@ export default function LibraryDetailScreen() {
             </Text>
           </View>
 
-          {/* 📌 5. Image Counter Badge (Bottom Right - Airbnb Style) */}
           <TouchableOpacity
             activeOpacity={0.9}
             onPress={() => setIsImageViewerVisible(true)}
@@ -352,7 +358,6 @@ export default function LibraryDetailScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* --- DETAILS SECTION --- */}
         <View className="px-6 pt-6 pb-40">
           <View className="flex-row justify-between items-start mb-2">
             <View className="flex-1 pr-4">
@@ -435,7 +440,6 @@ export default function LibraryDetailScreen() {
               : null}
           </View>
 
-          {/* --- SMART ENROLLMENT UI --- */}
           {myEnrollment ? (
             <View className="mt-6">
               <View className="flex-row justify-between items-center mb-4">
@@ -576,7 +580,13 @@ export default function LibraryDetailScreen() {
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    onPress={() => !isSoldOut && setSelectedSeat(item)}
+                    // 📌 2. Clears the specific seat number when switching categories
+                    onPress={() => {
+                      if (!isSoldOut) {
+                        setSelectedSeat(item);
+                        setSelectedSeatNumber(null);
+                      }
+                    }}
                     activeOpacity={isSoldOut ? 1 : 0.8}
                     className={`flex-row justify-between items-center p-4 rounded-3xl mb-3 border-2 
                       ${isSoldOut ? "border-transparent bg-surface opacity-60" : isSelected ? "border-brand bg-brand" : "border-transparent bg-white"}`}
@@ -592,7 +602,7 @@ export default function LibraryDetailScreen() {
                         <Text
                           className={`text-lg font-m-bold ${isSelected ? "text-white" : "text-textDark"}`}
                         >
-                          {item.amenity?.replace("_", " ")}
+                          {item.shift?.replace("_", " ")}
                         </Text>
                         {isSoldOut && (
                           <View className="bg-gray-200 px-2 py-0.5 rounded ml-2">
@@ -605,7 +615,7 @@ export default function LibraryDetailScreen() {
                       <Text
                         className={`text-sm mt-0.5 ${isSelected ? "text-white/80" : "text-textLight"}`}
                       >
-                        {item.shift?.replace("_", " ")}
+                        {item.amenity?.replace("_", " ")} • {item.reservation}
                       </Text>
                     </View>
                     <View className="items-end">
@@ -623,12 +633,80 @@ export default function LibraryDetailScreen() {
                   </TouchableOpacity>
                 );
               })}
+
+              {/* 📌 3. THE VISUAL SEAT LAYOUT GRID */}
+              {selectedSeat?.reservation === "RESERVED" &&
+                selectedSeat?.seat_numbers?.length > 0 && (
+                  <View className="mt-6 mb-4">
+                    <Text className="text-xl font-m-bold text-textDark mb-1">
+                      Select a Seat Number
+                    </Text>
+                    <Text className="text-sm text-textLight mb-4">
+                      Tap on an available seat below to lock it in.
+                    </Text>
+
+                    <View className="flex-row flex-wrap gap-2">
+                      {selectedSeat.seat_numbers.map((seatNum) => {
+                        // Check if it's already booked by checking our new SQL array
+                        const isOccupied =
+                          selectedSeat.occupied_seat_list?.includes(seatNum);
+                        const isSelectedNum = selectedSeatNumber === seatNum;
+
+                        return (
+                          <TouchableOpacity
+                            key={seatNum}
+                            disabled={isOccupied}
+                            onPress={() => setSelectedSeatNumber(seatNum)}
+                            activeOpacity={0.7}
+                            className="items-center justify-center mb-2"
+                          >
+                            {/* THE DESK */}
+                            <View
+                              className={`w-18 h-16 rounded-lg items-center justify-center border-2 z-10 shadow-sm
+                            ${
+                              isOccupied
+                                ? "bg-gray-200 border-gray-300 opacity-60"
+                                : isSelectedNum
+                                  ? "bg-brand border-brand shadow-brand/30"
+                                  : "bg-white border-borderLight shadow-black/5"
+                            }`}
+                            >
+                              <Text
+                                className={`font-m-bold p-2 text-sm ${
+                                  isOccupied
+                                    ? "text-gray-400"
+                                    : isSelectedNum
+                                      ? "text-white"
+                                      : "text-textDark"
+                                }`}
+                              >
+                                {seatNum}
+                              </Text>
+                            </View>
+
+                            {/* THE CHAIR (Tucked slightly under the desk) */}
+                            <View
+                              className={`w-8 h-4 rounded-full mt-[-6px] border border-t-0 z-0
+                            ${
+                              isOccupied
+                                ? "bg-gray-300 border-gray-400 opacity-60"
+                                : isSelectedNum
+                                  ? "bg-brandAccent border-brandAccent" // Slight contrast color for the chair when selected
+                                  : "bg-gray-100 border-borderLight"
+                            }`}
+                            />
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
             </View>
           )}
         </View>
       </ScrollView>
 
-      {/* --- BOTTOM ACTIONS / BOOKING BAR (Unchanged) --- */}
+      {/* --- BOTTOM ACTIONS / BOOKING BAR --- */}
       <View className="absolute bottom-0 w-full bg-white border-t border-borderLight px-6 py-4 pb-4 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.1)]">
         {myEnrollment?.status === "PENDING" ? (
           <View className="flex-row justify-between items-center">
@@ -687,26 +765,42 @@ export default function LibraryDetailScreen() {
           </View>
         ) : (
           <View className="flex-row justify-between items-center">
+            {/* 📌 4. Enhanced Pick Seat Prompt */}
             <View className="flex-1">
               <Text className="text-[10px] font-m-bold text-textLight uppercase tracking-widest mb-0.5">
-                {selectedSeat ? "Selected" : "No Seat Selected"}
+                {selectedSeat
+                  ? selectedSeat.reservation === "RESERVED" &&
+                    !selectedSeatNumber
+                    ? "Pick a Seat Above"
+                    : "Selected"
+                  : "No Seat Selected"}
               </Text>
               {selectedSeat ? (
-                <Text className="text-base font-m-bold text-textDark">
-                  {selectedSeat.amenity?.replace("_", " ")} • ₹
-                  {selectedSeat.price}/mo
-                </Text>
+                <>
+                  <Text className="text-base font-m-bold text-textDark">
+                    {selectedSeat.amenity?.replace("_", " ")}{" "}
+                    {selectedSeatNumber ? `(Seat ${selectedSeatNumber})` : ""}
+                  </Text>
+                  <Text className="text-base font-m-bold text-textDark">
+                    ₹{selectedSeat.price}/mo
+                  </Text>
+                </>
               ) : (
                 <Text className="text-sm text-textLight">
                   Choose a seat type above
                 </Text>
               )}
             </View>
+
+            {/* 📌 5. Locked Button Logic */}
             <Button
               title="Enroll"
               variant="primary"
               onPress={handleBooking}
-              disabled={!selectedSeat}
+              disabled={
+                !selectedSeat ||
+                (selectedSeat.reservation === "RESERVED" && !selectedSeatNumber)
+              }
               loading={isBooking}
               className="py-3.5 px-8 ml-4"
             />
@@ -727,7 +821,6 @@ export default function LibraryDetailScreen() {
         }}
       />
 
-      {/* 📌 THE CLEANED AIRBNB-STYLE IMAGE VIEWER MODAL */}
       <Modal
         visible={isImageViewerVisible}
         transparent={false}
@@ -809,7 +902,6 @@ export default function LibraryDetailScreen() {
                 );
 
                 if (availablePlans.length === 0) {
-                  // EMPTY STATE: User is already on the only available plan
                   return (
                     <View className="items-center py-6 px-4">
                       <View className="w-12 h-12 bg-brand/10 rounded-full items-center justify-center mb-4">
@@ -831,7 +923,6 @@ export default function LibraryDetailScreen() {
                   );
                 }
 
-                // NORMAL STATE: Render the list of options
                 return (
                   <>
                     <Text className="text-sm text-textLight mb-4 leading-5">

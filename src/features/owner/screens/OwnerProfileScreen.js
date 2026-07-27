@@ -185,7 +185,14 @@ export default function OwnerProfileScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     className="flex-1 bg-background py-2 rounded-xl border border-borderLight items-center"
-                    onPress={() => router.push(`/manage-seats`)}
+                    onPress={async () => {
+                      try {
+                        await AsyncStorage.setItem("libraryId", lib.id);
+                        router.push("/manage-seats");
+                      } catch (error) {
+                        console.error("Failed to save library ID:", error);
+                      }
+                    }}
                   >
                     <Text className="text-textDark font-m-bold text-sm">
                       Manage Seats

@@ -16,7 +16,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Toast from "react-native-toast-message"; // 📌 Added Toast
+import Toast from "react-native-toast-message";
 
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams();
@@ -68,7 +68,7 @@ export default function UserProfileScreen() {
     }
   };
 
-  // 📌 1. LIVE API Action Handlers
+  // 1. LIVE API Action Handlers
   const handleApprove = async (enrollment_id) => {
     try {
       const response = await apiClient.patch(
@@ -181,15 +181,26 @@ export default function UserProfileScreen() {
 
   const calculateDaysLeft = (endDate) => {
     const diff = new Date(endDate) - new Date();
-    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24))); // Added Math.max to prevent negative days
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  };
+
+  // 📌 NEW HELPER: Dynamically formats seat text + assigned seat number
+  const formatSeatInfo = (plan) => {
+    if (!plan) return "";
+    const shiftText = plan.shift?.replace("_", " ");
+    const amenityText = plan.amenity?.replace("_", " ");
+    let info = `${shiftText} • ${amenityText} • ${plan.reservation}`;
+
+    // Add specific seat number if available
+    if (plan.reservation === "RESERVED" && plan.assigned_seat) {
+      info += ` (Seat ${plan.assigned_seat})`;
+    }
+
+    return info;
   };
 
   const totalLTV = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-
-  // 📌 Clean seat string generator
-  const seatInfo = enrollment
-    ? `${enrollment.shift.replace("_", " ")} • ${enrollment.amenity.replace("_", " ")} • ${enrollment.reservation}`
-    : "";
+  const seatInfo = formatSeatInfo(enrollment);
 
   if (loading) {
     return (
@@ -429,13 +440,12 @@ export default function UserProfileScreen() {
                   Awaiting Your Approval
                 </Text>
                 <Text className="text-orange-700 text-sm mb-3">
-                  Requested on: {formatCleanDate(futureEnrollment.requested_on)}
+                  Requested on: {formatDate(futureEnrollment.requested_on)}
                 </Text>
                 <Text className="text-orange-800 text-sm mb-4">
                   Prefers:{" "}
                   <Text className="font-m-bold">
-                    {futureEnrollment.shift.replace("_", " ")} •{" "}
-                    {futureEnrollment.amenity.replace("_", " ")}
+                    {formatSeatInfo(futureEnrollment)}
                   </Text>
                 </Text>
 
@@ -469,8 +479,7 @@ export default function UserProfileScreen() {
                 <Text className="text-blue-800 text-sm mb-4">
                   Prefers:{" "}
                   <Text className="font-m-bold">
-                    {futureEnrollment.shift.replace("_", " ")} •{" "}
-                    {futureEnrollment.amenity.replace("_", " ")}
+                    {formatSeatInfo(futureEnrollment)}
                   </Text>
                 </Text>
 
@@ -494,9 +503,7 @@ export default function UserProfileScreen() {
                 <Text className="text-green-800 text-sm">
                   Seat:{" "}
                   <Text className="font-m-bold">
-                    {futureEnrollment.shift.replace("_", " ")} •{" "}
-                    {futureEnrollment.amenity.replace("_", " ")} •{" "}
-                    {futureEnrollment.reservation}
+                    {formatSeatInfo(futureEnrollment)}
                   </Text>
                 </Text>
               </View>
@@ -556,8 +563,7 @@ export default function UserProfileScreen() {
 
                 <View className="bg-background/50 p-3 rounded-xl mt-1 border border-borderLight/50">
                   <Text className="text-xs text-textDark font-m-bold mb-1">
-                    {payment.shift.replace("_", " ")} •{" "}
-                    {payment.amenity.replace("_", " ")} • {payment.reservation}
+                    {formatSeatInfo(payment)}
                   </Text>
                   <Text className="text-xs text-textLight font-m">
                     Valid: {formatDate(payment.start_date)} -{" "}

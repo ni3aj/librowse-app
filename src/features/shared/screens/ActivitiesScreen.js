@@ -200,14 +200,14 @@ export default function ActivitiesScreen() {
         activeOpacity={0.8}
         delayLongPress={400}
         onLongPress={() => canDelete && confirmDelete(item.id)}
-        className={`mb-4 p-4 max-w-[85%] ${
+        className={`mb-4 p-4 max-w-[80%] ${
           isMyMessage
             ? "self-end bg-brand/10 border border-brand/20 rounded-3xl rounded-tr-md mr-6" // 📌 My Message: Right Side, Tinted
             : "self-start bg-white border border-borderLight rounded-3xl rounded-tl-md ml-6" // 📌 Other Message: Left Side, White
         }`}
       >
         <View className="flex-row justify-between items-center mb-1.5 gap-x-4">
-          <View className="flex-row items-center flex-1">
+          <View className="flex-row items-center flex-2">
             {/* Only show the Avatar for OTHER people's messages, keeps UI clean */}
             {!isMyMessage && (
               <View className="w-7 h-7 bg-brand/10 rounded-full items-center justify-center mr-2 border border-brand/20">

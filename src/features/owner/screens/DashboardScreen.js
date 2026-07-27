@@ -397,6 +397,7 @@ export default function DashboardScreen() {
                     color="textDark"
                     iconName="trending-up-outline"
                     iconColor={COLORS.textDark}
+                    onPress={() => router.push("/payments-history")}
                   />
                   <MetricCard
                     label={subUI.label}
@@ -516,7 +517,7 @@ export default function DashboardScreen() {
                         </Text>
                       </View>
 
-                      <View className="flex-row mt-2 border-t border-borderLight pt-4">
+                      <View className="flex-row mt-1">
                         <View className="flex-1 mr-2">
                           <Button
                             title="View Profile"
@@ -577,7 +578,7 @@ export default function DashboardScreen() {
                 key={lib.id}
                 className="py-4 border-b border-borderLight"
                 onPress={() => {
-                  setSelectedLibrary(lib);
+                  setSelectedLibrary(lib.id);
                   setModalVisible(false);
                 }}
               >

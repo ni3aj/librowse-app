@@ -6,10 +6,11 @@ export const studentApi = {
     apiClient.get(`/student/libraries/${libraryId}`),
 
   // Initial Enrollment Booking
-  enrollSeat: (inventoryId, startDate) =>
+  enrollSeat: (inventoryId, startDate, assignedSeat) =>
     apiClient.post("/student/enroll", {
       inventory_id: inventoryId,
       start_date: startDate,
+      assigned_seat: assignedSeat,
     }),
 
   // Cancel Pending Request

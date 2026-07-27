@@ -18,9 +18,9 @@ export default function StudentLayout() {
       }}
     >
       <Tabs.Screen
-        name="home" // Matches home.js
+        name="libraries-listing" // Matches home.js
         options={{
-          title: "Explore",
+          title: "Browse",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="compass" size={size} color={color} />
           ),

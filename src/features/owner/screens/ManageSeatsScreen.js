@@ -15,7 +15,8 @@ import { useLibraryStore } from "@/store/libraryStore"; // 📌 2. Added global 
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { useEffect, useRef, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -57,22 +58,26 @@ export default function ManageSeatsScreen() {
   const AMENITY_OPTIONS = ["AC", "NON_AC"];
   const RESERVATION_OPTIONS = ["RESERVED", "UNRESERVED"];
 
-  useEffect(() => {
-    const init = async () => {
-      const storedLibId = await AsyncStorage.getItem("libraryId");
-      if (storedLibId) {
-        setLibraryId(storedLibId);
-        loadInventory(storedLibId);
-      } else {
-        Alert.alert(
-          "Error",
-          "Library profile not found. Please restart the app.",
-        );
-        setLoading(false);
-      }
-    };
-    init();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      const init = async () => {
+        const storedLibId = await AsyncStorage.getItem("libraryId");
+
+        if (storedLibId) {
+          setLibraryId(storedLibId);
+          loadInventory(storedLibId);
+        } else {
+          Alert.alert(
+            "Error",
+            "Library profile not found. Please restart the app.",
+          );
+          setLoading(false);
+        }
+      };
+
+      init();
+    }, []),
+  );
 
   useEffect(() => {
     if (reservation === "RESERVED" && seats) {

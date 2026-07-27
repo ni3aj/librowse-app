@@ -13,11 +13,11 @@ import {
   View,
 } from "react-native";
 
-import ExploreHeader from "@/components/home/ExploreHeader";
-import FilterChips from "@/components/home/FilterChips";
-import LibraryCard from "@/components/home/LibraryCard";
+import ExploreHeader from "@/components/student/ExploreHeader";
+import FilterChips from "@/components/student/FilterChips";
+import LibraryCard from "@/components/student/LibraryCard";
 
-export default function HomeScreen() {
+export default function LibrariesListingScreen() {
   const [libraries, setLibraries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

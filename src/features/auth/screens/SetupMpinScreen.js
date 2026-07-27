@@ -1,3 +1,4 @@
+import { ONBOARDING_ROUTE_MAP } from "@/constants/config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -42,7 +43,7 @@ export default function SetupMpinScreen() {
         } else if (response.data.role === "owner") {
           router.replace("/(owner)/dashboard");
         } else {
-          router.replace("/(student)/home");
+          router.replace(ONBOARDING_ROUTE_MAP.ACTIVE_STUDENT);
         }
       }
     } catch (error) {
@@ -105,7 +106,7 @@ export default function SetupMpinScreen() {
 
         <TouchableOpacity
           className="items-center py-4"
-          onPress={() => router.replace("/(student)/home")}
+          onPress={() => router.replace(ONBOARDING_ROUTE_MAP.ACTIVE_STUDENT)}
         >
           <Text className="text-gray-500 font-medium">Skip for now</Text>
         </TouchableOpacity>
