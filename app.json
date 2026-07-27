@@ -20,7 +20,7 @@
       "package": "com.yourname.librowse",
       "googleServicesFile": "./google-services.json",
       "predictiveBackGestureEnabled": false,
-      "softwareKeyboardLayoutMode": "resize"
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "output": "static",

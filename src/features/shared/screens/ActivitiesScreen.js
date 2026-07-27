@@ -159,12 +159,6 @@ export default function ActivitiesScreen() {
 
   const renderItem = ({ item }) => {
     const isAnnounce = item.type === "ANNOUNCEMENT";
-    console.log(
-      "item.sender_id => ",
-      item.sender_id,
-      " currentUserId => ",
-      currentUserId,
-    );
     const isMyMessage = String(item.sender_id) === String(currentUserId);
     const canDelete =
       currentUserRole === "owner" || currentUserId === item.sender_id;
