@@ -3,7 +3,6 @@ import Button from "@/components/ui/Button";
 import Header from "@/components/ui/Header";
 import Input from "@/components/ui/Input";
 import { COLORS } from "@/constants/theme";
-// 📌 1. Import your global store
 import { useAuthStore } from "@/store/authStore";
 import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,6 +14,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  RefreshControl, // 📌 1. Imported Native RefreshControl
   ScrollView,
   Text,
   TouchableOpacity,
@@ -22,13 +22,15 @@ import {
 } from "react-native";
 
 export default function EditLibraryDetailsScreen() {
-  const [loading, setLoading] = useState(true);
+  const { libraryId } = useAuthStore();
 
-  // Controls the button state and text during the save process
+  // 📌 2. Split loading states
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
   const [saving, setSaving] = useState(false);
   const [saveStatusText, setSaveStatusText] = useState("Save Changes");
 
-  // Form State (Data going to the DB)
   const [formData, setFormData] = useState({
     name: "",
     city: "",
@@ -39,18 +41,12 @@ export default function EditLibraryDetailsScreen() {
 
   const [localPhotos, setLocalPhotos] = useState([]);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchLibraryDetails();
-      setLocalPhotos([]); // WIPE the local photos array clean on entry!
-    }, []),
-  );
-
+  // 📌 3. The master fetch function
   const fetchLibraryDetails = async () => {
-    const { libraryId } = useAuthStore();
+    if (!libraryId) return;
+
     try {
-      setLoading(true);
-      const res = await apiClient.get(`/owner/library/${storedLibId}`);
+      const res = await apiClient.get(`/owner/library/${libraryId}`); // Fixed: Using the Zustand libraryId
       if (res.data.success) {
         const lib = res.data.library;
         setFormData({
@@ -67,9 +63,29 @@ export default function EditLibraryDetailsScreen() {
     } catch (error) {
       Alert.alert("Error", "Could not load library details.");
       router.back();
-    } finally {
-      setLoading(false);
     }
+  };
+
+  // 📌 4. Auto-fetch on Focus
+  useFocusEffect(
+    useCallback(() => {
+      const init = async () => {
+        // Only show full screen spinner on very first load
+        if (!formData.name) setLoading(true);
+        await fetchLibraryDetails();
+        setLocalPhotos([]); // WIPE the local photos array clean on entry!
+        setLoading(false);
+      };
+
+      init();
+    }, [libraryId]),
+  );
+
+  // 📌 5. Manual Pull-to-Refresh Handler
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchLibraryDetails();
+    setRefreshing(false);
   };
 
   const toggleAmenity = (amenity) => {
@@ -171,27 +187,23 @@ export default function EditLibraryDetailsScreen() {
       setSaveStatusText("Saving Details...");
 
       const inventoryFlag = await AsyncStorage.getItem("hasInventory");
-      const hasSeats = inventoryFlag === "true"; // Evaluates to true only if they added seats
+      const hasSeats = inventoryFlag === "true";
 
-      // 📌 2. THE LOGIC FIX: They only graduate from UNVERIFIED if they have BOTH photos AND seats!
       const currentStatus = useLibraryStore.getState().libraryStatus;
       const isUpgrading =
         currentStatus === "UNVERIFIED" && finalPhotoUrls.length > 0 && hasSeats;
       const newStatus = isUpgrading ? "PENDING_ADMIN_APPROVAL" : currentStatus;
 
-      // Prepare the final payload for the backend
       const payload = {
         ...formData,
         photos: finalPhotoUrls,
-        status: newStatus, // 📌 3. Tell the database to officially upgrade the library!
+        status: newStatus,
       };
-      const { libraryId } = useAuthStore();
+
       const res = await apiClient.put(`/owner/library/${libraryId}`, payload);
 
       if (res.data.success) {
-        // 📌 4. Instantly update the Global Store so the Dashboard banner changes!
         useLibraryStore.getState().setLibraryStatus(newStatus);
-
         Alert.alert("Success", "Library details updated successfully!");
         setLocalPhotos([]);
         router.back();
@@ -216,10 +228,19 @@ export default function EditLibraryDetailsScreen() {
     <View className="flex-1 bg-background">
       <Header title="Edit Library" />
 
+      {/* 📌 6. Added Native RefreshControl to the ScrollView */}
       <ScrollView
         className="flex-1 p-6"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={COLORS.brand}
+            colors={[COLORS.brand]}
+          />
+        }
       >
         <Text className="text-lg font-m-bold text-textDark mb-4">
           Basic Information

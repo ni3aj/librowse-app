@@ -3,8 +3,8 @@ import Button from "@/components/ui/Button";
 import { COLORS } from "@/constants/theme";
 import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -14,6 +14,7 @@ import {
   Linking,
   Modal,
   Platform,
+  RefreshControl, // 📌 1. Imported Native RefreshControl
   ScrollView,
   Text,
   TouchableOpacity,
@@ -42,9 +43,11 @@ export default function LibraryDetailScreen() {
   const [myReview, setMyReview] = useState(null);
   const [library, setLibrary] = useState(null);
   const [inventory, setInventory] = useState([]);
-  const [loading, setLoading] = useState(true);
 
-  // 📌 1. Updated States for specific seat selection
+  // 📌 2. Separated Loading and Refreshing States
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
   const [selectedSeat, setSelectedSeat] = useState(null);
   const [selectedSeatNumber, setSelectedSeatNumber] = useState(null);
 
@@ -61,20 +64,68 @@ export default function LibraryDetailScreen() {
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  useEffect(() => {
-    fetchLibraryDetails();
-    fetchMyReview();
-  }, [id]);
-
-  const fetchMyReview = async () => {
+  // 📌 3. The Master Load Function
+  const loadLibraryData = async () => {
     try {
-      const response = await studentApi.fetchMyReview(id);
-      if (response.data.success && response.data.review) {
-        setMyReview(response.data.review);
+      // Run both API calls in parallel for faster loading
+      const [detailsRes, reviewRes] = await Promise.all([
+        studentApi.getLibraryDetails(id),
+        studentApi
+          .fetchMyReview(id)
+          .catch(() => ({ data: { success: false } })), // Catch if no review
+      ]);
+
+      if (detailsRes.data.success) {
+        setLibrary(detailsRes.data.library);
+        setInventory(detailsRes.data.inventory);
+
+        if (detailsRes.data.my_enrollment) {
+          setMyEnrollment(detailsRes.data.my_enrollment);
+          const bookedSeat = detailsRes.data.inventory.find(
+            (s) => s.id === detailsRes.data.my_enrollment.inventory_id,
+          );
+          if (bookedSeat) setSelectedSeat(bookedSeat);
+        } else {
+          setMyEnrollment(null);
+        }
+
+        if (detailsRes.data.future_enrollment) {
+          setFutureEnrollment(detailsRes.data.future_enrollment);
+        } else {
+          setFutureEnrollment(null);
+        }
+      }
+
+      if (reviewRes.data?.success && reviewRes.data?.review) {
+        setMyReview(reviewRes.data.review);
+      } else {
+        setMyReview(null);
       }
     } catch (error) {
-      console.log("No existing review found.");
+      console.log("Error loading library data:", error);
     }
+  };
+
+  // 📌 4. Auto-Refresh on Focus
+  useFocusEffect(
+    useCallback(() => {
+      const init = async () => {
+        if (!library) setLoading(true); // Only show massive spinner on very first load
+        await loadLibraryData();
+        setLoading(false);
+      };
+
+      if (id) {
+        init();
+      }
+    }, [id]),
+  );
+
+  // 📌 5. Manual Pull-To-Refresh Handler
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadLibraryData();
+    setRefreshing(false);
   };
 
   const handleOpenMaps = async () => {
@@ -122,41 +173,12 @@ export default function LibraryDetailScreen() {
     }
   };
 
-  const fetchLibraryDetails = async () => {
-    try {
-      const response = await studentApi.getLibraryDetails(id);
-
-      if (response.data.success) {
-        setLibrary(response.data.library);
-        setInventory(response.data.inventory);
-
-        if (response.data.my_enrollment) {
-          setMyEnrollment(response.data.my_enrollment);
-          const bookedSeat = response.data.inventory.find(
-            (s) => s.id === response.data.my_enrollment.inventory_id,
-          );
-          if (bookedSeat) setSelectedSeat(bookedSeat);
-        }
-        if (response.data.future_enrollment) {
-          setFutureEnrollment(response.data.future_enrollment);
-        } else {
-          setFutureEnrollment(null);
-        }
-      }
-    } catch (error) {
-      console.log("Error fetching details:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleBooking = async () => {
     if (!selectedSeat) return;
     setIsBooking(true);
     try {
       const today = new Date().toISOString().split("T")[0];
 
-      // 📌 Send the selectedSeatNumber along with the request!
       const response = await studentApi.enrollSeat(
         selectedSeat.id,
         today,
@@ -173,6 +195,8 @@ export default function LibraryDetailScreen() {
           "Request Sent! 🎉",
           "Waiting for the library owner to accept.",
         );
+        // Refresh data to get full clean state
+        await loadLibraryData();
       }
     } catch (error) {
       console.log(error);
@@ -203,8 +227,9 @@ export default function LibraryDetailScreen() {
               if (response.data.success) {
                 setMyEnrollment(null);
                 setSelectedSeat(null);
-                setSelectedSeatNumber(null); // Clear specific seat too
+                setSelectedSeatNumber(null);
                 Alert.alert("Cancelled", "Your request has been withdrawn.");
+                await loadLibraryData();
               }
             } catch (error) {
               Alert.alert(
@@ -237,7 +262,7 @@ export default function LibraryDetailScreen() {
               );
               if (response.data.success) {
                 setFutureEnrollment(null);
-                fetchLibraryDetails();
+                await loadLibraryData();
                 Alert.alert(
                   "Cancelled",
                   "Your request for next month has been withdrawn.",
@@ -273,7 +298,7 @@ export default function LibraryDetailScreen() {
           "Plan Updated! 🔄",
           "Your request for next month has been sent to the owner.",
         );
-        fetchLibraryDetails();
+        await loadLibraryData();
       }
     } catch (error) {
       Alert.alert(
@@ -307,7 +332,19 @@ export default function LibraryDetailScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
+      {/* 📌 6. Added Native RefreshControl to the ScrollView */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        className="flex-1"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={COLORS.brand}
+            colors={[COLORS.brand]}
+          />
+        }
+      >
         <View className="relative">
           <TouchableOpacity
             activeOpacity={0.9}
@@ -580,7 +617,6 @@ export default function LibraryDetailScreen() {
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    // 📌 2. Clears the specific seat number when switching categories
                     onPress={() => {
                       if (!isSoldOut) {
                         setSelectedSeat(item);
@@ -634,7 +670,6 @@ export default function LibraryDetailScreen() {
                 );
               })}
 
-              {/* 📌 3. THE VISUAL SEAT LAYOUT GRID */}
               {selectedSeat?.reservation === "RESERVED" &&
                 selectedSeat?.seat_numbers?.length > 0 && (
                   <View className="mt-6 mb-4">
@@ -647,7 +682,6 @@ export default function LibraryDetailScreen() {
 
                     <View className="flex-row flex-wrap gap-2">
                       {selectedSeat.seat_numbers.map((seatNum) => {
-                        // Check if it's already booked by checking our new SQL array
                         const isOccupied =
                           selectedSeat.occupied_seat_list?.includes(seatNum);
                         const isSelectedNum = selectedSeatNumber === seatNum;
@@ -660,7 +694,6 @@ export default function LibraryDetailScreen() {
                             activeOpacity={0.7}
                             className="items-center justify-center mb-2"
                           >
-                            {/* THE DESK */}
                             <View
                               className={`w-18 h-16 rounded-lg items-center justify-center border-2 z-10 shadow-sm
                             ${
@@ -684,14 +717,13 @@ export default function LibraryDetailScreen() {
                               </Text>
                             </View>
 
-                            {/* THE CHAIR (Tucked slightly under the desk) */}
                             <View
                               className={`w-8 h-4 rounded-full mt-[-6px] border border-t-0 z-0
                             ${
                               isOccupied
                                 ? "bg-gray-300 border-gray-400 opacity-60"
                                 : isSelectedNum
-                                  ? "bg-brandAccent border-brandAccent" // Slight contrast color for the chair when selected
+                                  ? "bg-brandAccent border-brandAccent"
                                   : "bg-gray-100 border-borderLight"
                             }`}
                             />
@@ -765,7 +797,6 @@ export default function LibraryDetailScreen() {
           </View>
         ) : (
           <View className="flex-row justify-between items-center">
-            {/* 📌 4. Enhanced Pick Seat Prompt */}
             <View className="flex-1">
               <Text className="text-[10px] font-m-bold text-textLight uppercase tracking-widest mb-0.5">
                 {selectedSeat
@@ -792,7 +823,6 @@ export default function LibraryDetailScreen() {
               )}
             </View>
 
-            {/* 📌 5. Locked Button Logic */}
             <Button
               title="Enroll"
               variant="primary"
@@ -809,15 +839,13 @@ export default function LibraryDetailScreen() {
       </View>
 
       {/* --- MODALS --- */}
-
       <WriteReviewModal
         visible={isReviewModalVisible}
         onClose={() => setIsReviewModalVisible(false)}
         libraryId={id}
         existingReview={myReview}
         onSuccess={() => {
-          fetchLibraryDetails();
-          fetchMyReview();
+          loadLibraryData();
         }}
       />
 
@@ -882,7 +910,6 @@ export default function LibraryDetailScreen() {
       >
         <View className="flex-1 justify-end bg-black/50">
           <View className="bg-background rounded-t-3xl p-6 pb-10 shadow-lg">
-            {/* Modal Header */}
             <View className="flex-row justify-between items-center mb-2">
               <Text className="text-xl font-m-bold text-textDark">
                 Change Seat for Next Month

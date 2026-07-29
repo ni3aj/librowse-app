@@ -1,26 +1,32 @@
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import { COLORS } from "@/constants/theme";
 import { createLibraryProfile } from "@/features/owner/api";
 import { useAuthStore } from "@/store/authStore";
+import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal, // 📌 Imported Modal
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import MapView, { Marker } from "react-native-maps"; // 📌 Imported Map Components
 
-// 📌 Define your available options as a constant array
 const AVAILABLE_AMENITIES = ["AC", "WIFI", "CCTV", "RO WATER", "PARKING"];
 
 export default function CreateLibraryWizard() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
+
+  // 📌 Map Modal State
+  const [showMap, setShowMap] = useState(false);
 
   // Form State
   const [name, setName] = useState("");
@@ -29,17 +35,13 @@ export default function CreateLibraryWizard() {
 
   // Geolocation State
   const [coords, setCoords] = useState({ latitude: null, longitude: null });
-
-  // 📌 THE FIX: Amenities is now a clean array of strings
   const [selectedAmenities, setSelectedAmenities] = useState([]);
 
-  // 📌 THE FIX: Toggles strings in and out of the array
   const toggleAmenity = (amenity) => {
-    setSelectedAmenities(
-      (prev) =>
-        prev.includes(amenity)
-          ? prev.filter((item) => item !== amenity) // Remove it if already selected
-          : [...prev, amenity], // Add it if not selected
+    setSelectedAmenities((prev) =>
+      prev.includes(amenity)
+        ? prev.filter((item) => item !== amenity)
+        : [...prev, amenity],
     );
   };
 
@@ -59,10 +61,13 @@ export default function CreateLibraryWizard() {
       let location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
+
       setCoords({
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
       });
+
+      Alert.alert("Success", "GPS Location found!");
     } catch (error) {
       Alert.alert("Error", "Could not fetch location. Please try again.");
     }
@@ -76,7 +81,7 @@ export default function CreateLibraryWizard() {
     if (!coords.latitude || !coords.longitude) {
       return Alert.alert(
         "Location Required",
-        "Please detect your map location so students can find you.",
+        "Please detect or pick your map location so students can find you.",
       );
     }
     setStep(2);
@@ -91,7 +96,7 @@ export default function CreateLibraryWizard() {
       address: address.trim(),
       latitude: coords.latitude,
       longitude: coords.longitude,
-      amenities: selectedAmenities, // 📌 Perfect format for Fastify now: ["AC", "WIFI"]
+      amenities: selectedAmenities,
     });
 
     setLoading(false);
@@ -114,127 +119,211 @@ export default function CreateLibraryWizard() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-background p-6">
-      {/* Wizard Header */}
-      <View className="mb-8 mt-10">
-        <Text className="text-sm font-bold text-brand mb-2 uppercase tracking-wider">
-          Step {step} of 2
-        </Text>
-        <Text className="text-3xl font-bold text-textDark mb-2">
-          {step === 1 ? "Create New Library" : "Amenities"}
-        </Text>
-        <Text className="text-base text-textLight">
-          {step === 1
-            ? "Where are you located?"
-            : "What facilities do you offer?"}
-        </Text>
-      </View>
+    <View className="flex-1 bg-background">
+      <ScrollView className="flex-1 p-6">
+        {/* Wizard Header */}
+        <View className="mb-8 mt-10">
+          <Text className="text-sm font-m-bold text-brand mb-2 uppercase tracking-wider">
+            Step {step} of 2
+          </Text>
+          <Text className="text-3xl font-m-bold text-textDark mb-2">
+            {step === 1 ? "Create New Library" : "Amenities"}
+          </Text>
+          <Text className="text-base font-m text-textLight">
+            {step === 1
+              ? "Where are you located?"
+              : "What facilities do you offer?"}
+          </Text>
+        </View>
 
-      {/* --- STEP 1: Basic Info --- */}
-      {step === 1 && (
-        <View className="space-y-4">
-          <Input
-            label="Library Name"
-            placeholder="e.g. Focus Study Library"
-            value={name}
-            onChangeText={setName}
-          />
-          <Input
-            label="City"
-            placeholder="e.g. Pune"
-            value={city}
-            onChangeText={setCity}
-          />
-          <Input
-            label="Full Address"
-            placeholder="e.g. 2nd Floor, ABC Complex"
-            value={address}
-            onChangeText={setAddress}
-          />
+        {/* --- STEP 1: Basic Info --- */}
+        {step === 1 && (
+          <View className="space-y-4">
+            <Input
+              label="Library Name"
+              placeholder="e.g. Focus Study Library"
+              value={name}
+              onChangeText={setName}
+            />
+            <Input
+              label="City"
+              placeholder="e.g. Pune"
+              value={city}
+              onChangeText={setCity}
+            />
+            <Input
+              label="Full Address"
+              placeholder="e.g. 2nd Floor, ABC Complex"
+              value={address}
+              onChangeText={setAddress}
+            />
 
-          {/* Location Fetcher UI */}
-          <View className="mt-4 p-4 rounded-xl border border-borderLight bg-surface">
-            <Text className="font-bold text-textDark mb-4">
-              Location on Map
-            </Text>
-            {coords.latitude ? (
-              <View className="flex-row items-center">
-                <Text className="text-green-600 font-bold mr-2">
-                  ✓ Location Saved
-                </Text>
-                <TouchableOpacity onPress={fetchCurrentLocation}>
-                  <Text className="text-brand text-sm underline">Retake</Text>
+            {/* Location Fetcher UI */}
+            <View className="mt-4 p-4 rounded-2xl border border-borderLight bg-surface">
+              <Text className="font-m-bold text-textDark mb-4">
+                Location on Map
+              </Text>
+
+              {coords.latitude ? (
+                <View className="flex-row items-center justify-between bg-green-50 border border-green-200 p-3 rounded-xl mb-4">
+                  <View className="flex-row items-center">
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={20}
+                      color="#10B981"
+                    />
+                    <Text className="text-green-700 font-m-bold ml-2">
+                      Location Saved
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setShowMap(true)}>
+                    <Text className="text-brand font-m-bold text-sm underline">
+                      Adjust Pin
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+
+              <View className="flex-row gap-2">
+                <TouchableOpacity
+                  onPress={fetchCurrentLocation}
+                  className="flex-1 bg-brand/10 py-3 px-2 rounded-xl items-center flex-row justify-center border border-brand/20"
+                >
+                  {locationLoading ? (
+                    <ActivityIndicator color={COLORS.brand} size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="locate" size={16} color={COLORS.brand} />
+                      <Text className="text-brand font-m-bold ml-1.5 text-xs">
+                        Use GPS
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setShowMap(true)}
+                  className="flex-1 bg-indigo-50 py-3 px-2 rounded-xl items-center flex-row justify-center border border-indigo-100"
+                >
+                  <Ionicons name="map" size={16} color="#4F46E5" />
+                  <Text className="text-indigo-600 font-m-bold ml-1.5 text-xs">
+                    Pick on Map
+                  </Text>
                 </TouchableOpacity>
               </View>
-            ) : (
-              <TouchableOpacity
-                onPress={fetchCurrentLocation}
-                className="bg-brand/10 p-3 rounded-lg items-center flex-row justify-center"
-              >
-                {locationLoading ? (
-                  <ActivityIndicator color="#C13383" size="small" />
-                ) : (
-                  <Text className="text-brand font-bold">
-                    📍 Get Current Location
-                  </Text>
-                )}
-              </TouchableOpacity>
-            )}
+            </View>
+
+            <Button title="Next" onPress={handleNextStep} className="mt-8" />
           </View>
+        )}
 
-          <Button title="Next" onPress={handleNextStep} className="mt-8" />
-        </View>
-      )}
-
-      {/* --- STEP 2: Amenities Toggle --- */}
-      {step === 2 && (
-        <View>
-          <View className="flex-row flex-wrap justify-between">
-            {/* 📌 THE FIX: Render from array, check if selected via .includes() */}
-            {AVAILABLE_AMENITIES.map((amenity) => {
-              const isSelected = selectedAmenities.includes(amenity);
-              return (
-                <TouchableOpacity
-                  key={amenity}
-                  onPress={() => toggleAmenity(amenity)}
-                  className={`w-[48%] p-4 rounded-xl border mb-4 items-center ${
-                    isSelected
-                      ? "border-brand bg-brand/10"
-                      : "border-borderLight bg-surface"
-                  }`}
-                >
-                  <Text
-                    className={`font-bold capitalize ${
-                      isSelected ? "text-brand" : "text-textDark"
+        {/* --- STEP 2: Amenities Toggle --- */}
+        {step === 2 && (
+          <View>
+            <View className="flex-row flex-wrap justify-between">
+              {AVAILABLE_AMENITIES.map((amenity) => {
+                const isSelected = selectedAmenities.includes(amenity);
+                return (
+                  <TouchableOpacity
+                    key={amenity}
+                    onPress={() => toggleAmenity(amenity)}
+                    className={`w-[48%] p-4 rounded-2xl border mb-4 items-center ${
+                      isSelected
+                        ? "border-brand bg-brand/10"
+                        : "border-borderLight bg-surface"
                     }`}
                   >
-                    {amenity}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+                    <Text
+                      className={`font-m-bold capitalize ${
+                        isSelected ? "text-brand" : "text-textDark"
+                      }`}
+                    >
+                      {amenity}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
-          <View className="flex-row justify-between mt-8">
-            <TouchableOpacity
-              onPress={() => setStep(1)}
-              className="p-4 flex-1 items-center bg-surface border border-borderLight rounded-xl mr-2"
-            >
-              <Text className="text-textDark font-bold">Back</Text>
-            </TouchableOpacity>
+            <View className="flex-row justify-between mt-8">
+              <TouchableOpacity
+                onPress={() => setStep(1)}
+                className="p-4 flex-1 items-center bg-surface border border-borderLight rounded-xl mr-2"
+              >
+                <Text className="text-textDark font-m-bold">Back</Text>
+              </TouchableOpacity>
 
-            <View className="flex-[2] ml-2">
-              <Button
-                title="Finish Setup"
-                onPress={handleFinalSubmit}
-                loading={loading}
-              />
+              <View className="flex-[2] ml-2">
+                <Button
+                  title="Finish Setup"
+                  onPress={handleFinalSubmit}
+                  loading={loading}
+                />
+              </View>
             </View>
           </View>
-        </View>
-      )}
+        )}
 
-      <View className="h-10" />
-    </ScrollView>
+        <View className="h-10" />
+      </ScrollView>
+
+      {/* 📌 MAP PICKER MODAL */}
+      <Modal
+        visible={showMap}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <View className="flex-1 bg-background">
+          <View className="pt-12 pb-4 px-6 flex-row justify-between items-center bg-surface z-10 shadow-sm">
+            <Text className="text-xl font-m-bold text-textDark">
+              Place Library Pin
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowMap(false)}
+              className="bg-gray-100 p-2 rounded-full"
+            >
+              <Ionicons name="close" size={20} color={COLORS.textDark} />
+            </TouchableOpacity>
+          </View>
+
+          <View className="bg-blue-50 px-6 py-3 flex-row items-center border-b border-blue-100">
+            <Ionicons name="information-circle" size={20} color="#2563EB" />
+            <Text className="text-blue-800 font-m text-xs ml-2 flex-1">
+              Tap anywhere on the map to drop the pin. You can also drag the pin
+              for exact placement.
+            </Text>
+          </View>
+
+          <MapView
+            style={{ flex: 1 }}
+            showsUserLocation={true}
+            // Default to India's center if no coords exist, or jump to their coords
+            initialRegion={{
+              latitude: coords.latitude || 20.5937,
+              longitude: coords.longitude || 78.9629,
+              latitudeDelta: coords.latitude ? 0.005 : 15, // Zoom in if coords exist
+              longitudeDelta: coords.longitude ? 0.005 : 15,
+            }}
+            onPress={(e) => setCoords(e.nativeEvent.coordinate)}
+          >
+            {coords.latitude && (
+              <Marker
+                coordinate={coords}
+                draggable
+                onDragEnd={(e) => setCoords(e.nativeEvent.coordinate)}
+              />
+            )}
+          </MapView>
+
+          <View className="p-6 bg-surface pb-10 border-t border-borderLight">
+            <Button
+              title="Confirm Location"
+              onPress={() => setShowMap(false)}
+              disabled={!coords.latitude}
+            />
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }

@@ -285,7 +285,7 @@ export default function DashboardScreen() {
 
       {/* 📌 7. The New Standard React Native ScrollView with Native RefreshControl */}
       <ScrollView
-        className="px-6 mt-6"
+        className="px-6"
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
