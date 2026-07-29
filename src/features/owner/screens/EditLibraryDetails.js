@@ -230,7 +230,7 @@ export default function EditLibraryDetailsScreen() {
 
       {/* 📌 6. Added Native RefreshControl to the ScrollView */}
       <ScrollView
-        className="flex-1 p-6"
+        className="flex-1 px-6"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
         refreshControl={
@@ -265,7 +265,7 @@ export default function EditLibraryDetailsScreen() {
           multiline
         />
 
-        <Text className="text-lg font-m-bold text-textDark mb-4 ml-2 mt-6">
+        <Text className="text-lg font-m-bold text-textDark mb-4 ml-2 mt-4">
           Amenities
         </Text>
         <View className="flex-row flex-wrap gap-3 mb-6 ml-2">

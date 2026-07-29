@@ -124,7 +124,7 @@ function StatusBadge({ status }) {
 function SectionLabel({ title, count, rightElement }) {
   return (
     <View className="flex-row items-center justify-between gap-2 mb-3 px-1">
-      <Text className="text-[14px] font-m-bold tracking-widest uppercase text-purple-500">
+      <Text className="text-[14px] font-m-bold tracking-widest uppercase text-textDark">
         {title}
       </Text>
       <View className="flex-2">
@@ -169,8 +169,8 @@ function EnrollmentCard({
   isOwner = false,
   children,
 }) {
-  const headerBg = isFuture ? "bg-red-50" : "bg-pink-50";
-  const borderCl = isFuture ? "border-red-100" : "border-pink-100";
+  const headerBg = "bg-background";
+  const borderCl = "border-borderLight";
   const titleCl = isFuture ? "text-red-500" : "text-pink-600";
   const priceCl = isFuture ? "text-red-500" : "text-pink-600";
 
@@ -278,10 +278,10 @@ function PaymentCard({ payment }) {
               <Text className="text-xl">💳</Text>
             </View>
             <View className="flex-1 min-w-0">
-              <Text className="text-lg font-black text-indigo-900">
+              <Text className="text-lg font-m-bold text-indigo-900">
                 {fmtCurrency(payment.amount)}
               </Text>
-              <Text className="text-[11px] text-gray-400 font-medium mt-0.5">
+              <Text className="text-[11px] text-gray-400 font-m mt-0.5">
                 {formatCleanDate(payment.paid_on)} · {payment.mode}
               </Text>
             </View>
@@ -314,7 +314,7 @@ function PaymentCard({ payment }) {
             <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">
               Period
             </Text>
-            <Text className="text-xs font-semibold text-gray-600">
+            <Text className="text-xs font-m-semi text-gray-600">
               {formatCleanDate(payment.start_date)} →{" "}
               {formatCleanDate(payment.end_date)}
             </Text>
@@ -705,8 +705,6 @@ export default function UserProfileScreen() {
         <SectionLabel title="Profile" />
         <View className="bg-white rounded-2xl border border-indigo-100  overflow-hidden mb-4">
           <View className="px-4 py-2">
-            <InfoRow emoji="🆔" label="Student ID" value={user.id} mono />
-            <View className="h-px bg-gray-100" />
             <InfoRow
               emoji="🏠"
               label="Full Address"

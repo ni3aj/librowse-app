@@ -1,6 +1,7 @@
 import WriteReviewModal from "@/components/student/WriteReviewModal";
 import Button from "@/components/ui/Button";
 import { COLORS } from "@/constants/theme";
+import { useAuthStore } from "@/store/authStore"; // 📌 Imported AuthStore for role check
 import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -14,7 +15,7 @@ import {
   Linking,
   Modal,
   Platform,
-  RefreshControl, // 📌 1. Imported Native RefreshControl
+  RefreshControl,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -40,11 +41,16 @@ const getAmenityIcon = (name) => {
 
 export default function LibraryDetailScreen() {
   const { id } = useLocalSearchParams();
+
+  // 📌 Extract user to check role
+  const { user } = useAuthStore();
+  // Safe check: If they aren't explicitly an OWNER, they are a STUDENT/GUEST
+  const isStudent = user?.role !== "OWNER" && user?.account_type !== "OWNER";
+
   const [myReview, setMyReview] = useState(null);
   const [library, setLibrary] = useState(null);
   const [inventory, setInventory] = useState([]);
 
-  // 📌 2. Separated Loading and Refreshing States
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -56,6 +62,9 @@ export default function LibraryDetailScreen() {
   const [isBooking, setIsBooking] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
 
+  // 📌 New State for Enquiry
+  const [isEnquiring, setIsEnquiring] = useState(false);
+
   const [isChangeModalVisible, setIsChangeModalVisible] = useState(false);
   const [selectedFutureSeat, setSelectedFutureSeat] = useState(null);
   const [isChangingPlan, setIsChangingPlan] = useState(false);
@@ -64,15 +73,13 @@ export default function LibraryDetailScreen() {
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // 📌 3. The Master Load Function
   const loadLibraryData = async () => {
     try {
-      // Run both API calls in parallel for faster loading
       const [detailsRes, reviewRes] = await Promise.all([
         studentApi.getLibraryDetails(id),
         studentApi
           .fetchMyReview(id)
-          .catch(() => ({ data: { success: false } })), // Catch if no review
+          .catch(() => ({ data: { success: false } })),
       ]);
 
       if (detailsRes.data.success) {
@@ -106,11 +113,10 @@ export default function LibraryDetailScreen() {
     }
   };
 
-  // 📌 4. Auto-Refresh on Focus
   useFocusEffect(
     useCallback(() => {
       const init = async () => {
-        if (!library) setLoading(true); // Only show massive spinner on very first load
+        if (!library) setLoading(true);
         await loadLibraryData();
         setLoading(false);
       };
@@ -121,11 +127,39 @@ export default function LibraryDetailScreen() {
     }, [id]),
   );
 
-  // 📌 5. Manual Pull-To-Refresh Handler
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadLibraryData();
     setRefreshing(false);
+  };
+
+  // 📌 The Make Enquiry Handler
+  const handleEnquiry = async () => {
+    setIsEnquiring(true);
+    try {
+      // 1. Fire API so backend sends push notification to owner
+      // NOTE: Ensure `studentApi.sendEnquiry(id)` is added to your api.js file
+      await studentApi
+        .sendEnquiry(id)
+        .catch((e) => console.log("Silent error tracking:", e));
+
+      // 2. Open Native Phone Dialer
+      const phoneToCall =
+        library.phone || library.owner_phone || library.contact_number;
+
+      if (phoneToCall) {
+        Linking.openURL(`tel:${phoneToCall}`);
+      } else {
+        Alert.alert(
+          "Enquiry Sent",
+          "The library owner has been notified and will contact you shortly.",
+        );
+      }
+    } catch (error) {
+      Alert.alert("Error", "Could not process enquiry. Please try again.");
+    } finally {
+      setIsEnquiring(false);
+    }
   };
 
   const handleOpenMaps = async () => {
@@ -195,7 +229,6 @@ export default function LibraryDetailScreen() {
           "Request Sent! 🎉",
           "Waiting for the library owner to accept.",
         );
-        // Refresh data to get full clean state
         await loadLibraryData();
       }
     } catch (error) {
@@ -332,7 +365,6 @@ export default function LibraryDetailScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      {/* 📌 6. Added Native RefreshControl to the ScrollView */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         className="flex-1"
@@ -420,6 +452,7 @@ export default function LibraryDetailScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* 📌 Added Enquiry Button Right Next to Timings */}
           <View className="flex-row items-center mt-4 border-b border-borderLight pb-6">
             <View
               className={`px-3 py-1.5 rounded-full flex-row items-center mr-3 ${library.is_open ? "bg-emerald-500" : "bg-gray-200"}`}
@@ -433,9 +466,30 @@ export default function LibraryDetailScreen() {
                 {library.is_open ? "Open Now" : "Closed"}
               </Text>
             </View>
-            <Text className="text-textLight text-sm font-medium">
+
+            <Text className="text-textLight text-sm font-medium flex-1">
               {library.timing_string}
             </Text>
+
+            {/* 🔥 Make Enquiry Button (Only visible for students) */}
+            {isStudent && (
+              <TouchableOpacity
+                onPress={handleEnquiry}
+                disabled={isEnquiring}
+                className="bg-brand/10 px-4 py-2.5 rounded-xl flex-row items-center border border-brand/20 ml-2"
+              >
+                {isEnquiring ? (
+                  <ActivityIndicator size="small" color={COLORS.brand} />
+                ) : (
+                  <>
+                    <Ionicons name="call" size={16} color={COLORS.brand} />
+                    <Text className="text-brand font-m-bold ml-1.5 text-sm">
+                      Enquire
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
 
           <Text className="text-xl font-m-bold text-textDark mt-6 mb-4">

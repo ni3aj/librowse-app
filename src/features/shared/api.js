@@ -28,4 +28,6 @@ export const studentApi = {
 
   fetchMyReview: (libraryId) =>
     apiClient.get(`/reviews/libraries/${libraryId}/me`),
+
+  sendEnquiry: (libraryId) => apiClient.get(`/student/enquiry/${libraryId}`),
 };
