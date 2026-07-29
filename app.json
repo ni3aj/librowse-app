@@ -20,7 +20,12 @@
       "package": "com.yourname.librowse",
       "googleServicesFile": "./google-services.json",
       "predictiveBackGestureEnabled": false,
-      "softwareKeyboardLayoutMode": "pan"
+      "softwareKeyboardLayoutMode": "pan",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCBFG8Jl88OHu0-VM64vTFUL4DehAXqK78"
+        }
+      }
     },
     "web": {
       "output": "static",

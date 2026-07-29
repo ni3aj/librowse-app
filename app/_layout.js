@@ -1,4 +1,5 @@
 import { toastConfig } from "@/components/ui/ToastConfig";
+import { COLORS } from "@/constants/theme"; // 📌 1. Import your theme colors
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import {
   Montserrat_400Regular,
@@ -33,17 +34,21 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (Platform.OS === "android") {
-      NavigationBar.setVisibilityAsync("hidden");
-      NavigationBar.setBehaviorAsync("overlay-swipe");
+      // 📌 2. THE FIX: Stop hiding the bar. Color it to match your Tabs!
+      NavigationBar.setBackgroundColorAsync(COLORS.background);
+
+      // Makes the Android system buttons (home, back, recent) dark
+      // so they are visible against your light lavender background
+      NavigationBar.setButtonStyleAsync("dark");
     }
 
-    // 2. Hide splash screen ONLY when fonts are successfully loaded
+    // 3. Hide splash screen ONLY when fonts are successfully loaded
     if (fontsLoaded || error) {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, error]);
 
-  // 3. Prevent rendering until fonts are ready to avoid visual glitches
+  // 4. Prevent rendering until fonts are ready to avoid visual glitches
   if (!fontsLoaded && !error) {
     return null;
   }

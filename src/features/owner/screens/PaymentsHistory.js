@@ -1,17 +1,18 @@
 import apiClient from "@/api/client";
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
+import { useAuthStore } from "@/store/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient"; // 📌 Used for that beautiful blue card
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Image,
-    RefreshControl,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Image,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import Toast from "react-native-toast-message";
 
@@ -48,7 +49,8 @@ export default function PaymentsHistory() {
 
   const fetchData = async () => {
     try {
-      const response = await apiClient.get("/owner/payments");
+      const { libraryId } = useAuthStore();
+      const response = await apiClient.get(`/owner/payments/${libraryId}`);
       if (response.data.success) {
         setTotalCollected(response.data.data.totalCollected);
         setPendingPayments(response.data.data.pendingPayments);

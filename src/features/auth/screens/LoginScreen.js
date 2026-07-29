@@ -249,12 +249,27 @@ export default function LoginScreen() {
         {step === 1 && (
           <View className="w-full">
             <Input
-              label="Phone Number"
+              label="Mobile Number"
               keyboardType="number-pad"
               maxLength={10}
               value={phone}
               onChangeText={setPhone}
             />
+            {/* 📌 New Privacy Reassurance Message */}
+            <View className="flex-row items-center mb-5 mt-[-10]">
+              <Ionicons
+                name="shield-checkmark"
+                size={14}
+                color="#10B981"
+                className="mr-1.5"
+              />
+              <Text className="text-[11px] font-m text-textLight/80 flex-1 leading-4">
+                We value your privacy. Your number is kept hidden and is only
+                shared with the library owner if you explicitly book a seat with
+                them.
+              </Text>
+            </View>
+
             <Button
               title="Get OTP"
               variant="primary"
