@@ -1,7 +1,7 @@
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { createLibraryProfile } from "@/features/owner/api";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuthStore } from "@/store/authStore";
 import * as Location from "expo-location";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -97,7 +97,7 @@ export default function CreateLibraryWizard() {
     setLoading(false);
 
     if (success) {
-      await AsyncStorage.setItem("libraryId", data.libraryId);
+      useAuthStore.setState({ libraryId: data.libraryId });
       Alert.alert(
         "Library Created!",
         "Welcome to LiBrowse. Let's add your seating capacity next.",

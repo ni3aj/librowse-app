@@ -4,7 +4,6 @@ import { COLORS } from "@/constants/theme";
 import { useAuthStore } from "@/store/authStore";
 import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -21,55 +20,36 @@ import {
 } from "react-native";
 
 export default function ActivitiesScreen() {
-  const currentUserRole = useAuthStore((state) => state.userRole);
-  const currentUserId = useAuthStore((state) => state.userId);
+  // 📌 1. Pull everything directly from Zustand synchronously!
+  const {
+    role: currentUserRole,
+    userId: currentUserId,
+    libraryId,
+  } = useAuthStore();
 
   const [activities, setActivities] = useState([]);
-  const [libraryId, setLibraryId] = useState(null);
-  const [hasNoLibrary, setHasNoLibrary] = useState(false); // 📌 NEW: Tracks if the user lacks a library
-
   const [inputText, setInputText] = useState("");
   const [isAnnouncement, setIsAnnouncement] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // 📌 2. Automatically react to the libraryId from Zustand
   useEffect(() => {
-    loadLibraryAndFetchActivities();
-  }, []);
-
-  const loadLibraryAndFetchActivities = async () => {
-    try {
-      // 📌 THE FIX: Read strictly from AsyncStorage for everyone
-      const storedLibId = await AsyncStorage.getItem("libraryId");
-
-      // Sometimes AsyncStorage returns the literal string "null" or "undefined", so we check for that too
-      if (
-        storedLibId &&
-        storedLibId !== "null" &&
-        storedLibId !== "undefined"
-      ) {
-        setLibraryId(storedLibId);
-        await fetchActivities(storedLibId);
-      } else {
-        // Trigger the empty state card and stop loading
-        setHasNoLibrary(true);
-        setLoading(false);
-      }
-    } catch (error) {
-      console.error("Failed to load library ID", error);
-      setHasNoLibrary(true);
+    if (libraryId) {
+      fetchActivities();
+    } else {
+      // Instantly show the empty state if they have no library
       setLoading(false);
     }
-  };
+  }, [libraryId]);
 
-  const fetchActivities = async (idToUse) => {
-    const activeId = idToUse || libraryId;
-    if (!activeId) return;
+  const fetchActivities = async () => {
+    if (!libraryId) return;
 
     try {
       const response = await apiClient.get(
-        `/shared/libraries/${activeId}/activities`,
+        `/shared/libraries/${libraryId}/activities`,
       );
       if (response.data.success) {
         setActivities(response.data.activities);
@@ -196,13 +176,12 @@ export default function ActivitiesScreen() {
         onLongPress={() => canDelete && confirmDelete(item.id)}
         className={`mb-4 p-4 max-w-[80%] ${
           isMyMessage
-            ? "self-end bg-brand/10 border border-brand/20 rounded-3xl rounded-tr-md mr-6" // 📌 My Message: Right Side, Tinted
-            : "self-start bg-white border border-borderLight rounded-3xl rounded-tl-md ml-6" // 📌 Other Message: Left Side, White
+            ? "self-end bg-brand/10 border border-brand/20 rounded-3xl rounded-tr-md mr-6"
+            : "self-start bg-white border border-borderLight rounded-3xl rounded-tl-md ml-6"
         }`}
       >
         <View className="flex-row justify-between items-center mb-1.5 gap-x-4">
           <View className="flex-row items-center flex-2">
-            {/* Only show the Avatar for OTHER people's messages, keeps UI clean */}
             {!isMyMessage && (
               <View className="w-7 h-7 bg-brand/10 rounded-full items-center justify-center mr-2 border border-brand/20">
                 <Text className="text-brand font-m-bold text-xs uppercase">
@@ -211,7 +190,6 @@ export default function ActivitiesScreen() {
               </View>
             )}
 
-            {/* Sender Name ("You" if it's the current user) */}
             <Text
               className="text-textDark font-m-bold text-sm"
               numberOfLines={1}
@@ -219,7 +197,6 @@ export default function ActivitiesScreen() {
               {isMyMessage ? "You" : item.sender_name}
             </Text>
 
-            {/* Owner Badge */}
             {item.sender_role === "owner" && !isMyMessage && (
               <View className="ml-2 bg-blue-100 px-2 py-0.5 rounded-md">
                 <Text className="text-blue-700 text-[10px] font-m-bold">
@@ -229,7 +206,6 @@ export default function ActivitiesScreen() {
             )}
           </View>
 
-          {/* Timestamp */}
           <Text className="text-xs text-textLight font-m shrink-0">
             {new Date(item.created_at).toLocaleTimeString([], {
               hour: "2-digit",
@@ -238,7 +214,6 @@ export default function ActivitiesScreen() {
           </Text>
         </View>
 
-        {/* Message Content */}
         <Text className="text-textDark font-m text-[15px] leading-5 mt-1">
           {item.content}
         </Text>
@@ -259,8 +234,8 @@ export default function ActivitiesScreen() {
           <View className="flex-1 justify-center items-center">
             <ActivityIndicator size="large" color={COLORS.brand} />
           </View>
-        ) : hasNoLibrary ? (
-          /* 📌 THE FIX: Beautiful Error Card for new users. Completely replaces the Chat & Input */
+        ) : !libraryId ? (
+          /* 📌 3. Simpler empty state check since libraryId is null if not enrolled */
           <View className="flex-1 justify-center items-center px-6 pb-20">
             <View className="bg-white border border-borderLight rounded-[24px] p-8 items-center w-full">
               <View className="w-16 h-16 bg-brand/10 rounded-full items-center justify-center mb-4">
@@ -277,7 +252,6 @@ export default function ActivitiesScreen() {
             </View>
           </View>
         ) : (
-          /* Normal Chat UI (Only renders if they have a libraryId) */
           <>
             <FlatList
               data={sortedActivities}

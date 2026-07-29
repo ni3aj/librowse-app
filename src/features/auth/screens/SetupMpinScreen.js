@@ -1,23 +1,25 @@
+import apiClient from "@/api/client";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 import { ONBOARDING_ROUTE_MAP } from "@/constants/config";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuthStore } from "@/store/authStore";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Keyboard,
   Text,
-  TextInput,
-  TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
-import apiClient from "../../../api/client";
 
 export default function SetupMpinScreen() {
   const [mpin, setMpin] = useState("");
   const [confirmMpin, setConfirmMpin] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // 📌 1. Pull the exact tools we need from Zustand
+  const { setMpinConfigured, account_state } = useAuthStore();
 
   const handleSaveMpin = async () => {
     if (mpin.length !== 4)
@@ -33,11 +35,15 @@ export default function SetupMpinScreen() {
       });
 
       if (response.data.success) {
+        // 📌 2. Update Zustand! It will auto-save to AsyncStorage in the background
+        setMpinConfigured(true);
+
         Alert.alert(
           "Success!",
           "Your MPIN is set. You can use it next time for faster login.",
         );
-        await AsyncStorage.setItem("mpin_configured", "true");
+
+        // Route based on backend response
         if (response.data.role === "owner" && !response.data.hasLibrary) {
           router.replace("/create-library-wizard");
         } else if (response.data.role === "owner") {
@@ -48,68 +54,74 @@ export default function SetupMpinScreen() {
       }
     } catch (error) {
       console.log("CRITICAL ERROR:", error);
-      Alert.alert("Error", "Failed to save MPIN");
+      Alert.alert(
+        "Error",
+        error.response?.data?.error || "Failed to save MPIN",
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSkip = () => {
+    // 📌 3. Smart Skip: Route them to their proper home based on Zustand state
+    const nextRoute = ONBOARDING_ROUTE_MAP[account_state];
+    if (nextRoute) {
+      router.replace(nextRoute);
+    } else {
+      router.replace("/(student)/dashboard"); // Fallback
+    }
+  };
+
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View className="flex-1 justify-center px-6 bg-white">
-        <Text className="text-3xl font-m-bold text-gray-900 mb-2 text-center">
-          Set up Quick Login
-        </Text>
-        <Text className="text-gray-500 text-center mb-10">
-          Create a 4-digit MPIN so you don't need an OTP next time.
-        </Text>
+      <View className="flex-1 justify-center px-8 bg-background">
+        <View className="items-center mb-10">
+          <Text className="text-3xl font-m-extra text-textDark mb-2 text-center">
+            Set up Quick Login
+          </Text>
+          <Text className="text-base font-m text-textLight text-center">
+            Create a 4-digit MPIN so you don't need an OTP next time.
+          </Text>
+        </View>
 
-        <Text className="text-sm font-m-semi text-gray-700 mb-2 ml-1">
-          Create MPIN
-        </Text>
-        <TextInput
-          className="bg-gray-50 px-4 py-4 rounded-xl text-2xl text-gray-900 border border-gray-200 mb-4 text-center tracking-widest"
-          placeholder="••••"
-          keyboardType="number-pad"
-          maxLength={4}
-          secureTextEntry
-          value={mpin}
-          onChangeText={setMpin}
-        />
+        <View className="space-y-4 mb-8">
+          <Input
+            label="Create MPIN"
+            placeholder="••••"
+            keyboardType="number-pad"
+            maxLength={4}
+            secureTextEntry
+            value={mpin}
+            onChangeText={setMpin}
+          />
 
-        <Text className="text-sm font-m-semi text-gray-700 mb-2 ml-1 mt-2">
-          Confirm MPIN
-        </Text>
-        <TextInput
-          className="bg-gray-50 px-4 py-4 rounded-xl text-2xl text-gray-900 border border-gray-200 mb-8 text-center tracking-widest"
-          placeholder="••••"
-          keyboardType="number-pad"
-          maxLength={4}
-          secureTextEntry
-          value={confirmMpin}
-          onChangeText={setConfirmMpin}
-        />
+          <Input
+            label="Confirm MPIN"
+            placeholder="••••"
+            keyboardType="number-pad"
+            maxLength={4}
+            secureTextEntry
+            value={confirmMpin}
+            onChangeText={setConfirmMpin}
+          />
+        </View>
 
-        <TouchableOpacity
-          className="bg-gray-900 py-4 rounded-xl items-center mb-4"
+        {/* 📌 Replaced raw TouchableOpacity with your custom Button components */}
+        <Button
+          title="Save MPIN & Continue"
+          variant="primary"
           onPress={handleSaveMpin}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text className="text-white font-m-bold text-lg">
-              Save MPIN & Continue
-            </Text>
-          )}
-        </TouchableOpacity>
+          loading={loading}
+          className="mb-4"
+        />
 
-        <TouchableOpacity
-          className="items-center py-4"
-          onPress={() => router.replace(ONBOARDING_ROUTE_MAP.ACTIVE_STUDENT)}
-        >
-          <Text className="text-gray-500 font-medium">Skip for now</Text>
-        </TouchableOpacity>
+        <Button
+          title="Skip for now"
+          variant="outline"
+          onPress={handleSkip}
+          disabled={loading}
+        />
       </View>
     </TouchableWithoutFeedback>
   );

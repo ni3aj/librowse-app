@@ -2,18 +2,19 @@ import apiClient from "@/api/client";
 import AlertModal from "@/components/ui/AlertModal";
 import Button from "@/components/ui/Button";
 import Header from "@/components/ui/Header";
-import RefreshableScrollView from "@/components/ui/RefreshableScrollView";
 import { COLORS } from "@/constants/theme";
 import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Modal,
   Pressable,
+  RefreshControl, // 📌 1. Imported standard RefreshControl
+  ScrollView, // 📌 2. Imported standard ScrollView
   Text,
   TouchableOpacity,
   View,
@@ -33,7 +34,11 @@ export default function DashboardScreen() {
   const [libraries, setLibraries] = useState([]);
   const [selectedLibrary, setSelectedLibrary] = useState(null);
   const [stats, setStats] = useState(null);
+
+  // 📌 3. Split loading states (Initial Load vs Pull-to-Refresh)
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
   const [modalVisible, setModalVisible] = useState(false);
   const [hasInventory, setHasInventory] = useState(true);
 
@@ -42,27 +47,71 @@ export default function DashboardScreen() {
   const isPending =
     selectedLibrary && libraryStatus === "PENDING_ADMIN_APPROVAL";
   const isUnverified = selectedLibrary && libraryStatus === "UNVERIFIED";
-
-  // Combine them into a master lock
   const isLocked = isPending || isUnverified;
-
-  useEffect(() => {
-    fetchMyLibraries();
-  }, []);
-
-  useEffect(() => {
-    if (selectedLibrary) fetchDashboardStats(selectedLibrary.id);
-  }, [selectedLibrary]);
-
-  useFocusEffect(
-    useCallback(() => {
-      checkSetupStatus();
-    }, []),
-  );
 
   const checkSetupStatus = async () => {
     const inventoryFlag = await AsyncStorage.getItem("hasInventory");
     setHasInventory(inventoryFlag !== "false");
+  };
+
+  const fetchDashboardStats = async (libraryId) => {
+    try {
+      const response = await apiClient.get(`/owner/dashboard/${libraryId}`);
+      if (response.data.success) {
+        useLibraryStore
+          .getState()
+          .setLibraryStatus(response.data.libraryStatus);
+        setStats(response.data);
+      }
+    } catch (error) {
+      console.error("DASHBOARD FETCH ERROR:", error);
+      Alert.alert("Error", "Failed to fetch stats.");
+    }
+  };
+
+  // 📌 4. The Master Load Function
+  const loadDashboardData = async () => {
+    await checkSetupStatus();
+    let currentLibId = selectedLibrary?.id;
+
+    // Fetch libraries if we don't have them yet
+    if (!currentLibId) {
+      try {
+        const response = await apiClient.get("/owner/my-libraries");
+        if (response.data.success && response.data.libraries.length > 0) {
+          setLibraries(response.data.libraries);
+          setSelectedLibrary(response.data.libraries[0]);
+          currentLibId = response.data.libraries[0].id;
+        }
+      } catch (error) {
+        console.error("Failed to load libraries", error);
+      }
+    }
+
+    // Fetch stats for the active library
+    if (currentLibId) {
+      await fetchDashboardStats(currentLibId);
+    }
+  };
+
+  // 📌 5. Auto-Refresh on screen focus!
+  // Replaces the old useEffects. Re-runs anytime the screen is opened OR selectedLibrary changes.
+  useFocusEffect(
+    useCallback(() => {
+      const init = async () => {
+        if (!stats) setLoading(true); // Only show big spinner on very first load
+        await loadDashboardData();
+        setLoading(false);
+      };
+      init();
+    }, [selectedLibrary?.id]),
+  );
+
+  // 📌 6. Manual Pull-to-Refresh handler
+  const handlePullToRefresh = async () => {
+    setRefreshing(true); // Show the top native spinner
+    await loadDashboardData();
+    setRefreshing(false); // Hide the top native spinner
   };
 
   const handleMarkAsPaid = (enrollmentId, studentName) => {
@@ -106,48 +155,6 @@ export default function DashboardScreen() {
         }
       },
     });
-  };
-
-  const handlePullToRefresh = async () => {
-    await checkSetupStatus();
-    if (selectedLibrary) {
-      await fetchDashboardStats(selectedLibrary.id);
-    } else {
-      await fetchMyLibraries();
-    }
-  };
-
-  const fetchMyLibraries = async () => {
-    try {
-      const response = await apiClient.get("/owner/my-libraries");
-      if (response.data.success && response.data.libraries.length > 0) {
-        setLibraries(response.data.libraries);
-        setSelectedLibrary(response.data.libraries[0]);
-      } else {
-        setLoading(false);
-      }
-    } catch (error) {
-      Alert.alert("Error", "Failed to load your libraries.");
-      setLoading(false);
-    }
-  };
-
-  const fetchDashboardStats = async (libraryId) => {
-    setLoading(true);
-    try {
-      const response = await apiClient.get(`/owner/dashboard/${libraryId}`);
-      if (response.data.success) {
-        useLibraryStore
-          .getState()
-          .setLibraryStatus(response.data.libraryStatus);
-        setStats(response.data);
-      }
-    } catch (error) {
-      console.error("DASHBOARD FETCH ERROR:", error);
-      Alert.alert("Error", "Failed to fetch stats.");
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleAcceptRequest = async (enrollmentId) => {
@@ -276,11 +283,19 @@ export default function DashboardScreen() {
         }
       />
 
-      <RefreshableScrollView
+      {/* 📌 7. The New Standard React Native ScrollView with Native RefreshControl */}
+      <ScrollView
         className="px-6 mt-6"
-        onRefresh={handlePullToRefresh}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handlePullToRefresh}
+            tintColor={COLORS.brand} // iOS Spinner Color
+            colors={[COLORS.brand]} // Android Spinner Color
+          />
+        }
       >
-        {/* 📌 THE FIX: Added `hasInventory` check so this ONLY shows after seats are added */}
         {isUnverified && hasInventory && (
           <View className="bg-red-50 border border-red-200 p-4 rounded-2xl mb-6 flex-row items-start">
             <Text className="text-xl mr-3">🛑</Text>
@@ -303,7 +318,6 @@ export default function DashboardScreen() {
           </View>
         )}
 
-        {/* Conditional PENDING Orange Banner */}
         {isPending && (
           <View className="bg-orange-50 border border-orange-200 p-4 rounded-2xl mb-6 flex-row items-start">
             <Text className="text-xl mr-3">⚠️</Text>
@@ -328,7 +342,6 @@ export default function DashboardScreen() {
           />
         ) : stats ? (
           <>
-            {/* 📌 EMPTY STATE (Only shows if they HAVE a library but NO seats) */}
             {!hasInventory && (
               <View className="bg-white p-6 rounded-3xl border border-brandAccent/30 mb-6 items-center mt-4">
                 <View className="bg-brand/10 h-16 w-16 rounded-full items-center justify-center mb-4">
@@ -350,7 +363,6 @@ export default function DashboardScreen() {
               </View>
             )}
 
-            {/* 📌 FULL DASHBOARD */}
             {hasInventory && (
               <>
                 <View className="flex-row flex-wrap justify-between mb-4">
@@ -397,7 +409,14 @@ export default function DashboardScreen() {
                     color="textDark"
                     iconName="trending-up-outline"
                     iconColor={COLORS.textDark}
-                    onPress={() => router.push("/payments-history")}
+                    onPress={
+                      isLocked
+                        ? handleLockedClick
+                        : () =>
+                            router.push({
+                              pathname: "/payments-history",
+                            })
+                    }
                   />
                   <MetricCard
                     label={subUI.label}
@@ -413,16 +432,30 @@ export default function DashboardScreen() {
                   />
                 </View>
 
-                {/* Wrap actions in master isLocked check */}
                 <View
                   pointerEvents={isLocked ? "none" : "auto"}
                   className={isLocked ? "opacity-50" : ""}
                 >
-                  {/* --- PENDING APPROVALS --- */}
                   {stats.pendingRequests.length > 0 && (
-                    <Text className="text-lg font-m-bold px-1 text-textDark mb-4">
-                      New Requests
-                    </Text>
+                    <View className="flex-row justify-between">
+                      <Text className="text-lg font-m-bold px-1 text-textDark mb-4">
+                        New Requests
+                      </Text>
+                      <Text
+                        className="text-sm font-m-bold px-1 text-textDark mb-4"
+                        onPress={
+                          isLocked
+                            ? handleLockedClick
+                            : () =>
+                                router.push({
+                                  pathname: "/students-list",
+                                  params: { id: selectedLibrary?.id },
+                                })
+                        }
+                      >
+                        See all
+                      </Text>
+                    </View>
                   )}
                   {stats.pendingRequests.map((req) => (
                     <Pressable
@@ -430,14 +463,12 @@ export default function DashboardScreen() {
                       onPress={() => router.push(`/user/${req.student_id}`)}
                       className="bg-white rounded-2xl p-3.5 flex-row items-center mb-2 border border-borderLight active:opacity-70"
                     >
-                      {/* 1. Avatar (Auto-generated initials based on student name) */}
                       <View className="w-10 h-10 rounded-full bg-brand/10 items-center justify-center mr-3">
                         <Text className="text-brand font-m-bold text-base">
                           {req.student_name?.charAt(0)?.toUpperCase()}
                         </Text>
                       </View>
 
-                      {/* 2. Text Details */}
                       <View className="flex-1 pr-2">
                         <Text
                           className="text-[14px] font-m-bold text-textDark"
@@ -453,14 +484,12 @@ export default function DashboardScreen() {
                         </Text>
                       </View>
 
-                      {/* 3. Action Buttons (Compact Squares) */}
                       <View className="flex-row items-center">
-                        {/* Approve Button */}
                         <TouchableOpacity
                           onPress={() => handleAcceptRequest(req.id)}
                           activeOpacity={0.7}
                           className="w-10 h-10 rounded-3xl items-center justify-center"
-                          style={{ backgroundColor: "#D1FAE5" }} // Soft Green
+                          style={{ backgroundColor: "#D1FAE5" }}
                         >
                           <Ionicons
                             name="checkmark"
@@ -469,12 +498,11 @@ export default function DashboardScreen() {
                           />
                         </TouchableOpacity>
 
-                        {/* Reject Button */}
                         <TouchableOpacity
                           onPress={() => handleDenyRequest(req.id)}
                           activeOpacity={0.7}
                           className="w-10 h-10 rounded-3xl items-center justify-center ml-2"
-                          style={{ backgroundColor: "#FEE2E2" }} // Soft Red
+                          style={{ backgroundColor: "#FEE2E2" }}
                         >
                           <Ionicons name="close" size={20} color="#DC2626" />
                         </TouchableOpacity>
@@ -482,11 +510,26 @@ export default function DashboardScreen() {
                     </Pressable>
                   ))}
 
-                  {/* --- AWAITING PAYMENT --- */}
                   {stats.awaitingPayment.length > 0 && (
-                    <Text className="text-lg font-m-bold px-1 text-textDark mb-4 mt-2">
-                      Awaiting Payment
-                    </Text>
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-lg font-m-bold px-1 text-textDark mb-4 mt-6">
+                        Awaiting Payment
+                      </Text>
+                      <Text
+                        className="text-sm font-m-bold px-1 text-textDark mb-4 mt-6"
+                        onPress={
+                          isLocked
+                            ? handleLockedClick
+                            : () =>
+                                router.push({
+                                  pathname: "/students-list",
+                                  params: { id: selectedLibrary?.id },
+                                })
+                        }
+                      >
+                        See all
+                      </Text>
+                    </View>
                   )}
                   {stats.awaitingPayment.map((req) => (
                     <View
@@ -546,7 +589,6 @@ export default function DashboardScreen() {
             )}
           </>
         ) : (
-          /* --- NO LIBRARIES SCENARIO --- */
           <View className="items-center bg-white p-8 rounded-3xl border border-borderLight">
             <Text className="text-4xl mb-4">🏢</Text>
             <Text className="text-xl font-m-bold text-textDark mb-2 text-center">
@@ -564,7 +606,8 @@ export default function DashboardScreen() {
             />
           </View>
         )}
-      </RefreshableScrollView>
+        <View className="h-10" />
+      </ScrollView>
 
       {/* --- LIBRARY SELECTOR MODAL --- */}
       <Modal visible={modalVisible} transparent animationType="fade">
@@ -578,7 +621,7 @@ export default function DashboardScreen() {
                 key={lib.id}
                 className="py-4 border-b border-borderLight"
                 onPress={() => {
-                  setSelectedLibrary(lib.id);
+                  setSelectedLibrary(lib); // Pass the whole object!
                   setModalVisible(false);
                 }}
               >

@@ -1,6 +1,4 @@
-// app/owner/manage-seats.js
-
-import apiClient from "@/api/client"; // 📌 1. Added apiClient
+import apiClient from "@/api/client";
 import Button from "@/components/ui/Button";
 import Header from "@/components/ui/Header";
 import Input from "@/components/ui/Input";
@@ -11,12 +9,11 @@ import {
   getLibraryInventory,
   updateInventoryBucket,
 } from "@/features/owner/api";
-import { useLibraryStore } from "@/store/libraryStore"; // 📌 2. Added global store
+import { useAuthStore } from "@/store/authStore"; // 📌 1. Import Auth Store
+import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -29,9 +26,11 @@ import {
 import Toast from "react-native-toast-message";
 
 export default function ManageSeatsScreen() {
+  // 📌 2. Extract libraryId synchronously from Zustand
+  const { libraryId } = useAuthStore();
+
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [libraryId, setLibraryId] = useState(null);
   const scrollViewRef = useRef(null);
 
   const [editingId, setEditingId] = useState(null);
@@ -43,11 +42,11 @@ export default function ManageSeatsScreen() {
   const [seats, setSeats] = useState("");
   const [price, setPrice] = useState("");
 
-  // 📌 TIME PICKER STATE
-  const [startTime, setStartTime] = useState(""); // Stores "HH:mm" for backend
-  const [endTime, setEndTime] = useState(""); // Stores "HH:mm" for backend
-  const [startDate, setStartDate] = useState(new Date()); // Feeds the native picker
-  const [endDate, setEndDate] = useState(new Date()); // Feeds the native picker
+  // TIME PICKER STATE
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(new Date());
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
 
@@ -58,26 +57,18 @@ export default function ManageSeatsScreen() {
   const AMENITY_OPTIONS = ["AC", "NON_AC"];
   const RESERVATION_OPTIONS = ["RESERVED", "UNRESERVED"];
 
-  useFocusEffect(
-    useCallback(() => {
-      const init = async () => {
-        const storedLibId = await AsyncStorage.getItem("libraryId");
-
-        if (storedLibId) {
-          setLibraryId(storedLibId);
-          loadInventory(storedLibId);
-        } else {
-          Alert.alert(
-            "Error",
-            "Library profile not found. Please restart the app.",
-          );
-          setLoading(false);
-        }
-      };
-
-      init();
-    }, []),
-  );
+  // 📌 3. Clean useEffect replaces async storage loading
+  useEffect(() => {
+    if (libraryId) {
+      loadInventory(libraryId);
+    } else {
+      Alert.alert(
+        "Error",
+        "Library profile not found. Please select a library from your profile.",
+      );
+      setLoading(false);
+    }
+  }, [libraryId]); // Will auto-run if they swap to their 2nd library!
 
   useEffect(() => {
     if (reservation === "RESERVED" && seats) {
@@ -201,12 +192,10 @@ export default function ManageSeatsScreen() {
     );
   };
 
-  // 📌 3. THE FIX: Smart background check for "Photos First, Seats Second"
   const checkAndUpgradeStatus = async (libId) => {
     try {
       const currentStatus = useLibraryStore.getState().libraryStatus;
 
-      // We only care if they are stuck in UNVERIFIED
       if (currentStatus === "UNVERIFIED") {
         const res = await apiClient.get(`/owner/library/${libId}`);
 
@@ -214,7 +203,6 @@ export default function ManageSeatsScreen() {
           const lib = res.data.library;
           const photos = lib.photos || [];
 
-          // If they ALREADY uploaded photos, they are officially done with setup!
           if (photos.length > 0) {
             const payload = {
               name: lib.name,
@@ -225,7 +213,7 @@ export default function ManageSeatsScreen() {
                   ? JSON.parse(lib.amenities)
                   : lib.amenities || [],
               photos: photos,
-              status: "PENDING_ADMIN_APPROVAL", // 📌 Upgrade the status!
+              status: "PENDING_ADMIN_APPROVAL",
             };
 
             await apiClient.put(`/owner/library/${libId}`, payload);
@@ -233,7 +221,6 @@ export default function ManageSeatsScreen() {
               .getState()
               .setLibraryStatus("PENDING_ADMIN_APPROVAL");
 
-            // Show a celebratory toast
             Toast.show({
               type: "success",
               text1: "Setup Complete! 🎉",
@@ -295,9 +282,10 @@ export default function ManageSeatsScreen() {
       if (error) Alert.alert("Error", error);
       else {
         Alert.alert("Success", "Seat category added!");
-        await AsyncStorage.setItem("hasInventory", "true");
 
-        // 📌 4. Run the check right after seats are added!
+        // 📌 4. Update Zustand state directly instead of using AsyncStorage!
+        useAuthStore.setState({ hasInventory: true });
+
         await checkAndUpgradeStatus(libraryId);
 
         handleCancelEdit();

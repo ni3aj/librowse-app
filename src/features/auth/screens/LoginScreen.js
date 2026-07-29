@@ -6,12 +6,10 @@ import { ONBOARDING_ROUTE_MAP } from "@/constants/config";
 import { fetchCurrentUserStatus } from "@/features/auth/api";
 import { useAuthStore } from "@/store/authStore";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as LocalAuthentication from "expo-local-authentication";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Keyboard,
   Text,
@@ -31,8 +29,16 @@ export default function LoginScreen() {
   const [biometricSupported, setBiometricSupported] = useState(false);
   const [cachedRouteState, setCachedRouteState] = useState(null);
 
-  // 📌 THE FIX: Pull the unified setAuthData function from Zustand
-  const setAuthData = useAuthStore((state) => state.setAuthData);
+  // 📌 Pull everything we need from our Zustand "Bucket"
+  const {
+    jwt_token,
+    force_mpin_reset,
+    loginSuccess,
+    logout,
+    triggerMpinReset,
+    clearMpinResetFlag,
+    setMpinConfigured,
+  } = useAuthStore();
 
   useFocusEffect(
     useCallback(() => {
@@ -43,8 +49,8 @@ export default function LoginScreen() {
         const enrolled = await LocalAuthentication.isEnrolledAsync();
         setBiometricSupported(compatible && enrolled);
 
-        const token = await AsyncStorage.getItem("jwt_token");
-        if (!token) {
+        // 📌 No need to ask AsyncStorage, just check if Zustand has the token!
+        if (!jwt_token) {
           setIsChecking(false);
           return;
         }
@@ -55,7 +61,7 @@ export default function LoginScreen() {
         if (!success) {
           if (isUnauthorized) {
             console.log("Token expired. Wiping storage.");
-            await AsyncStorage.clear();
+            logout(); // 📌 Zustand handles the wiping automatically
           } else {
             console.log("Network error. Keeping token safe in wallet.", error);
           }
@@ -63,25 +69,14 @@ export default function LoginScreen() {
           return;
         }
 
-        if (data.token) await AsyncStorage.setItem("jwt_token", data.token);
-        if (data.libraryId)
-          await AsyncStorage.setItem("libraryId", String(data.libraryId));
-        await AsyncStorage.setItem(
-          "hasInventory",
-          data.hasInventory ? "true" : "false",
-        );
-
-        // 📌 THE FIX: Hydrate Zustand on Auto-Login (App Refresh)
-        // Ensure your fetchCurrentUserStatus API returns data.user.role and data.user.id
-        if (data.user) {
-          setAuthData(data.user.role, data.user.id);
-        }
+        // 📌 Zustand handles saving all this to AsyncStorage automatically!
+        loginSuccess(data);
 
         const currentState = data.account_state;
         setCachedRouteState(currentState);
 
         if (currentState.startsWith("ACTIVE")) {
-          await AsyncStorage.setItem("mpin_configured", "true");
+          setMpinConfigured(true);
 
           if (compatible && enrolled) {
             handleBiometricLogin(currentState);
@@ -91,14 +86,10 @@ export default function LoginScreen() {
         } else {
           const nextRoute = ONBOARDING_ROUTE_MAP[currentState];
           if (!nextRoute) {
-            Alert.alert(
-              "Routing Error",
-              `Target state '${currentState}' is missing from ONBOARDING_ROUTE_MAP. Check config.js!`,
-            );
+            Alert.alert("Routing Error", `Missing route for: ${currentState}`);
             setLoading(false);
             return;
           }
-
           router.replace(nextRoute);
         }
 
@@ -106,7 +97,7 @@ export default function LoginScreen() {
       };
 
       checkSession();
-    }, []),
+    }, [jwt_token]), // Added jwt_token as dependency so it reacts to changes
   );
 
   const handleBiometricLogin = async (targetState) => {
@@ -120,19 +111,8 @@ export default function LoginScreen() {
 
       if (result.success) {
         const finalState = targetState || cachedRouteState;
-
         if (finalState && ONBOARDING_ROUTE_MAP[finalState]) {
-          const nextRoute = ONBOARDING_ROUTE_MAP[finalState];
-          if (!nextRoute) {
-            Alert.alert(
-              "Routing Error",
-              `Target state '${finalState}' is missing from ONBOARDING_ROUTE_MAP. Check config.js!`,
-            );
-            setLoading(false);
-            return;
-          }
-
-          router.replace(nextRoute);
+          router.replace(ONBOARDING_ROUTE_MAP[finalState]);
         } else {
           setStep(3);
         }
@@ -140,20 +120,11 @@ export default function LoginScreen() {
         setStep(3);
       }
     } catch (error) {
-      console.log("Biometric Auth Error", error);
       setStep(3);
     }
   };
 
-  if (isChecking) {
-    return (
-      <View className="flex-1 bg-background justify-center items-center">
-        <ActivityIndicator size="large" color="#C13383" />
-      </View>
-    );
-  }
-
-  const handleForgotMpin = async () => {
+  const handleForgotMpin = () => {
     Alert.alert(
       "Reset MPIN",
       "You will be securely logged out. You must verify your phone number via OTP to set a new MPIN.",
@@ -162,10 +133,8 @@ export default function LoginScreen() {
         {
           text: "Proceed",
           style: "destructive",
-          onPress: async () => {
-            await AsyncStorage.removeItem("jwt_token");
-            await AsyncStorage.removeItem("mpin_configured");
-            await AsyncStorage.setItem("force_mpin_reset", "true");
+          onPress: () => {
+            triggerMpinReset(); // 📌 Zustand logs them out and sets the flag instantly
             setCachedRouteState(null);
             setStep(1);
           },
@@ -197,35 +166,24 @@ export default function LoginScreen() {
 
       if (response.data.success) {
         const { data } = response;
-        await AsyncStorage.setItem("jwt_token", data.token);
-        if (data.libraryId)
-          await AsyncStorage.setItem("libraryId", String(data.libraryId));
-        await AsyncStorage.setItem(
-          "hasInventory",
-          data.hasInventory ? "true" : "false",
-        );
 
-        const needsReset = await AsyncStorage.getItem("force_mpin_reset");
+        // 📌 Save everything to Zustand (and automatically AsyncStorage) at once
+        loginSuccess(data);
+
         let finalState = data.account_state;
 
-        if (needsReset === "true") {
-          await AsyncStorage.removeItem("force_mpin_reset");
+        if (force_mpin_reset) {
+          clearMpinResetFlag(); // Clear the flag now that they passed OTP
           finalState = "REQUIRES_MPIN";
         }
 
         if (finalState.startsWith("ACTIVE")) {
-          await AsyncStorage.setItem("mpin_configured", "true");
+          setMpinConfigured(true);
         }
-
-        // 📌 THE FIX: Hydrate Zustand on OTP Login
-        setAuthData(response.data.user?.role, response.data.user?.id);
 
         const nextRoute = ONBOARDING_ROUTE_MAP[finalState];
         if (!nextRoute) {
-          Alert.alert(
-            "Routing Error",
-            `Target state '${finalState}' is missing from ONBOARDING_ROUTE_MAP. Check config.js!`,
-          );
+          Alert.alert("Routing Error", `Missing route for: ${finalState}`);
           setLoading(false);
           return;
         }
@@ -233,12 +191,9 @@ export default function LoginScreen() {
         router.replace(nextRoute);
       }
     } catch (error) {
-      console.error("APP CRASHED AFTER OTP:", error);
       Alert.alert(
-        "Debug Error",
-        error.response?.data?.error ||
-          error.message ||
-          "Unknown JavaScript Error",
+        "Error",
+        error.response?.data?.error || "Verification failed",
       );
     } finally {
       setLoading(false);
@@ -252,27 +207,15 @@ export default function LoginScreen() {
       const response = await apiClient.post("/auth/login-mpin", { mpin });
       if (response.data.success) {
         const { data } = response;
-        await AsyncStorage.setItem("jwt_token", data.token);
-        if (data.libraryId)
-          await AsyncStorage.setItem("libraryId", String(data.libraryId));
-        if (data.hasInventory !== undefined) {
-          await AsyncStorage.setItem(
-            "hasInventory",
-            data.hasInventory ? "true" : "false",
-          );
-        }
 
-        // 📌 THE FIX: Hydrate Zustand on MPIN Login
-        setAuthData(response.data.user?.role, response.data.user?.id);
+        // 📌 Save everything to Zustand at once
+        loginSuccess(data);
 
         const currentState = data.account_state;
         const nextRoute = ONBOARDING_ROUTE_MAP[currentState];
 
         if (!nextRoute) {
-          Alert.alert(
-            "Routing Error",
-            `Target state '${currentState}' is missing from ONBOARDING_ROUTE_MAP. Check config.js!`,
-          );
+          Alert.alert("Routing Error", `Missing route for: ${currentState}`);
           setLoading(false);
           return;
         }
@@ -376,7 +319,7 @@ export default function LoginScreen() {
                   onPress={() => handleBiometricLogin()}
                   className="bg-brand/10 w-14 items-center justify-center rounded-2xl border border-brand/20"
                 >
-                  <Ionicons name="fingerprint" size={28} color="#C13383" />
+                  <Ionicons name="finger-print" size={28} color="#C13383" />
                 </TouchableOpacity>
               )}
             </View>

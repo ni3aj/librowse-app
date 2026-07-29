@@ -12,7 +12,7 @@ export default function StudentLayout() {
         tabBarStyle: {
           backgroundColor: COLORS.background,
           borderTopColor: COLORS.surface,
-          height: 90,
+          height: 70,
           paddingTop: 10,
         },
       }}

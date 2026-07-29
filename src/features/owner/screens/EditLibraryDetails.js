@@ -4,6 +4,7 @@ import Header from "@/components/ui/Header";
 import Input from "@/components/ui/Input";
 import { COLORS } from "@/constants/theme";
 // 📌 1. Import your global store
+import { useAuthStore } from "@/store/authStore";
 import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -46,7 +47,7 @@ export default function EditLibraryDetailsScreen() {
   );
 
   const fetchLibraryDetails = async () => {
-    const storedLibId = await AsyncStorage.getItem("libraryId");
+    const { libraryId } = useAuthStore();
     try {
       setLoading(true);
       const res = await apiClient.get(`/owner/library/${storedLibId}`);
@@ -184,9 +185,8 @@ export default function EditLibraryDetailsScreen() {
         photos: finalPhotoUrls,
         status: newStatus, // 📌 3. Tell the database to officially upgrade the library!
       };
-
-      const storedLibId = await AsyncStorage.getItem("libraryId");
-      const res = await apiClient.put(`/owner/library/${storedLibId}`, payload);
+      const { libraryId } = useAuthStore();
+      const res = await apiClient.put(`/owner/library/${libraryId}`, payload);
 
       if (res.data.success) {
         // 📌 4. Instantly update the Global Store so the Dashboard banner changes!

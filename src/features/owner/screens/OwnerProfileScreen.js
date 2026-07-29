@@ -5,7 +5,6 @@ import { COLORS } from "@/constants/theme"; // Adjust path
 import { useAuthStore } from "@/store/authStore";
 import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage"; // 📌 Added missing import for logout
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
@@ -21,11 +20,11 @@ export default function OwnerProfileScreen() {
   const [owner, setOwner] = useState(null);
   const [libraries, setLibraries] = useState([]);
   const [loading, setLoading] = useState(true);
-  const clearAuth = useAuthStore((state) => state.clearAuth);
+
+  // 📌 Pull the unified logout action directly from your new Zustand store
+  const { logout } = useAuthStore();
   const clearLibrary = useLibraryStore((state) => state.clearLibrary);
 
-  // 📌 useFocusEffect triggers every time the user lands on this screen.
-  // This ensures if they edit their name or add a library, it updates immediately!
   useFocusEffect(
     useCallback(() => {
       fetchProfileData();
@@ -53,11 +52,15 @@ export default function OwnerProfileScreen() {
       {
         text: "Logout",
         style: "destructive",
-        onPress: async () => {
+        onPress: () => {
           try {
-            await AsyncStorage.clear();
-            clearAuth();
-            clearLibrary();
+            // 📌 1. Zustand's logout() instantly clears memory AND auto-wipes AsyncStorage!
+            logout();
+
+            // 2. Clear any secondary stores if you still have them
+            if (clearLibrary) clearLibrary();
+
+            // 3. Kick them back to the login screen
             router.replace("/");
           } catch (e) {
             console.error("Logout failed", e);
@@ -119,7 +122,6 @@ export default function OwnerProfileScreen() {
             <Text className="text-lg font-m-bold text-textDark">
               My Libraries
             </Text>
-            {/* 📌 Hide the small "+ Add New" button if there are NO libraries, because we show the big card instead */}
             {libraries.length > 0 && libraries.length < 3 && (
               <TouchableOpacity
                 onPress={() => router.push("/(owner)/create-library-wizard")}
@@ -129,7 +131,7 @@ export default function OwnerProfileScreen() {
             )}
           </View>
 
-          {/* 📌 THE FIX: Handle Empty State */}
+          {/* EMPTY STATE */}
           {libraries.length === 0 ? (
             <View className="bg-surface p-6 rounded-3xl border border-borderLight items-center mb-4">
               <View className="bg-brand/10 h-16 w-16 rounded-full items-center justify-center mb-4">
@@ -150,7 +152,7 @@ export default function OwnerProfileScreen() {
               />
             </View>
           ) : (
-            /* 📌 Existing map logic runs ONLY if libraries exist */
+            /* MAP LIBRARIES */
             libraries.map((lib) => (
               <View
                 key={lib.id}
@@ -177,7 +179,10 @@ export default function OwnerProfileScreen() {
                 <View className="flex-row space-x-3 mt-2">
                   <TouchableOpacity
                     className="flex-1 bg-background py-2 rounded-xl border border-borderLight items-center mr-2"
-                    onPress={() => router.push(`/edit-library`)}
+                    onPress={() => {
+                      useAuthStore.setState({ libraryId: lib.id });
+                      router.push(`/edit-library`);
+                    }}
                   >
                     <Text className="text-textDark font-m-bold text-sm">
                       Edit Details
@@ -185,13 +190,9 @@ export default function OwnerProfileScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     className="flex-1 bg-background py-2 rounded-xl border border-borderLight items-center"
-                    onPress={async () => {
-                      try {
-                        await AsyncStorage.setItem("libraryId", lib.id);
-                        router.push("/manage-seats");
-                      } catch (error) {
-                        console.error("Failed to save library ID:", error);
-                      }
+                    onPress={() => {
+                      useAuthStore.setState({ libraryId: lib.id });
+                      router.push("/manage-seats");
                     }}
                   >
                     <Text className="text-textDark font-m-bold text-sm">

@@ -1,8 +1,10 @@
 import apiClient from "@/api/client";
 import Header from "@/components/ui/Header";
-import { COLORS } from "@/constants/theme";
+import { COLORS } from "@/constants/theme"; // Adjust path if needed
+import { useAuthStore } from "@/store/authStore";
+import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -18,8 +20,324 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 
+function fmtCurrency(val) {
+  if (!val) return "₹0";
+  return "₹" + parseFloat(val).toLocaleString("en-IN");
+}
+
+const SHIFT_CONFIG = {
+  NIGHT: { label: "Night", icon: "moon-outline" },
+  FULL_DAY: { label: "Full Day", icon: "sunny-outline" },
+  MORNING: { label: "Morning", icon: "partly-sunny-outline" },
+  DAY: { label: "Day", icon: "sunny-outline" },
+};
+
+const STATUS_CONFIG = {
+  ACTIVE: { label: "Active", bg: "bg-emerald-500", dot: "bg-emerald-400" },
+  PAYMENT_PENDING: {
+    label: "Payment Pending",
+    bg: "bg-amber-400",
+    dot: "bg-amber-300",
+  },
+  PENDING: {
+    label: "Pending Approval",
+    bg: "bg-orange-500",
+    dot: "bg-orange-400",
+  },
+  SUCCESSFUL: { label: "Paid", bg: "bg-emerald-500", dot: "bg-emerald-400" },
+  FAILED: { label: "Failed", bg: "bg-red-500", dot: "bg-red-400" },
+  EXPIRED: { label: "Expired", bg: "bg-red-500", dot: "bg-red-400" },
+  REJECTED: { label: "Rejected", bg: "bg-gray-500", dot: "bg-gray-400" },
+};
+
+// ── Atoms ──────────────────────────────────────────────────────────
+function Chip({ label, variant = "purple", icon }) {
+  const styles = {
+    pink: {
+      container: "bg-pink-50 border border-pink-200",
+      text: "text-pink-700",
+      hex: "#be185d",
+    },
+    purple: {
+      container: "bg-purple-50 border border-purple-200",
+      text: "text-purple-700",
+      hex: "#6d28d9",
+    },
+    green: {
+      container: "bg-emerald-50 border border-emerald-200",
+      text: "text-emerald-700",
+      hex: "#047857",
+    },
+    amber: {
+      container: "bg-amber-50 border border-amber-200",
+      text: "text-amber-700",
+      hex: "#b45309",
+    },
+    gray: {
+      container: "bg-gray-100 border border-gray-200",
+      text: "text-gray-500",
+      hex: "#6b7280",
+    },
+  };
+
+  const theme = styles[variant] || styles.gray;
+
+  return (
+    <View
+      className={`flex-row items-center rounded-full px-2.5 py-1 mr-1.5 mb-1.5 ${theme.container}`}
+    >
+      {icon && (
+        <Ionicons
+          name={icon}
+          size={10}
+          color={theme.hex}
+          style={{ marginRight: 4 }}
+        />
+      )}
+      <Text
+        className={`text-[9px] font-m-bold uppercase tracking-wider ${theme.text}`}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function StatusBadge({ status }) {
+  const cfg = STATUS_CONFIG[status] ?? {
+    label: status?.replace("_", " ") || "UNKNOWN",
+    bg: "bg-gray-400",
+    dot: "bg-gray-300",
+  };
+  return (
+    <View
+      className={`flex-row items-center gap-1.5 rounded-full px-3 py-1 ${cfg.bg}`}
+    >
+      <View className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+      <Text className="text-[11px] font-m-bold text-white uppercase">
+        {cfg.label}
+      </Text>
+    </View>
+  );
+}
+
+function SectionLabel({ title, count, rightElement }) {
+  return (
+    <View className="flex-row items-center justify-between gap-2 mb-3 px-1">
+      <Text className="text-[14px] font-m-bold tracking-widest uppercase text-purple-500">
+        {title}
+      </Text>
+      <View className="flex-2">
+        {count !== undefined && (
+          <View className="bg-pink-100 rounded-full px-2.5 py-0.5">
+            <Text className="text-[10px] font-m-semi text-pink-600">
+              {count}
+            </Text>
+          </View>
+        )}
+      </View>
+      <View className="flex-1">{rightElement && rightElement}</View>
+    </View>
+  );
+}
+
+function InfoRow({ emoji, label, value, mono = false }) {
+  return (
+    <View className="flex-row items-start gap-3 py-2.5">
+      <View className="w-9 h-9 rounded-xl bg-pink-50 items-center justify-center shrink-0">
+        <Text className="text-base">{emoji}</Text>
+      </View>
+      <View className="flex-1">
+        <Text className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-0.5">
+          {label}
+        </Text>
+        <Text
+          className={`text-sm font-semibold text-indigo-900 ${mono ? "font-mono" : ""}`}
+          numberOfLines={2}
+        >
+          {value}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// ── Enrollment Card ────────────────────────────────────────────────
+function EnrollmentCard({
+  enrollment,
+  isFuture = false,
+  isOwner = false,
+  children,
+}) {
+  const headerBg = isFuture ? "bg-red-50" : "bg-pink-50";
+  const borderCl = isFuture ? "border-red-100" : "border-pink-100";
+  const titleCl = isFuture ? "text-red-500" : "text-pink-600";
+  const priceCl = isFuture ? "text-red-500" : "text-pink-600";
+
+  const isAC = enrollment.amenity === "AC";
+  const isReserved = enrollment.reservation === "RESERVED";
+
+  return (
+    <View
+      className={`rounded-2xl overflow-hidden bg-white border mb-4  ${borderCl}`}
+    >
+      <View
+        className={`flex-row items-center justify-between px-4 py-3 border-b ${headerBg} ${borderCl}`}
+      >
+        <View className="flex-row items-center gap-2">
+          <View
+            className={`w-8 h-8 rounded-xl items-center justify-center ${isFuture ? "bg-red-100" : "bg-pink-100"}`}
+          >
+            <Text className="text-sm">{isFuture ? "📆" : "📌"}</Text>
+          </View>
+          <Text className={`text-s font-m-bold ${titleCl}`}>
+            {isFuture ? "Upcoming Plan" : "Current Plan"}
+          </Text>
+        </View>
+        <StatusBadge status={enrollment.status} />
+      </View>
+
+      <View className="px-4 py-4 pb-2">
+        <View className="flex-row items-center gap-1.5 mb-3">
+          <Text className="text-xs">📅</Text>
+          <Text className="text-xs font-m-semi text-gray-500">
+            {formatCleanDate(enrollment.start_date)}
+            {enrollment.end_date &&
+              ` → ${formatCleanDate(enrollment.end_date)}`}
+          </Text>
+        </View>
+
+        <View className="flex-row flex-wrap mb-1 mt-2">
+          {/* Shift Chip */}
+          <Chip
+            label={SHIFT_CONFIG[enrollment.shift]?.label || enrollment.shift}
+            icon={SHIFT_CONFIG[enrollment.shift]?.icon || "time"}
+            variant="purple"
+          />
+          {/* Amenity Chip */}
+          <Chip
+            label={isAC ? "AC" : "Non-AC"}
+            icon={isAC ? "snow" : "thermometer-outline"}
+            variant={isAC ? "pink" : "gray"}
+          />
+          {/* Reservation Chip */}
+          <Chip
+            label={isReserved ? "Reserved" : "Unreserved"}
+            icon={isReserved ? "star-outline" : "lock-open-outline"}
+            variant={isReserved ? "green" : "amber"}
+          />
+          {/* Assigned Seat Chip */}
+          {enrollment.assigned_seat && (
+            <Chip
+              label={enrollment.assigned_seat.replace("_", " ")}
+              icon="bed-outline"
+              variant="purple"
+            />
+          )}
+        </View>
+
+        <View className="h-px bg-gray-100 my-3" />
+
+        <View className="flex-row items-center justify-between pb-2">
+          <Text className={`text-3xl font-black ${priceCl}`}>
+            {fmtCurrency(enrollment.price)}
+          </Text>
+          {isOwner && (
+            <View className="items-end">
+              <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">
+                Requested
+              </Text>
+              <Text className="text-xs font-semibold text-gray-500 mt-0.5">
+                {formatCleanDate(enrollment.requested_on)}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* 📌 Dynamic Action Buttons render here! */}
+      {children && (
+        <View className="px-4 pb-4">
+          <View className="h-px bg-gray-100 mb-3" />
+          {children}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ── Payment Card ───────────────────────────────────────────────────
+function PaymentCard({ payment }) {
+  const isAC = payment.amenity === "AC";
+  return (
+    <View className="bg-white rounded-2xl border border-pink-100  mb-3 overflow-hidden">
+      <View className="px-4 py-4">
+        <View className="flex-row items-start justify-between gap-3">
+          <View className="flex-row items-center gap-3 flex-1 min-w-0">
+            <View className="w-11 h-11 rounded-2xl bg-pink-50 items-center justify-center shrink-0">
+              <Text className="text-xl">💳</Text>
+            </View>
+            <View className="flex-1 min-w-0">
+              <Text className="text-lg font-black text-indigo-900">
+                {fmtCurrency(payment.amount)}
+              </Text>
+              <Text className="text-[11px] text-gray-400 font-medium mt-0.5">
+                {formatCleanDate(payment.paid_on)} · {payment.mode}
+              </Text>
+            </View>
+          </View>
+          <StatusBadge status={payment.payment_status} />
+        </View>
+
+        <View className="flex-row flex-wrap mt-3">
+          <Chip
+            label={SHIFT_CONFIG[payment.shift]?.label || payment.shift}
+            icon={SHIFT_CONFIG[payment.shift]?.icon || "time"}
+            variant="purple"
+          />
+          <Chip
+            label={isAC ? "AC" : "Non-AC"}
+            icon={isAC ? "snow" : "thermometer-outline"}
+            variant={isAC ? "pink" : "gray"}
+          />
+          {payment.assigned_seat && (
+            <Chip
+              label={payment.assigned_seat.replace("_", " ")}
+              icon="ticket-outline"
+              variant="purple"
+            />
+          )}
+        </View>
+
+        <View className="mt-3 pt-3 border-t border-pink-50 flex-row gap-6">
+          <View>
+            <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">
+              Period
+            </Text>
+            <Text className="text-xs font-semibold text-gray-600">
+              {formatCleanDate(payment.start_date)} →{" "}
+              {formatCleanDate(payment.end_date)}
+            </Text>
+          </View>
+          <View>
+            <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">
+              Reservation
+            </Text>
+            <Text className="text-xs font-semibold text-gray-600">
+              {payment.reservation}
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ── Main Screen ────────────────────────────────────────────────────
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams();
+  const { libraryId } = useAuthStore();
+
   const [user, setUser] = useState(null);
   const [enrollment, setEnrollment] = useState(null);
   const [futureEnrollment, setFutureEnrollment] = useState(null);
@@ -28,13 +346,14 @@ export default function UserProfileScreen() {
 
   useEffect(() => {
     fetchUserProfile();
-  }, [id]);
+  }, [id, libraryId]);
 
   const fetchUserProfile = async () => {
     try {
-      const storedLibraryId = await AsyncStorage.getItem("libraryId");
-      const endpoint = `/user/${id}${storedLibraryId ? `?libraryId=${storedLibraryId}` : ""}`;
+      setLoading(true);
+      const endpoint = `/user/${id}${libraryId ? `?libraryId=${libraryId}` : ""}`;
       const response = await apiClient.get(endpoint);
+
       if (response.data.success) {
         setUser(response.data.user);
         setEnrollment(response.data.enrollment);
@@ -53,22 +372,16 @@ export default function UserProfileScreen() {
     }
   };
 
-  // Helper to open Google Maps
   const openMap = () => {
-    if (user.latitude && user.longitude) {
+    if (user?.latitude && user?.longitude) {
       Linking.openURL(
         `http://maps.google.com/maps?q=${user.latitude},${user.longitude}`,
       );
     } else {
-      Toast.show({
-        type: "info",
-        text1: "Location Unavailable",
-        text2: "This user hasn't set exact coordinates.",
-      });
+      Toast.show({ type: "info", text1: "Location Unavailable" });
     }
   };
 
-  // 1. LIVE API Action Handlers
   const handleApprove = async (enrollment_id) => {
     try {
       const response = await apiClient.patch(
@@ -80,7 +393,7 @@ export default function UserProfileScreen() {
           text1: "Approved!",
           text2: "Awaiting student payment.",
         });
-        fetchUserProfile(); // Refresh data
+        fetchUserProfile();
       }
     } catch (error) {
       Toast.show({
@@ -106,12 +419,8 @@ export default function UserProfileScreen() {
                 `/owner/requests/${enrollment_id}/reject`,
               );
               if (response.data.success) {
-                Toast.show({
-                  type: "success",
-                  text1: "Rejected",
-                  text2: "Student request removed.",
-                });
-                fetchUserProfile(); // Refresh data
+                Toast.show({ type: "success", text1: "Rejected" });
+                fetchUserProfile();
               }
             } catch (error) {
               Toast.show({
@@ -145,7 +454,7 @@ export default function UserProfileScreen() {
                   text1: "Success!",
                   text2: "Seat is now Active.",
                 });
-                fetchUserProfile(); // Refresh data
+                fetchUserProfile();
               }
             } catch (error) {
               Toast.show({
@@ -162,417 +471,268 @@ export default function UserProfileScreen() {
 
   const handleSendReminder = async () => {
     if (user?.phone) {
-      const message = `Hi ${user.full_name}, your study room subscription expired on ${formatDate(enrollment?.end_date)}. Please let us know if you'd like to renew your seat!`;
+      const message = `Hi ${user.full_name}, your study room subscription expired on ${formatCleanDate(enrollment?.end_date)}. Please let us know if you'd like to renew your seat!`;
       Linking.openURL(
         `whatsapp://send?phone=91${user.phone}&text=${encodeURIComponent(message)}`,
       );
     }
   };
 
-  // UI Helpers
-  const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString("en-IN", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
-  const calculateDaysLeft = (endDate) => {
-    const diff = new Date(endDate) - new Date();
-    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-  };
-
-  // 📌 NEW HELPER: Dynamically formats seat text + assigned seat number
-  const formatSeatInfo = (plan) => {
-    if (!plan) return "";
-    const shiftText = plan.shift?.replace("_", " ");
-    const amenityText = plan.amenity?.replace("_", " ");
-    let info = `${shiftText} • ${amenityText} • ${plan.reservation}`;
-
-    // Add specific seat number if available
-    if (plan.reservation === "RESERVED" && plan.assigned_seat) {
-      info += ` (Seat ${plan.assigned_seat})`;
-    }
-
-    return info;
-  };
-
-  const totalLTV = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-  const seatInfo = formatSeatInfo(enrollment);
-
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-background justify-center items-center">
-        <ActivityIndicator size="large" color={COLORS.brand} />
+      <SafeAreaView className="flex-1 bg-[#F7F5FA] justify-center items-center">
+        <ActivityIndicator size="large" color="#C13383" />
       </SafeAreaView>
     );
   }
 
   if (!user) return null;
 
+  const isActive = enrollment?.status === "ACTIVE";
+  const totalLTV = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+
+  // 📌 Helper to render the appropriate action buttons based on enrollment status
+  const renderActionButtons = (plan) => {
+    if (!plan) return null;
+
+    if (plan.status === "PENDING") {
+      return (
+        <View className="flex-row space-x-3 pt-1">
+          <TouchableOpacity
+            onPress={() => handleApprove(plan.enrollment_id)}
+            className="flex-1 bg-[#C13383] py-3 rounded-xl items-center mr-2"
+          >
+            <Text className="text-white font-m-bold">Approve</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleDeny(plan.enrollment_id)}
+            className="flex-1 bg-red-100 border border-red-200 py-3 rounded-xl items-center"
+          >
+            <Text className="text-red-700 font-m-bold">Deny</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (plan.status === "PAYMENT_PENDING") {
+      return (
+        <TouchableOpacity
+          onPress={() => handleMarkPaid(plan.enrollment_id)}
+          className="w-full bg-[#2563EB] py-3.5 rounded-xl items-center "
+        >
+          <Text className="text-white font-m-bold">Mark as Paid Offline</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    if (plan.status === "EXPIRED") {
+      return (
+        <TouchableOpacity
+          onPress={handleSendReminder}
+          className="w-full bg-red-500 py-3.5 rounded-xl flex-row justify-center items-center "
+        >
+          <Ionicons name="logo-whatsapp" size={18} color="white" />
+          <Text className="text-white font-m-bold ml-2">
+            Send Renewal Reminder
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+
+    return null;
+  };
+
   return (
-    <View className="flex-1 bg-background">
-      <Header title="User Profile" />
+    <View className="flex-1 bg-[#F7F5FA]">
+      <Header title="Student Profile" />
+
       <ScrollView
-        className="flex-1 px-6"
+        className="flex-1"
+        contentContainerClassName="px-4 pt-2 pb-12"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
       >
-        {/* 1. MAIN PROFILE CARD */}
-        <View className="bg-surface p-6 rounded-3xl border border-borderLight items-center mt-6">
-          {user.profile_photo ? (
-            <Image
-              source={{ uri: user.profile_photo }}
-              className="w-24 h-24 rounded-full mb-4 border-2 border-brand/20"
-            />
-          ) : (
-            <View className="w-24 h-24 bg-brand/10 rounded-full items-center justify-center mb-4">
-              <Text className="text-4xl text-brand font-m-bold">
-                {user.full_name?.charAt(0)?.toUpperCase()}
-              </Text>
-            </View>
-          )}
-
-          <View className="flex-row items-center mb-4">
-            <Text className="text-2xl font-m-bold text-textDark mr-2">
-              {user.full_name}
-            </Text>
-            {user.is_kyc_verified && (
-              <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-            )}
-          </View>
-
-          <View className="w-full bg-background/50 rounded-2xl p-4 border border-borderLight/50 space-y-4">
-            <View className="flex-row items-center mb-4">
-              <View className="w-10 h-10 bg-white rounded-full items-center justify-center mr-3 border border-borderLight">
-                <Ionicons name="call" size={18} color={COLORS.brand} />
+        {/* 1. Profile Header */}
+        <View className="rounded-3xl overflow-hidden mb-5 border border-indigo-900/10">
+          {/* 📌 THE FIX: The LinearGradient now wraps the ENTIRE card */}
+          <LinearGradient
+            colors={[COLORS.textDark, COLORS.textLight, COLORS.brand]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            {/* --- TOP SECTION --- */}
+            <View className="px-5 pt-7 pb-5 flex-row gap-4 items-start">
+              <View className="relative shrink-0">
+                <Image
+                  source={{
+                    uri:
+                      user.profile_photo ||
+                      `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=C13383&color=fff&size=128`,
+                  }}
+                  className="w-20 h-20 rounded-2xl border-2 border-white/30"
+                  style={{ backgroundColor: COLORS.textDark }} // Fallback bg
+                  resizeMode="cover"
+                />
+                <View
+                  className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${isActive ? "bg-emerald-400" : "bg-gray-400"}`}
+                />
               </View>
-              <View>
-                <Text className="text-xs text-textLight font-m">
-                  Phone Number
+
+              <View className="flex-1 pt-0">
+                <Text className="text-[18px] font-m-bold text-white leading-tight">
+                  {user.full_name}
                 </Text>
-                <Text className="text-base text-textDark font-m-bold">
-                  {user.phone}
+                <View className="flex-row items-center gap-1 mt-2">
+                  {user.is_kyc_verified ? (
+                    <View className="flex-row items-center gap-1 bg-emerald-400/20 rounded-full px-2 py-0.5 border border-emerald-400/30">
+                      <Text className="text-[11px] font-m-bold text-emerald-300">
+                        <Ionicons
+                          name="shield-checkmark-outline"
+                          size={14}
+                          color="text-emerald-300"
+                        />{" "}
+                        KYC Verified
+                      </Text>
+                    </View>
+                  ) : (
+                    <View className="flex-row items-center gap-1 bg-amber-400/20 rounded-full px-2 py-0.5 border border-amber-400/30">
+                      <Text className="text-[10px] font-m-bold text-amber-300">
+                        <Ionicons
+                          name="shield-outline"
+                          size={14}
+                          color="text-amber-300"
+                        />{" "}
+                        KYC Pending
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Text className="text-[11px] text-white/50 font-m mt-1.5">
+                  Member since {formatCleanDate(user.member_since)}
                 </Text>
               </View>
             </View>
 
-            {user.email && (
-              <View className="flex-row items-center mb-4">
-                <View className="w-10 h-10 bg-white rounded-full items-center justify-center mr-3 border border-borderLight">
-                  <Ionicons name="mail" size={18} color={COLORS.brand} />
-                </View>
-                <View>
-                  <Text className="text-xs text-textLight font-m">
-                    Email Address
-                  </Text>
-                  <Text className="text-base text-textDark font-m-bold">
-                    {user.email}
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {(user.city || user.address) && (
-              <View className="flex-row items-center justify-between mb-4">
-                <View className="flex-row items-center flex-1 pr-2">
-                  <View className="w-10 h-10 bg-white rounded-full items-center justify-center mr-3 border border-borderLight">
-                    <Ionicons name="location" size={18} color={COLORS.brand} />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-xs text-textLight font-m">
-                      Location
-                    </Text>
-                    <Text
-                      className="text-sm text-textDark font-m-bold"
-                      numberOfLines={1}
-                    >
-                      {user.city ? user.city : user.address}
-                    </Text>
-                  </View>
-                </View>
-                {user.latitude && (
-                  <TouchableOpacity
-                    onPress={openMap}
-                    className="p-2 bg-brand/10 rounded-full"
+            {/* --- BOTTOM SECTION --- */}
+            {/* 📌 Added a faint top border and slight glassy dark tint to separate the content without breaking the gradient */}
+            <View className="px-5 py-4 gap-2 border-t border-white/10 bg-black/5">
+              <View className="flex-row gap-4">
+                <View className="flex-row items-center gap-2 flex-1 min-w-0">
+                  <Ionicons name="call-outline" size={14} color="white" />
+                  <Text
+                    className="text-xs font-m-semi text-white/85"
+                    numberOfLines={1}
                   >
-                    <Ionicons name="map" size={18} color={COLORS.brand} />
-                  </TouchableOpacity>
-                )}
+                    {user.phone}
+                  </Text>
+                </View>
+                <View className="flex-row items-center gap-2 flex-1 min-w-0">
+                  <Ionicons name="location-outline" size={14} color="white" />
+                  <Text
+                    className="text-xs font-m-semi text-white/85"
+                    numberOfLines={1}
+                  >
+                    {user.city || "Not Provided"}
+                  </Text>
+                </View>
               </View>
-            )}
 
-            <View className="flex-row items-center">
-              <View className="w-10 h-10 bg-white rounded-full items-center justify-center mr-3 border border-borderLight">
-                <Ionicons name="calendar" size={18} color={COLORS.brand} />
-              </View>
-              <View>
-                <Text className="text-xs text-textLight font-m">
-                  Member Since
-                </Text>
-                <Text className="text-base text-textDark font-m-bold">
-                  {formatDate(user.member_since)}
+              <View className="flex-row items-center gap-2 min-w-0">
+                <Ionicons name="mail-outline" size={14} color="white" />
+                <Text
+                  className="text-xs font-m-semi text-white/85 flex-1"
+                  numberOfLines={1}
+                >
+                  {user.email || "No Email"}
                 </Text>
               </View>
             </View>
-          </View>
+          </LinearGradient>
         </View>
 
-        {/* 2. ENROLLMENT CRM CONTROLS */}
+        {/* 2. Enrollments */}
         {enrollment && (
-          <View className="mt-6">
-            <Text className="text-lg font-m-bold text-textDark mb-3 ml-1">
-              Current Enrollment
-            </Text>
-
-            {enrollment.status === "ACTIVE" && (
-              <View className="bg-green-50 border border-green-200 p-4 rounded-2xl mb-4">
-                <View className="flex-row justify-between items-center mb-2">
-                  <Text className="text-green-800 font-m-bold text-base">
-                    Currently Active Seat
-                  </Text>
-                  <View className="bg-green-200 px-2 py-1 rounded-md">
-                    <Text className="text-green-800 text-xs font-bold">
-                      {calculateDaysLeft(enrollment.end_date)} Days Left
-                    </Text>
-                  </View>
-                </View>
-                <Text className="text-green-700 text-sm mb-1">
-                  Enrolled Since:{" "}
-                  <Text className="font-m-bold">
-                    {formatDate(enrollment.start_date)}
-                  </Text>
-                </Text>
-                <Text className="text-green-700 text-sm font-m-bold">
-                  {seatInfo}
-                </Text>
-              </View>
-            )}
-
-            {enrollment.status === "PENDING" && (
-              <View className="bg-orange-50 border border-orange-200 p-4 rounded-2xl mb-4">
-                <Text className="text-orange-800 font-m-bold text-base mb-1">
-                  Awaiting Your Approval
-                </Text>
-                <Text className="text-orange-700 text-sm mb-3">
-                  Requested on: {formatDate(enrollment.requested_on)}
-                </Text>
-                <Text className="text-orange-800 text-sm mb-4">
-                  Prefers: <Text className="font-m-bold">{seatInfo}</Text>
-                </Text>
-
-                <View className="flex-row space-x-3">
-                  <TouchableOpacity
-                    onPress={() => handleApprove(enrollment.enrollment_id)}
-                    className="flex-1 bg-brand py-3 rounded-xl items-center mr-2"
-                  >
-                    <Text className="text-white font-m-bold">Approve</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleDeny(enrollment.enrollment_id)}
-                    className="flex-1 bg-red-100 border border-red-300 py-3 rounded-xl items-center"
-                  >
-                    <Text className="text-red-700 font-m-bold">Deny</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
-            {enrollment.status === "PAYMENT_PENDING" && (
-              <View className="bg-blue-50 border border-blue-200 p-4 rounded-2xl mb-4">
-                <Text className="text-blue-800 font-m-bold text-base mb-1">
-                  Awaiting Student Payment
-                </Text>
-                <Text className="text-blue-700 text-sm mb-1">
-                  Approved on: {formatDate(enrollment.status_updated_at)}
-                </Text>
-                <Text className="text-blue-800 text-sm mb-4 font-m-bold">
-                  {seatInfo}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => handleMarkPaid(enrollment.enrollment_id)}
-                  className="w-full bg-blue-600 py-3 rounded-xl items-center"
-                >
-                  <Text className="text-white font-m-bold">
-                    Mark as Paid Offline
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {enrollment.status === "EXPIRED" && (
-              <View className="bg-red-50 border border-red-200 p-4 rounded-2xl mb-4">
-                <Text className="text-red-800 font-m-bold text-base mb-1">
-                  Subscription Expired
-                </Text>
-                <Text className="text-red-700 text-sm mb-1">
-                  Expired on: {formatDate(enrollment.end_date)}
-                </Text>
-                <Text className="text-red-800 text-sm mb-4 font-m-bold">
-                  Previous Seat: {seatInfo}
-                </Text>
-                <TouchableOpacity
-                  onPress={handleSendReminder}
-                  className="w-full bg-red-600 py-3 rounded-xl flex-row justify-center items-center"
-                >
-                  <Ionicons name="logo-whatsapp" size={18} color="white" />
-                  <Text className="text-white font-m-bold ml-2">
-                    Send Reminder
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
+          <>
+            <SectionLabel title="Current Enrollment" />
+            <EnrollmentCard enrollment={enrollment} isOwner={true}>
+              {renderActionButtons(enrollment)}
+            </EnrollmentCard>
+          </>
         )}
 
-        {/* --- FUTURE UPCOMING REQUEST CARD (FLAT STYLE) --- */}
         {futureEnrollment && (
-          <View className="mt-2 mb-2">
-            <Text className="text-lg font-m-bold text-textDark mb-3 ml-1">
-              Future Enrollment
-            </Text>
-
-            {futureEnrollment.status === "PENDING" && (
-              <View className="bg-orange-50 border border-orange-200 p-4 rounded-2xl mb-4">
-                <Text className="text-orange-800 font-m-bold text-base mb-1">
-                  Awaiting Your Approval
-                </Text>
-                <Text className="text-orange-700 text-sm mb-3">
-                  Requested on: {formatDate(futureEnrollment.requested_on)}
-                </Text>
-                <Text className="text-orange-800 text-sm mb-4">
-                  Prefers:{" "}
-                  <Text className="font-m-bold">
-                    {formatSeatInfo(futureEnrollment)}
-                  </Text>
-                </Text>
-
-                <View className="flex-row space-x-3">
-                  <TouchableOpacity
-                    onPress={() =>
-                      handleApprove(futureEnrollment.enrollment_id)
-                    }
-                    className="flex-1 bg-brand py-3 rounded-xl items-center mr-2"
-                  >
-                    <Text className="text-white font-m-bold">Approve</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleDeny(futureEnrollment.enrollment_id)}
-                    className="flex-1 bg-red-100 border border-red-300 py-3 rounded-xl items-center"
-                  >
-                    <Text className="text-red-700 font-m-bold">Deny</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
-            {futureEnrollment.status === "PAYMENT_PENDING" && (
-              <View className="bg-blue-50 border border-blue-200 p-4 rounded-2xl mb-4">
-                <Text className="text-blue-800 font-m-bold text-base mb-1">
-                  Approved - Awaiting Payment
-                </Text>
-                <Text className="text-blue-700 text-sm mb-3">
-                  Approved on: {formatDate(futureEnrollment.status_updated_at)}
-                </Text>
-                <Text className="text-blue-800 text-sm mb-4">
-                  Prefers:{" "}
-                  <Text className="font-m-bold">
-                    {formatSeatInfo(futureEnrollment)}
-                  </Text>
-                </Text>
-
-                <TouchableOpacity
-                  onPress={() => handleMarkPaid(futureEnrollment.enrollment_id)}
-                  className="w-full bg-blue-600 py-3 rounded-xl items-center"
-                >
-                  <Text className="text-white font-m-bold">Mark as Paid</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {futureEnrollment.status === "ACTIVE" && (
-              <View className="bg-green-50 border border-green-200 p-4 rounded-2xl mb-4">
-                <Text className="text-green-800 font-m-bold text-base mb-1">
-                  Upcoming Active Plan
-                </Text>
-                <Text className="text-green-700 text-sm mb-3">
-                  Starts on: {formatDate(futureEnrollment.start_date)}
-                </Text>
-                <Text className="text-green-800 text-sm">
-                  Seat:{" "}
-                  <Text className="font-m-bold">
-                    {formatSeatInfo(futureEnrollment)}
-                  </Text>
-                </Text>
-              </View>
-            )}
-          </View>
+          <>
+            <SectionLabel title="Upcoming Enrollment" />
+            <EnrollmentCard
+              enrollment={futureEnrollment}
+              isFuture={true}
+              isOwner={true}
+            >
+              {renderActionButtons(futureEnrollment)}
+            </EnrollmentCard>
+          </>
         )}
 
-        {/* 3. PAYMENT LEDGER */}
-        <View className="mt-2">
-          <View className="flex-row justify-between items-center mb-3 px-1">
-            <Text className="text-lg font-m-bold text-textDark">
-              Payment Ledger
+        {/* 3. Payment History */}
+        <SectionLabel
+          title="Payment History"
+          count={payments.length}
+          // rightElement={
+          //   <Text className="text-[11px] font-bold text-indigo-900">
+          //     Rev: {fmtCurrency(totalLTV)}
+          //   </Text>
+          // }
+        />
+
+        {payments.length === 0 ? (
+          <View className="bg-white border border-pink-100 p-6 rounded-2xl items-center mb-4">
+            <Ionicons
+              name="receipt-outline"
+              size={32}
+              color="#9ca3af"
+              className="mb-2"
+            />
+            <Text className="text-gray-400 font-medium mt-2 text-xs">
+              No payment history yet.
             </Text>
-            <Text className="text-brand font-m-bold">Revenue: ₹{totalLTV}</Text>
           </View>
+        ) : (
+          payments.map((payment, i) => (
+            <PaymentCard key={i} payment={payment} />
+          ))
+        )}
 
-          {payments.length === 0 ? (
-            <View className="bg-surface border border-borderLight p-6 rounded-2xl items-center">
-              <Ionicons
-                name="receipt-outline"
-                size={32}
-                color={COLORS.textLight}
-                className="mb-2"
+        {/* 4. System Details */}
+        <SectionLabel title="Profile" />
+        <View className="bg-white rounded-2xl border border-indigo-100  overflow-hidden mb-4">
+          <View className="px-4 py-2">
+            <InfoRow emoji="🆔" label="Student ID" value={user.id} mono />
+            <View className="h-px bg-gray-100" />
+            <InfoRow
+              emoji="🏠"
+              label="Full Address"
+              value={`${user.address || "N/A"}, ${user.city || "N/A"}`}
+            />
+            <View className="h-px bg-gray-100" />
+            <View className="flex-row items-center justify-between">
+              <InfoRow
+                emoji="🌐"
+                label="Coordinates"
+                value={
+                  user.latitude != null
+                    ? `${user.latitude}, ${user.longitude}`
+                    : "Not mapped"
+                }
               />
-              <Text className="text-textLight font-m mt-2">
-                No payment history yet.
-              </Text>
+              {user.latitude && (
+                <TouchableOpacity
+                  onPress={openMap}
+                  className="bg-indigo-50 p-2 rounded-full mr-2"
+                >
+                  <Ionicons name="map" size={18} color="#443199" />
+                </TouchableOpacity>
+              )}
             </View>
-          ) : (
-            payments.map((payment, index) => (
-              <View
-                key={index}
-                className="bg-surface border border-borderLight p-4 rounded-2xl mb-3"
-              >
-                <View className="flex-row justify-between items-start mb-2">
-                  <Text className="text-xl font-m-extra text-textDark">
-                    ₹{payment.amount?.split(".")[0]}
-                  </Text>
-                  <View className="bg-green-100 px-2 py-1 rounded-md">
-                    <Text className="text-green-700 text-xs font-bold">
-                      SUCCESS
-                    </Text>
-                  </View>
-                </View>
-
-                <View className="flex-row items-center mb-2">
-                  <Ionicons
-                    name="calendar-outline"
-                    size={14}
-                    color={COLORS.textLight}
-                    className="mr-1"
-                  />
-                  <Text className="text-xs text-textLight font-m ml-1">
-                    Paid on {formatDate(payment.paid_on)} ({payment.mode})
-                  </Text>
-                </View>
-
-                <View className="bg-background/50 p-3 rounded-xl mt-1 border border-borderLight/50">
-                  <Text className="text-xs text-textDark font-m-bold mb-1">
-                    {formatSeatInfo(payment)}
-                  </Text>
-                  <Text className="text-xs text-textLight font-m">
-                    Valid: {formatDate(payment.start_date)} -{" "}
-                    {formatDate(payment.end_date)}
-                  </Text>
-                </View>
-              </View>
-            ))
-          )}
+          </View>
         </View>
       </ScrollView>
     </View>

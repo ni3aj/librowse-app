@@ -2,16 +2,16 @@ import apiClient from "@/api/client";
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
 import { useAuthStore } from "@/store/authStore";
-import { useLibraryStore } from "@/store/libraryStore";
+import { useLibraryStore } from "@/store/libraryStore"; // 📌 Kept this for clearing cache
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as ImagePicker from "expo-image-picker"; // 📌 1. Imported ImagePicker
+import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   Modal,
   ScrollView,
   Text,
@@ -71,10 +71,11 @@ const ProfileMenuItem = ({
 export default function StudentProfileScreen() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isUploading, setIsUploading] = useState(false); // 📌 2. Track upload state
+  const [isUploading, setIsUploading] = useState(false);
   const [isPhotoViewerVisible, setIsPhotoViewerVisible] = useState(false);
 
-  const clearAuth = useAuthStore((state) => state.clearAuth);
+  // 📌 Pull from BOTH Zustand Buckets
+  const { logout } = useAuthStore();
   const clearLibrary = useLibraryStore((state) => state.clearLibrary);
 
   useEffect(() => {
@@ -94,7 +95,6 @@ export default function StudentProfileScreen() {
     }
   };
 
-  // 📌 3. Pick Image and Force Square Crop
   const handlePickImage = async () => {
     const permissionResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -106,9 +106,9 @@ export default function StudentProfileScreen() {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true, // Turns on the cropping tool
-      aspect: [1, 1], // Forces a square crop
-      quality: 0.8, // Compresses image slightly for faster uploads
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
     });
 
     if (!result.canceled) {
@@ -116,7 +116,6 @@ export default function StudentProfileScreen() {
     }
   };
 
-  // 📌 4. Upload to Backend via FormData
   const uploadPhoto = async (uri) => {
     setIsUploading(true);
     try {
@@ -127,7 +126,6 @@ export default function StudentProfileScreen() {
 
       formData.append("photo", { uri, name: filename, type });
 
-      // Send to your backend
       const response = await apiClient.patch(
         "/student/profile/photo",
         formData,
@@ -137,7 +135,6 @@ export default function StudentProfileScreen() {
       );
 
       if (response.data.success) {
-        // Update local state instantly so the UI changes without a full refresh
         setUser({ ...user, profile_photo: response.data.photo_url });
         Alert.alert("Success", "Profile photo updated!");
       }
@@ -157,11 +154,15 @@ export default function StudentProfileScreen() {
       {
         text: "Logout",
         style: "destructive",
-        onPress: async () => {
-          await AsyncStorage.clear();
-          clearAuth();
-          clearLibrary();
-          router.replace("/");
+        onPress: () => {
+          try {
+            // 📌 Safely clear BOTH Zustand stores
+            logout();
+            clearLibrary();
+            router.replace("/");
+          } catch (e) {
+            console.error("Logout failed", e);
+          }
         },
       },
     ]);
@@ -191,7 +192,6 @@ export default function StudentProfileScreen() {
       >
         <View className="items-center mt-8 mb-6 px-6">
           <View className="relative">
-            {/* 📌 View Photo */}
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => setIsPhotoViewerVisible(true)}
@@ -202,7 +202,6 @@ export default function StudentProfileScreen() {
               />
             </TouchableOpacity>
 
-            {/* 📌 Change Photo (Camera Badge) */}
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={handlePickImage}
@@ -228,7 +227,6 @@ export default function StudentProfileScreen() {
           </View>
         </View>
 
-        {/* ... Rest of your menu cards remain unchanged ... */}
         <View className="px-6">
           <Text className="text-xs font-m-bold text-textLight uppercase tracking-wider mb-2 ml-2">
             Account Settings
