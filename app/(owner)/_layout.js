@@ -12,8 +12,8 @@ export default function OwnerTabLayout() {
         tabBarStyle: {
           backgroundColor: COLORS.background,
           borderTopColor: COLORS.background,
-          height: 115,
-          paddingTop: 10,
+          height: 110,
+          paddingTop: 5,
         },
       }}
     >

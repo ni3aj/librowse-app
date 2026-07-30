@@ -10,10 +10,9 @@ export default function StudentLayout() {
         tabBarInactiveTintColor: COLORS.textLight,
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: COLORS.background,
-          borderTopColor: COLORS.surface,
-          height: 70,
-          paddingTop: 10,
+          backgroundColor: COLORS.surface,
+          height: 110,
+          paddingTop: 5,
         },
       }}
     >
