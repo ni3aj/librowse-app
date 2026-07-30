@@ -5,23 +5,35 @@ import * as Location from "expo-location";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert, // 📌 Added Alert
+  Alert,
   FlatList,
-  Linking, // 📌 Added Linking to open Phone Settings
+  Linking,
+  Modal,
   RefreshControl,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 
 import ExploreHeader from "@/components/student/ExploreHeader";
 import FilterChips from "@/components/student/FilterChips";
 import LibraryCard from "@/components/student/LibraryCard";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function LibrariesListingScreen() {
   const [libraries, setLibraries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [locationError, setLocationError] = useState(null);
+
+  // --- FILTER STATES ---
+  const [activeChip, setActiveChip] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
+
+  const DEFAULT_FILTERS = { maxPrice: 5000, minRating: 0, maxDistance: 15 };
+  const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
+  const [tempFilters, setTempFilters] = useState(DEFAULT_FILTERS);
 
   useEffect(() => {
     fetchLocationAndLibraries();
@@ -37,7 +49,6 @@ export default function LibrariesListingScreen() {
     setLoading(true);
 
     try {
-      // 1. Ask for Permission
       const { status } = await Location.requestForegroundPermissionsAsync();
 
       if (status !== "granted") {
@@ -47,13 +58,11 @@ export default function LibrariesListingScreen() {
         return;
       }
 
-      // 2. Get Real Coordinates
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
       const { latitude, longitude } = location.coords;
 
-      // 3. Fetch from API using real coordinates
       const response = await apiClient.get("/student/libraries", {
         params: { latitude, longitude, radius: 15 },
       });
@@ -62,8 +71,6 @@ export default function LibrariesListingScreen() {
         setLibraries(response.data.libraries);
       }
     } catch (error) {
-      console.log("Error fetching libraries:", error.message);
-      // 📌 THE FIX #1: If GPS fails to lock, show the retry button, NOT the "No Libraries" screen!
       setLocationError(
         "Failed to detect location. Please ensure your GPS is on.",
       );
@@ -73,12 +80,9 @@ export default function LibrariesListingScreen() {
     }
   };
 
-  // 📌 THE FIX #2: Safely handle OS-level permission blocks
   const handleRetryLocation = async () => {
     const { status } = await Location.getForegroundPermissionsAsync();
-
     if (status === "denied") {
-      // If they permanently denied it, the OS hides the prompt. We MUST open settings.
       Alert.alert(
         "Permission Required",
         "Please enable location services in your phone settings to find nearby study rooms.",
@@ -88,15 +92,85 @@ export default function LibrariesListingScreen() {
         ],
       );
     } else {
-      // Otherwise, just retry fetching
       fetchLocationAndLibraries();
     }
   };
 
+  const openFilterModal = () => {
+    setTempFilters(appliedFilters);
+    setIsFilterModalVisible(true);
+  };
+
+  const applyFilters = () => {
+    setAppliedFilters(tempFilters);
+    setIsFilterModalVisible(false);
+  };
+
+  // 📌 THE FIX: This now strictly resets ONLY the advanced modal filters
+  const clearModalFilters = () => {
+    setTempFilters(DEFAULT_FILTERS);
+    setAppliedFilters(DEFAULT_FILTERS);
+    setIsFilterModalVisible(false);
+  };
+
+  // 📌 THE FIX: This is a Master Reset for the Empty State button! It clears EVERYTHING.
+  const clearAllFilters = () => {
+    setTempFilters(DEFAULT_FILTERS);
+    setAppliedFilters(DEFAULT_FILTERS);
+    setActiveChip("All"); // Resets the Chips
+    setSearchQuery(""); // Resets the Search Bar
+  };
+
+  const filteredLibraries = libraries.filter((lib) => {
+    // 1. Text Search Filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const nameMatch = lib.name.toLowerCase().includes(query);
+      const cityMatch = lib.city?.toLowerCase().includes(query);
+      if (!nameMatch && !cityMatch) return false;
+    }
+
+    // 2. Chip Filter (Amenities)
+    if (activeChip !== "All") {
+      const searchKey = activeChip.toUpperCase().replace(" ", "_");
+      const hasAmenity = lib.amenities?.some(
+        (a) => a.toUpperCase() === searchKey,
+      );
+      if (!hasAmenity) return false;
+    }
+
+    // 3. Advanced Filters
+    const price = parseFloat(lib.monthly_price || 0);
+    const rating = parseFloat(lib.rating || 0);
+
+    if (price > appliedFilters.maxPrice) return false;
+    if (rating > 0 && rating < appliedFilters.minRating) return false;
+    if (lib.distance_km > appliedFilters.maxDistance) return false;
+
+    return true;
+  });
+
+  const FilterOption = ({ label, isSelected, onPress }) => (
+    <TouchableOpacity
+      onPress={onPress}
+      className={`px-4 py-2.5 rounded-xl border mr-2 mb-3 ${
+        isSelected
+          ? "bg-textDark border-textDark"
+          : "bg-white border-borderLight"
+      }`}
+    >
+      <Text
+        className={`font-m-bold ${isSelected ? "text-white" : "text-textDark"}`}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+
   return (
     <View className="flex-1 bg-background">
       <FlatList
-        data={libraries}
+        data={filteredLibraries}
         keyExtractor={(item) => item.id.toString()}
         refreshControl={
           <RefreshControl
@@ -107,8 +181,15 @@ export default function LibrariesListingScreen() {
         }
         ListHeaderComponent={
           <>
-            <ExploreHeader />
-            <FilterChips />
+            <ExploreHeader
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onFilterPress={openFilterModal}
+            />
+            <FilterChips
+              activeFilter={activeChip}
+              onSelectFilter={setActiveChip}
+            />
           </>
         }
         ListEmptyComponent={
@@ -121,35 +202,39 @@ export default function LibrariesListingScreen() {
                 </Text>
               </>
             ) : locationError ? (
-              // 📌 UI when location is denied OR GPS fails
               <View className="items-center bg-surface w-full p-8 rounded-[24px] border border-borderLight">
-                <View className="bg-brand/10 h-16 w-16 rounded-full items-center justify-center mb-4">
-                  <Text className="text-3xl">📍</Text>
-                </View>
-                <Text className="text-xl font-m-bold text-textDark mb-2 text-center">
+                <Text className="text-xl font-m-bold text-textDark mb-2">
                   Location Required
-                </Text>
-                <Text className="text-textLight text-center mb-6 leading-5">
-                  {locationError === "Permission Denied"
-                    ? "We need your location to show you the nearest libraries."
-                    : locationError}
                 </Text>
                 <Button
                   title="Enable Location"
-                  onPress={handleRetryLocation} // 📌 Uses the new smart retry function
+                  onPress={handleRetryLocation}
                   className="w-full"
                 />
               </View>
             ) : (
-              // 📌 Original Empty State (Only shows if GPS works perfectly but DB returns 0)
               <View className="items-center bg-surface w-full p-8 rounded-[24px] border border-borderLight shadow-sm">
                 <Text className="text-4xl mb-4">📭</Text>
                 <Text className="text-lg font-m-bold text-textDark mb-2">
                   No Libraries Found
                 </Text>
                 <Text className="text-textLight text-center font-m">
-                  No libraries found within 15km.
+                  Try clearing your filters or expanding your search distance.
                 </Text>
+
+                {/* 📌 THE FIX: Uses the Master Reset (clearAllFilters) */}
+                {(activeChip !== "All" ||
+                  appliedFilters.maxPrice !== 5000 ||
+                  appliedFilters.minRating !== 0 ||
+                  appliedFilters.maxDistance !== 15 ||
+                  searchQuery !== "") && (
+                  <Button
+                    title="Clear All Filters"
+                    variant="outline"
+                    onPress={clearAllFilters}
+                    className="mt-6 w-full"
+                  />
+                )}
               </View>
             )}
           </View>
@@ -158,6 +243,92 @@ export default function LibrariesListingScreen() {
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       />
+
+      <Modal
+        visible={isFilterModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsFilterModalVisible(false)}
+      >
+        <View className="flex-1 justify-end bg-black/50">
+          <View className="bg-surface rounded-t-3xl p-6 pt-2 pb-16 shadow-lg mt-24">
+            <View className="items-center mb-4">
+              <View className="w-12 h-1.5 bg-gray-300 rounded-full mt-2 mb-4" />
+              <View className="flex-row items-center w-full">
+                <Text className="text-xl flex-1 font-m-bold text-textDark">
+                  Filters
+                </Text>
+                <TouchableOpacity onPress={clearModalFilters}>
+                  <Text className="text-brand font-m-bold underline mr-4">
+                    Clear All
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setIsFilterModalVisible(false)}
+                  className="p-1 bg-gray-100 rounded-full"
+                >
+                  <Ionicons name="close" size={20} color={COLORS.textDark} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <Text className="text-base font-m-bold text-textDark mb-3 mt-4">
+              Max Monthly Price
+            </Text>
+            <View className="flex-row flex-wrap">
+              {[500, 1000, 2000, 5000].map((price) => (
+                <FilterOption
+                  key={price}
+                  label={price === 5000 ? "Any Price" : `Under ₹${price}`}
+                  isSelected={tempFilters.maxPrice === price}
+                  onPress={() =>
+                    setTempFilters({ ...tempFilters, maxPrice: price })
+                  }
+                />
+              ))}
+            </View>
+
+            <Text className="text-base font-m-bold text-textDark mb-3 mt-4">
+              Minimum Rating
+            </Text>
+            <View className="flex-row flex-wrap">
+              {[0, 3, 4, 4.5].map((rating) => (
+                <FilterOption
+                  key={rating}
+                  label={rating === 0 ? "Any Rating" : `${rating} & above`}
+                  isSelected={tempFilters.minRating === rating}
+                  onPress={() =>
+                    setTempFilters({ ...tempFilters, minRating: rating })
+                  }
+                />
+              ))}
+            </View>
+
+            <Text className="text-base font-m-bold text-textDark mb-3 mt-4">
+              Distance
+            </Text>
+            <View className="flex-row flex-wrap">
+              {[2, 5, 10, 15].map((dist) => (
+                <FilterOption
+                  key={dist}
+                  label={dist === 15 ? "Anywhere" : `Within ${dist} km`}
+                  isSelected={tempFilters.maxDistance === dist}
+                  onPress={() =>
+                    setTempFilters({ ...tempFilters, maxDistance: dist })
+                  }
+                />
+              ))}
+            </View>
+
+            <Button
+              title={`Show Results`}
+              variant="primary"
+              className="w-full mt-8 py-4"
+              onPress={applyFilters}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

@@ -1,8 +1,12 @@
 import { COLORS } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import { TextInput, View } from "react-native";
+import { TextInput, TouchableOpacity, View } from "react-native";
 
-export default function ExploreHeader() {
+export default function ExploreHeader({
+  searchQuery,
+  onSearchChange,
+  onFilterPress,
+}) {
   return (
     <View className="mt-10">
       <View className="flex-row items-center bg-white rounded-2xl px-4 py-2 m-4 border border-borderLight">
@@ -13,11 +17,18 @@ export default function ExploreHeader() {
           className="mr-3"
         />
         <TextInput
-          placeholder="Search library"
+          placeholder="Search library..."
+          value={searchQuery}
+          onChangeText={onSearchChange}
           className="flex-1 text-lg text-textDark ml-2"
           placeholderTextColor={COLORS.textLight}
         />
-        <Ionicons name="options-outline" size={20} color={COLORS.brand} />
+        <TouchableOpacity
+          onPress={onFilterPress}
+          className="p-1 bg-brand/10 rounded-lg ml-2"
+        >
+          <Ionicons name="options-outline" size={22} color={COLORS.brand} />
+        </TouchableOpacity>
       </View>
     </View>
   );
