@@ -43,7 +43,7 @@ export default function LibraryCard({ library }) {
 
         {/* DYNAMIC STATUS BADGE (Open/Closed) */}
         <View
-          className={`absolute top-1 left-1 px-3 py-1.5 rounded-full flex-row items-center  ${
+          className={`absolute top-2 left-2 px-2 py-1 rounded-full flex-row items-center  ${
             isOpen ? "bg-emerald-500" : "bg-gray-800/90"
           }`}
         >
@@ -73,7 +73,7 @@ export default function LibraryCard({ library }) {
       </View>
 
       {/* Info Section */}
-      <View className="p-3 mt-1">
+      <View className="pt-3 pr-3 pl-3 pb-1 mt-1">
         <Text className="text-xl font-m-bold text-textDark mb-1">
           {library.name}
         </Text>

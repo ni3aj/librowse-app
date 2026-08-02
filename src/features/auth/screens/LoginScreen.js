@@ -8,7 +8,7 @@ import { useAuthStore } from "@/store/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import * as LocalAuthentication from "expo-local-authentication";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   Alert,
   Keyboard,
@@ -29,7 +29,9 @@ export default function LoginScreen() {
   const [biometricSupported, setBiometricSupported] = useState(false);
   const [cachedRouteState, setCachedRouteState] = useState(null);
 
-  // 📌 Pull everything we need from our Zustand "Bucket"
+  // 📌 This ref acts as our lock to prevent double-navigation
+  const isNavigating = useRef(false);
+
   const {
     jwt_token,
     force_mpin_reset,
@@ -43,13 +45,15 @@ export default function LoginScreen() {
   useFocusEffect(
     useCallback(() => {
       const checkSession = async () => {
+        // 📌 If a navigation is already in progress, stop immediately.
+        if (isNavigating.current) return;
+
         setIsChecking(true);
 
         const compatible = await LocalAuthentication.hasHardwareAsync();
         const enrolled = await LocalAuthentication.isEnrolledAsync();
         setBiometricSupported(compatible && enrolled);
 
-        // 📌 No need to ask AsyncStorage, just check if Zustand has the token!
         if (!jwt_token) {
           setIsChecking(false);
           return;
@@ -61,7 +65,7 @@ export default function LoginScreen() {
         if (!success) {
           if (isUnauthorized) {
             console.log("Token expired. Wiping storage.");
-            logout(); // 📌 Zustand handles the wiping automatically
+            logout();
           } else {
             console.log("Network error. Keeping token safe in wallet.", error);
           }
@@ -69,13 +73,12 @@ export default function LoginScreen() {
           return;
         }
 
-        // 📌 Zustand handles saving all this to AsyncStorage automatically!
-        loginSuccess(data);
-
         const currentState = data.account_state;
         setCachedRouteState(currentState);
 
         if (currentState.startsWith("ACTIVE")) {
+          // 📌 We are staying on this screen (moving to Step 3), so it is safe to update Zustand.
+          loginSuccess(data);
           setMpinConfigured(true);
 
           if (compatible && enrolled) {
@@ -84,6 +87,10 @@ export default function LoginScreen() {
             setStep(3);
           }
         } else {
+          // 📌 We are LEAVING this screen. Lock the effect before updating Zustand.
+          isNavigating.current = true;
+          loginSuccess(data);
+
           const nextRoute = ONBOARDING_ROUTE_MAP[currentState];
           if (!nextRoute) {
             Alert.alert("Routing Error", `Missing route for: ${currentState}`);
@@ -97,7 +104,7 @@ export default function LoginScreen() {
       };
 
       checkSession();
-    }, [jwt_token]), // Added jwt_token as dependency so it reacts to changes
+    }, [jwt_token]),
   );
 
   const handleBiometricLogin = async (targetState) => {
@@ -112,6 +119,8 @@ export default function LoginScreen() {
       if (result.success) {
         const finalState = targetState || cachedRouteState;
         if (finalState && ONBOARDING_ROUTE_MAP[finalState]) {
+          // 📌 Lock navigation right before replacing the route
+          isNavigating.current = true;
           router.replace(ONBOARDING_ROUTE_MAP[finalState]);
         } else {
           setStep(3);
@@ -134,7 +143,7 @@ export default function LoginScreen() {
           text: "Proceed",
           style: "destructive",
           onPress: () => {
-            triggerMpinReset(); // 📌 Zustand logs them out and sets the flag instantly
+            triggerMpinReset();
             setCachedRouteState(null);
             setStep(1);
           },
@@ -160,23 +169,20 @@ export default function LoginScreen() {
   const handleVerifyOtp = async () => {
     if (otp.length !== 6) return Alert.alert("Error", "Enter 6-digit OTP.");
     setLoading(true);
-
     try {
       const response = await apiClient.post("/auth/verify-otp", { phone, otp });
-
       if (response.data.success) {
         const { data } = response;
 
-        // 📌 Save everything to Zustand (and automatically AsyncStorage) at once
+        // 📌 Lock navigation before updating Zustand
+        isNavigating.current = true;
         loginSuccess(data);
 
         let finalState = data.account_state;
-
         if (force_mpin_reset) {
-          clearMpinResetFlag(); // Clear the flag now that they passed OTP
+          clearMpinResetFlag();
           finalState = "REQUIRES_MPIN";
         }
-
         if (finalState.startsWith("ACTIVE")) {
           setMpinConfigured(true);
         }
@@ -187,7 +193,6 @@ export default function LoginScreen() {
           setLoading(false);
           return;
         }
-
         router.replace(nextRoute);
       }
     } catch (error) {
@@ -208,7 +213,8 @@ export default function LoginScreen() {
       if (response.data.success) {
         const { data } = response;
 
-        // 📌 Save everything to Zustand at once
+        // 📌 Lock navigation before updating Zustand
+        isNavigating.current = true;
         loginSuccess(data);
 
         const currentState = data.account_state;
@@ -255,7 +261,6 @@ export default function LoginScreen() {
               value={phone}
               onChangeText={setPhone}
             />
-            {/* 📌 New Privacy Reassurance Message */}
             <View className="flex-row items-center mb-5 mt-[-10]">
               <Ionicons
                 name="shield-checkmark"

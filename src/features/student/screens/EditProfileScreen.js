@@ -7,12 +7,12 @@ import { updateStudentProfile } from "@/features/student/api";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  View,
 } from "react-native";
 
 export default function EditProfileScreen() {
@@ -102,7 +102,7 @@ export default function EditProfileScreen() {
       >
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ padding: 24, paddingBottom: 60 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
         >
           {/* 📌 Form Fields (Message Box removed) */}
           <View>

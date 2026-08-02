@@ -4,6 +4,7 @@ import { COLORS } from "@/constants/theme";
 import { useAuthStore } from "@/store/authStore";
 import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router"; // 📌 1. Imported router
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -20,7 +21,6 @@ import {
 } from "react-native";
 
 export default function ActivitiesScreen() {
-  // 📌 1. Pull everything directly from Zustand synchronously!
   const {
     role: currentUserRole,
     userId: currentUserId,
@@ -34,12 +34,10 @@ export default function ActivitiesScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // 📌 2. Automatically react to the libraryId from Zustand
   useEffect(() => {
     if (libraryId) {
       fetchActivities();
     } else {
-      // Instantly show the empty state if they have no library
       setLoading(false);
     }
   }, [libraryId]);
@@ -181,7 +179,12 @@ export default function ActivitiesScreen() {
         }`}
       >
         <View className="flex-row justify-between items-center mb-1.5 gap-x-4">
-          <View className="flex-row items-center flex-2">
+          {/* 📌 2. Wrapped the avatar and name in a TouchableOpacity */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => router.push(`/user/${item.sender_id}`)}
+            className="flex-row items-center mr-2"
+          >
             {!isMyMessage && (
               <View className="w-7 h-7 bg-brand/10 rounded-full items-center justify-center mr-2 border border-brand/20">
                 <Text className="text-brand font-m-bold text-xs uppercase">
@@ -204,7 +207,7 @@ export default function ActivitiesScreen() {
                 </Text>
               </View>
             )}
-          </View>
+          </TouchableOpacity>
 
           <Text className="text-xs text-textLight font-m shrink-0">
             {new Date(item.created_at).toLocaleTimeString([], {
@@ -235,7 +238,6 @@ export default function ActivitiesScreen() {
             <ActivityIndicator size="large" color={COLORS.brand} />
           </View>
         ) : !libraryId ? (
-          /* 📌 3. Simpler empty state check since libraryId is null if not enrolled */
           <View className="flex-1 justify-center items-center px-6 pb-20">
             <View className="bg-white border border-borderLight rounded-[24px] p-8 items-center w-full">
               <View className="w-16 h-16 bg-brand/10 rounded-full items-center justify-center mb-4">

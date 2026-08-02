@@ -190,7 +190,7 @@ export default function StudentProfileScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
       >
-        <View className="items-center mt-8 mb-6 px-6">
+        <View className="items-center mt-2 mb-6 px-6">
           <View className="relative">
             <TouchableOpacity
               activeOpacity={0.8}
@@ -243,8 +243,9 @@ export default function StudentProfileScreen() {
               title="Change MPIN"
               subtitle="Update your security PIN"
               onPress={() => router.push("/auth/reset-mpin")}
+              lastItem={true}
             />
-            <ProfileMenuItem
+            {/* <ProfileMenuItem
               icon="shield-checkmark-outline"
               title="KYC Status"
               subtitle={
@@ -254,7 +255,7 @@ export default function StudentProfileScreen() {
                 Alert.alert("KYC", "Your KYC details are securely stored.")
               }
               lastItem={true}
-            />
+            /> */}
           </View>
 
           <Text className="text-xs font-m-bold text-textLight uppercase tracking-wider mb-2 ml-2">

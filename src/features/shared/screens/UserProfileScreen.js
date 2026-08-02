@@ -1,6 +1,6 @@
 import apiClient from "@/api/client";
 import Header from "@/components/ui/Header";
-import { COLORS } from "@/constants/theme"; // Adjust path if needed
+import { COLORS } from "@/constants/theme";
 import { useAuthStore } from "@/store/authStore";
 import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
@@ -124,7 +124,7 @@ function StatusBadge({ status }) {
 function SectionLabel({ title, count, rightElement }) {
   return (
     <View className="flex-row items-center justify-between gap-2 mb-3 px-1">
-      <Text className="text-[14px] font-m-bold tracking-widest uppercase text-textDark">
+      <Text className="text-[12px] font-m-bold tracking-widest uppercase text-textDark">
         {title}
       </Text>
       <View className="flex-2">
@@ -208,25 +208,21 @@ function EnrollmentCard({
         </View>
 
         <View className="flex-row flex-wrap mb-1 mt-2">
-          {/* Shift Chip */}
           <Chip
             label={SHIFT_CONFIG[enrollment.shift]?.label || enrollment.shift}
             icon={SHIFT_CONFIG[enrollment.shift]?.icon || "time"}
             variant="purple"
           />
-          {/* Amenity Chip */}
           <Chip
             label={isAC ? "AC" : "Non-AC"}
             icon={isAC ? "snow" : "thermometer-outline"}
             variant={isAC ? "pink" : "gray"}
           />
-          {/* Reservation Chip */}
           <Chip
             label={isReserved ? "Reserved" : "Unreserved"}
             icon={isReserved ? "star-outline" : "lock-open-outline"}
             variant={isReserved ? "green" : "amber"}
           />
-          {/* Assigned Seat Chip */}
           {enrollment.assigned_seat && (
             <Chip
               label={enrollment.assigned_seat.replace("_", " ")}
@@ -255,7 +251,6 @@ function EnrollmentCard({
         </View>
       </View>
 
-      {/* 📌 Dynamic Action Buttons render here! */}
       {children && (
         <View className="px-4 pb-4">
           <View className="h-px bg-gray-100 mb-3" />
@@ -336,7 +331,11 @@ function PaymentCard({ payment }) {
 // ── Main Screen ────────────────────────────────────────────────────
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams();
-  const { libraryId } = useAuthStore();
+  const { libraryId, role, userId } = useAuthStore();
+
+  const isViewerOwner = role === "owner";
+  const isSelf = String(userId) === String(id);
+  const canViewSensitiveData = isViewerOwner || isSelf;
 
   const [user, setUser] = useState(null);
   const [enrollment, setEnrollment] = useState(null);
@@ -489,11 +488,9 @@ export default function UserProfileScreen() {
   if (!user) return null;
 
   const isActive = enrollment?.status === "ACTIVE";
-  const totalLTV = payments.reduce((sum, p) => sum + Number(p.amount), 0);
 
-  // 📌 Helper to render the appropriate action buttons based on enrollment status
   const renderActionButtons = (plan) => {
-    if (!plan) return null;
+    if (!plan || !isViewerOwner) return null;
 
     if (plan.status === "PENDING") {
       return (
@@ -544,7 +541,7 @@ export default function UserProfileScreen() {
 
   return (
     <View className="flex-1 bg-[#F7F5FA]">
-      <Header title="Student Profile" />
+      <Header title={canViewSensitiveData ? "Student Profile" : "Profile"} />
 
       <ScrollView
         className="flex-1"
@@ -553,13 +550,12 @@ export default function UserProfileScreen() {
       >
         {/* 1. Profile Header */}
         <View className="rounded-3xl overflow-hidden mb-5 border border-indigo-900/10">
-          {/* 📌 THE FIX: The LinearGradient now wraps the ENTIRE card */}
           <LinearGradient
             colors={[COLORS.textDark, COLORS.textLight, COLORS.brand]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            {/* --- TOP SECTION --- */}
+            {/* --- TOP SECTION (Public Info) --- */}
             <View className="px-5 pt-7 pb-5 flex-row gap-4 items-start">
               <View className="relative shrink-0">
                 <Image
@@ -569,7 +565,7 @@ export default function UserProfileScreen() {
                       `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=C13383&color=fff&size=128`,
                   }}
                   className="w-20 h-20 rounded-2xl border-2 border-white/30"
-                  style={{ backgroundColor: COLORS.textDark }} // Fallback bg
+                  style={{ backgroundColor: COLORS.textDark }}
                   resizeMode="cover"
                 />
                 <View
@@ -612,19 +608,20 @@ export default function UserProfileScreen() {
               </View>
             </View>
 
-            {/* --- BOTTOM SECTION --- */}
-            {/* 📌 Added a faint top border and slight glassy dark tint to separate the content without breaking the gradient */}
+            {/* --- BOTTOM SECTION (Contact & Location) --- */}
+            {/* 📌 NOW ALWAYS VISIBLE: Replaces text and icons based on permission */}
             <View className="px-5 py-4 gap-2 border-t border-white/10 bg-black/5">
               <View className="flex-row gap-4">
                 <View className="flex-row items-center gap-2 flex-1 min-w-0">
                   <Ionicons name="call-outline" size={14} color="white" />
                   <Text
-                    className="text-xs font-m-semi text-white/85"
+                    className={`text-xs font-m-semi ${canViewSensitiveData ? "text-white/85" : "text-emerald-300"}`}
                     numberOfLines={1}
                   >
-                    {user.phone}
+                    {canViewSensitiveData ? user.phone : "Hidden for safety"}
                   </Text>
                 </View>
+
                 <View className="flex-row items-center gap-2 flex-1 min-w-0">
                   <Ionicons name="location-outline" size={14} color="white" />
                   <Text
@@ -639,89 +636,95 @@ export default function UserProfileScreen() {
               <View className="flex-row items-center gap-2 min-w-0">
                 <Ionicons name="mail-outline" size={14} color="white" />
                 <Text
-                  className="text-xs font-m-semi text-white/85 flex-1"
+                  className={`text-xs font-m-semi flex-1 ${canViewSensitiveData ? "text-white/85" : "text-emerald-300"}`}
                   numberOfLines={1}
                 >
-                  {user.email || "No Email"}
+                  {canViewSensitiveData
+                    ? user.email || "No Email"
+                    : "Hidden for safety"}
                 </Text>
               </View>
             </View>
           </LinearGradient>
         </View>
 
-        {/* 2. Enrollments */}
-        {enrollment && (
+        {/* 📌 ONLY KEEP ENROLLMENTS/PAYMENTS FOR AUTHORIZED VIEWERS */}
+        {canViewSensitiveData && (
           <>
-            <SectionLabel title="Current Enrollment" />
-            <EnrollmentCard enrollment={enrollment} isOwner={true}>
-              {renderActionButtons(enrollment)}
-            </EnrollmentCard>
+            {/* 2. Enrollments */}
+            {enrollment && (
+              <>
+                <SectionLabel title="Current Enrollment" />
+                <EnrollmentCard enrollment={enrollment} isOwner={isViewerOwner}>
+                  {renderActionButtons(enrollment)}
+                </EnrollmentCard>
+              </>
+            )}
+
+            {futureEnrollment && (
+              <>
+                <SectionLabel title="Upcoming Enrollment" />
+                <EnrollmentCard
+                  enrollment={futureEnrollment}
+                  isFuture={true}
+                  isOwner={isViewerOwner}
+                >
+                  {renderActionButtons(futureEnrollment)}
+                </EnrollmentCard>
+              </>
+            )}
+
+            {/* 3. Payment History */}
+            <SectionLabel title="Payment History" count={payments.length} />
+
+            {payments.length === 0 ? (
+              <View className="bg-white border border-pink-100 p-6 rounded-2xl items-center mb-4">
+                <Ionicons
+                  name="receipt-outline"
+                  size={32}
+                  color="#9ca3af"
+                  className="mb-2"
+                />
+                <Text className="text-gray-400 font-medium mt-2 text-xs">
+                  No payment history yet.
+                </Text>
+              </View>
+            ) : (
+              payments.map((payment, i) => (
+                <PaymentCard key={i} payment={payment} />
+              ))
+            )}
           </>
         )}
 
-        {futureEnrollment && (
-          <>
-            <SectionLabel title="Upcoming Enrollment" />
-            <EnrollmentCard
-              enrollment={futureEnrollment}
-              isFuture={true}
-              isOwner={true}
-            >
-              {renderActionButtons(futureEnrollment)}
-            </EnrollmentCard>
-          </>
-        )}
-
-        {/* 3. Payment History */}
-        <SectionLabel
-          title="Payment History"
-          count={payments.length}
-          // rightElement={
-          //   <Text className="text-[11px] font-bold text-indigo-900">
-          //     Rev: {fmtCurrency(totalLTV)}
-          //   </Text>
-          // }
-        />
-
-        {payments.length === 0 ? (
-          <View className="bg-white border border-pink-100 p-6 rounded-2xl items-center mb-4">
-            <Ionicons
-              name="receipt-outline"
-              size={32}
-              color="#9ca3af"
-              className="mb-2"
-            />
-            <Text className="text-gray-400 font-medium mt-2 text-xs">
-              No payment history yet.
-            </Text>
-          </View>
-        ) : (
-          payments.map((payment, i) => (
-            <PaymentCard key={i} payment={payment} />
-          ))
-        )}
-
-        {/* 4. System Details */}
-        <SectionLabel title="Profile" />
-        <View className="bg-white rounded-2xl border border-indigo-100  overflow-hidden mb-4">
+        {/* 📌 NOW ALWAYS VISIBLE: Address and Coordinates are masked for safety */}
+        <SectionLabel title="More Details" />
+        <View className="bg-white rounded-2xl border border-indigo-100 overflow-hidden mb-4">
           <View className="px-4 py-2">
             <InfoRow
               emoji="🏠"
               label="Full Address"
-              value={`${user.address || "N/A"}, ${user.city || "N/A"}`}
+              value={
+                canViewSensitiveData
+                  ? `${user.address || "N/A"}, ${user.city || "N/A"}`
+                  : "🔒 Hidden for safety purpose"
+              }
             />
             <View className="h-px bg-gray-100" />
             <View className="flex-row items-center justify-between">
               <InfoRow
                 emoji="🌐"
-                label="Coordinates"
+                label="Location"
                 value={
-                  user.latitude != null
-                    ? `${user.latitude}, ${user.longitude}`
-                    : "Not mapped"
+                  canViewSensitiveData
+                    ? user.latitude != null
+                      ? `${user.latitude}, ${user.longitude}`
+                      : "Not mapped"
+                    : "🔒 Hidden for safety purpose"
                 }
               />
-              {user.latitude && (
+              {/* Map icon button is only shown if they actually have access */}
+              {canViewSensitiveData && user.latitude && (
                 <TouchableOpacity
                   onPress={openMap}
                   className="bg-indigo-50 p-2 rounded-full mr-2"

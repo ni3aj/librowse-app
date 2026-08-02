@@ -133,26 +133,19 @@ export default function LibraryDetailScreen() {
     setRefreshing(false);
   };
 
-  // 📌 The Make Enquiry Handler
   const handleEnquiry = async () => {
     setIsEnquiring(true);
     try {
-      // 1. Fire API so backend sends push notification to owner
-      // NOTE: Ensure `studentApi.sendEnquiry(id)` is added to your api.js file
       await studentApi
         .sendEnquiry(id)
         .catch((e) => console.log("Silent error tracking:", e));
-
-      // 2. Open Native Phone Dialer
-      const phoneToCall =
-        library.phone || library.owner_phone || library.contact_number;
-
+      const phoneToCall = library.owner_phone;
       if (phoneToCall) {
         Linking.openURL(`tel:${phoneToCall}`);
       } else {
         Alert.alert(
           "Enquiry Sent",
-          "The library owner has been notified and will contact you shortly.",
+          "The library owner has been notified and will contact you soon.",
         );
       }
     } catch (error) {
@@ -448,7 +441,11 @@ export default function LibraryDetailScreen() {
               onPress={handleOpenMaps}
               className="bg-surface p-3 rounded-2xl border border-borderLight active:opacity-70"
             >
-              <Ionicons name="map-outline" size={24} color={COLORS.brand} />
+              <Ionicons
+                name="location-outline"
+                size={24}
+                color={COLORS.brand}
+              />
             </TouchableOpacity>
           </View>
 
@@ -513,7 +510,7 @@ export default function LibraryDetailScreen() {
                   return (
                     <View
                       key={index}
-                      className="w-[48%] bg-white border border-borderLight rounded-2xl p-3 flex-row items-center mb-3"
+                      className="w-[48%] bg-white border border-borderLight rounded-2xl p-2 flex-row items-center mb-3"
                     >
                       <View className="bg-surface p-1 rounded-full mr-3">
                         <Ionicons

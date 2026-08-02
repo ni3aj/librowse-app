@@ -11,7 +11,7 @@ export default function StudentLayout() {
         headerShown: false,
         tabBarStyle: {
           backgroundColor: COLORS.surface,
-          height: 110,
+          height: 100,
           paddingTop: 5,
         },
       }}
@@ -54,6 +54,7 @@ export default function StudentLayout() {
       />
       <Tabs.Screen name="library/[id]" options={{ href: null }} />
       <Tabs.Screen name="edit-profile" options={{ href: null }} />
+      <Tabs.Screen name="about" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -56,10 +56,10 @@ export default function BookingsScreen() {
           data={layout}
           keyExtractor={(item, index) => `${item.type}-${index}`}
           renderItem={renderWidget}
-          contentContainerStyle={{ paddingBottom: 40 }}
+          contentContainerStyle={{ paddingBottom: 20 }}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <View className="flex-1 justify-center items-center mt-20">
+            <View className="flex-1 justify-center items-center mt-10">
               <Text className="text-lg font-m-bold text-textLight">
                 No active bookings found.
               </Text>
