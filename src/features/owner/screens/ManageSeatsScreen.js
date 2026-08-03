@@ -57,7 +57,6 @@ export default function ManageSeatsScreen() {
   const AMENITY_OPTIONS = ["AC", "NON_AC"];
   const RESERVATION_OPTIONS = ["RESERVED", "UNRESERVED"];
 
-  // 📌 3. Clean useEffect replaces async storage loading
   useEffect(() => {
     if (libraryId) {
       loadInventory(libraryId);
@@ -68,7 +67,7 @@ export default function ManageSeatsScreen() {
       );
       setLoading(false);
     }
-  }, [libraryId]); // Will auto-run if they swap to their 2nd library!
+  }, [libraryId]);
 
   useEffect(() => {
     if (reservation === "RESERVED" && seats) {
