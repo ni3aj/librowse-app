@@ -300,7 +300,7 @@ export default function ManageSeatsScreen() {
       <Header title="Manage Seats" />
 
       <View
-        className={`p-4 m-6 rounded-2xl mb-8 border ${editingId ? "bg-brand/5 border-brand/30" : "bg-white border-borderLight"}`}
+        className={`p-4 mx-6 rounded-2xl mb-8 border ${editingId ? "bg-brand/5 border-brand/30" : "bg-white border-borderLight"}`}
       >
         <View className="flex-row justify-between items-center mb-4">
           <Text className="font-bold text-textDark text-lg">

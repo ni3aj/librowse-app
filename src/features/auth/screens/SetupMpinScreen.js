@@ -116,12 +116,12 @@ export default function SetupMpinScreen() {
           className="mb-4"
         />
 
-        <Button
+        {/* <Button
           title="Skip for now"
           variant="outline"
           onPress={handleSkip}
           disabled={loading}
-        />
+        /> */}
       </View>
     </TouchableWithoutFeedback>
   );

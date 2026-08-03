@@ -3,9 +3,9 @@ import AlertModal from "@/components/ui/AlertModal";
 import Button from "@/components/ui/Button";
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
+import { useAuthStore } from "@/store/authStore"; // 📌 1. Imported authStore
 import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
@@ -13,8 +13,8 @@ import {
   Alert,
   Modal,
   Pressable,
-  RefreshControl, // 📌 1. Imported standard RefreshControl
-  ScrollView, // 📌 2. Imported standard ScrollView
+  RefreshControl,
+  ScrollView,
   Text,
   TouchableOpacity,
   View,
@@ -35,12 +35,13 @@ export default function DashboardScreen() {
   const [selectedLibrary, setSelectedLibrary] = useState(null);
   const [stats, setStats] = useState(null);
 
-  // 📌 3. Split loading states (Initial Load vs Pull-to-Refresh)
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const [modalVisible, setModalVisible] = useState(false);
-  const [hasInventory, setHasInventory] = useState(true);
+
+  // 📌 2. Pulled hasInventory directly from Zustand! (Removed local state)
+  const hasInventory = useAuthStore((state) => state.hasInventory);
 
   const libraryStatus = useLibraryStore((state) => state.libraryStatus);
 
@@ -49,10 +50,7 @@ export default function DashboardScreen() {
   const isUnverified = selectedLibrary && libraryStatus === "UNVERIFIED";
   const isLocked = isPending || isUnverified;
 
-  const checkSetupStatus = async () => {
-    const inventoryFlag = await AsyncStorage.getItem("hasInventory");
-    setHasInventory(inventoryFlag !== "false");
-  };
+  // 📌 3. Deleted the old checkSetupStatus function completely!
 
   const fetchDashboardStats = async (libraryId) => {
     try {
@@ -69,12 +67,9 @@ export default function DashboardScreen() {
     }
   };
 
-  // 📌 4. The Master Load Function
   const loadDashboardData = async () => {
-    await checkSetupStatus();
     let currentLibId = selectedLibrary?.id;
 
-    // Fetch libraries if we don't have them yet
     if (!currentLibId) {
       try {
         const response = await apiClient.get("/owner/my-libraries");
@@ -85,33 +80,37 @@ export default function DashboardScreen() {
         }
       } catch (error) {
         console.error("Failed to load libraries", error);
+        return;
       }
     }
 
-    // Fetch stats for the active library
     if (currentLibId) {
       await fetchDashboardStats(currentLibId);
     }
   };
 
-  // 📌 5. Auto-Refresh on screen focus!
-  // Replaces the old useEffects. Re-runs anytime the screen is opened OR selectedLibrary changes.
   useFocusEffect(
     useCallback(() => {
+      let isActive = true;
+
       const init = async () => {
-        if (!stats) setLoading(true); // Only show big spinner on very first load
-        await loadDashboardData();
-        setLoading(false);
+        if (!stats) setLoading(true);
+        if (isActive) await loadDashboardData();
+        if (isActive) setLoading(false);
       };
+
       init();
+
+      return () => {
+        isActive = false;
+      };
     }, [selectedLibrary?.id]),
   );
 
-  // 📌 6. Manual Pull-to-Refresh handler
   const handlePullToRefresh = async () => {
-    setRefreshing(true); // Show the top native spinner
+    setRefreshing(true);
     await loadDashboardData();
-    setRefreshing(false); // Hide the top native spinner
+    setRefreshing(false);
   };
 
   const handleMarkAsPaid = (enrollmentId, studentName) => {
@@ -138,7 +137,7 @@ export default function DashboardScreen() {
               secondaryButtonText: null,
               onPrimaryPress: () => {
                 hideAlert();
-                fetchDashboardStats(selectedLibrary.id);
+                if (selectedLibrary) fetchDashboardStats(selectedLibrary.id);
               },
             });
           }
@@ -169,7 +168,7 @@ export default function DashboardScreen() {
           text1: "Approved!",
           text2: "Awaiting their payment.",
         });
-        fetchDashboardStats(selectedLibrary.id);
+        if (selectedLibrary) fetchDashboardStats(selectedLibrary.id);
       }
     } catch (error) {
       Alert.alert(
@@ -194,7 +193,7 @@ export default function DashboardScreen() {
                 `/owner/requests/${enrollmentId}/reject`,
               );
               if (response.data.success) {
-                fetchDashboardStats(selectedLibrary.id);
+                if (selectedLibrary) fetchDashboardStats(selectedLibrary.id);
               }
             } catch (error) {
               Alert.alert(
@@ -264,7 +263,6 @@ export default function DashboardScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      {/* --- HEADER --- */}
       <Header
         title="Dashboard"
         enableBack={false}
@@ -283,7 +281,6 @@ export default function DashboardScreen() {
         }
       />
 
-      {/* 📌 7. The New Standard React Native ScrollView with Native RefreshControl */}
       <ScrollView
         className="px-6"
         showsVerticalScrollIndicator={false}
@@ -291,8 +288,8 @@ export default function DashboardScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handlePullToRefresh}
-            tintColor={COLORS.brand} // iOS Spinner Color
-            colors={[COLORS.brand]} // Android Spinner Color
+            tintColor={COLORS.brand}
+            colors={[COLORS.brand]}
           />
         }
       >
@@ -621,7 +618,7 @@ export default function DashboardScreen() {
                 key={lib.id}
                 className="py-4 border-b border-borderLight"
                 onPress={() => {
-                  setSelectedLibrary(lib); // Pass the whole object!
+                  setSelectedLibrary(lib);
                   setModalVisible(false);
                 }}
               >
