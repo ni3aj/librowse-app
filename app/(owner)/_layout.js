@@ -6,7 +6,7 @@ export default function OwnerTabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: COLORS.brand,
+        tabBarActiveTintColor: COLORS.textDark,
         tabBarInactiveTintColor: COLORS.textLight,
         headerShown: false,
         tabBarStyle: {

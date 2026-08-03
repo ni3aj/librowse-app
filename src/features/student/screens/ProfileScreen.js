@@ -190,7 +190,7 @@ export default function StudentProfileScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
       >
-        <View className="items-center mt-2 mb-6 px-6">
+        <View className="items-center mb-6 px-6">
           <View className="relative">
             <TouchableOpacity
               activeOpacity={0.8}
@@ -206,7 +206,7 @@ export default function StudentProfileScreen() {
               activeOpacity={0.9}
               onPress={handlePickImage}
               disabled={isUploading}
-              className="absolute bottom-0 right-0 bg-brand w-9 h-9 rounded-full items-center justify-center border-2 border-white shadow-sm"
+              className="absolute bottom-0 right-0 bg-brand w-9 h-9 rounded-full items-center justify-center border-2 border-white"
             >
               {isUploading ? (
                 <ActivityIndicator size="small" color="#fff" />

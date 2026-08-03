@@ -331,7 +331,7 @@ export default function LoginScreen() {
               <View className="flex-1 mr-2">
                 <Button
                   title="Unlock App"
-                  variant="dark"
+                  variant="primary"
                   onPress={handleMpinLogin}
                   loading={loading}
                 />
@@ -349,7 +349,7 @@ export default function LoginScreen() {
 
             <Button
               title="Forgot MPIN? Use OTP"
-              variant="primary"
+              variant="outline"
               onPress={handleForgotMpin}
             />
           </View>

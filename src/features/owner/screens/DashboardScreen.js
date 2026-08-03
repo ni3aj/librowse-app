@@ -284,13 +284,12 @@ export default function DashboardScreen() {
         }
       >
         {isUnverified && hasInventory && (
-          <View className="bg-red-50 border border-red-200 p-4 rounded-2xl mb-6 flex-row items-start">
-            <Text className="text-xl mr-3">🛑</Text>
+          <View className="bg-surface border border-borderLight p-4 rounded-2xl mb-6 flex-row items-start">
             <View className="flex-1">
-              <Text className="text-red-900 font-m-bold text-base mb-2">
-                Setup Incomplete
+              <Text className="text-textDark font-m-bold text-base mb-2">
+                <Text className="text-l mr-3">🛑</Text> Setup Incomplete
               </Text>
-              <Text className="text-red-800 text-sm font-m leading-5 mb-3">
+              <Text className="text-textDark text-sm font-m leading-5 mb-3">
                 Your library is currently Unverified. Students cannot book seats
                 until you upload library photos and submit your profile for
                 admin review.
@@ -330,8 +329,8 @@ export default function DashboardScreen() {
         ) : stats ? (
           <>
             {!hasInventory && (
-              <View className="bg-white p-6 rounded-3xl border border-brandAccent/30 mb-6 items-center mt-4">
-                <View className="bg-brand/10 h-16 w-16 rounded-full items-center justify-center mb-4">
+              <View className="bg-surface p-6 rounded-3xl border border-borderLight mb-6 items-center mt-4">
+                <View className="bg-background h-16 w-16 rounded-full items-center justify-center mb-4">
                   <Text className="text-3xl">🪑</Text>
                 </View>
                 <Text className="text-xl font-m-bold text-textDark text-center mb-2">

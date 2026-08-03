@@ -174,12 +174,11 @@ export default function ActivitiesScreen() {
         onLongPress={() => canDelete && confirmDelete(item.id)}
         className={`mb-4 p-4 max-w-[80%] ${
           isMyMessage
-            ? "self-end bg-brand/10 border border-brand/20 rounded-3xl rounded-tr-md mr-6"
-            : "self-start bg-white border border-borderLight rounded-3xl rounded-tl-md ml-6"
+            ? "self-end bg-surface border border-borderLight rounded-3xl rounded-tr-md mr-6"
+            : "self-start bg-surface border border-borderLight rounded-3xl rounded-tl-md ml-6"
         }`}
       >
         <View className="flex-row justify-between items-center mb-1.5 gap-x-4">
-          {/* 📌 2. Wrapped the avatar and name in a TouchableOpacity */}
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => router.push(`/user/${item.sender_id}`)}

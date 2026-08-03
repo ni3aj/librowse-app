@@ -564,13 +564,13 @@ export default function ManageSeatsScreen() {
               <View className="justify-center">
                 <TouchableOpacity
                   onPress={() => handleEditClick(item)}
-                  className="w-8 h-8 bg-blue-50 rounded-full items-center justify-center mb-2 border border-blue-100"
+                  className="w-8 h-8 bg-background rounded-full items-center justify-center mb-2 border border-borderLight"
                 >
-                  <Ionicons name="pencil" size={16} color="#2563EB" />
+                  <Ionicons name="pencil" size={16} color={COLORS.brand} />
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => handleDeleteClick(item.id)}
-                  className="w-8 h-8 bg-red-50 rounded-full items-center justify-center border border-red-100"
+                  className="w-8 h-8 bg-background rounded-full items-center justify-center border border-borderLight"
                 >
                   <Ionicons name="trash" size={16} color="#DC2626" />
                 </TouchableOpacity>

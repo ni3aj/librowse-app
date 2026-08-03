@@ -144,7 +144,7 @@ function SectionLabel({ title, count, rightElement }) {
 function InfoRow({ emoji, label, value, mono = false }) {
   return (
     <View className="flex-row items-start gap-3 py-2.5">
-      <View className="w-9 h-9 rounded-xl bg-pink-50 items-center justify-center shrink-0">
+      <View className="w-9 h-9 rounded-xl bg-surface items-center justify-center shrink-0">
         <Text className="text-base">{emoji}</Text>
       </View>
       <View className="flex-1">
@@ -540,7 +540,7 @@ export default function UserProfileScreen() {
   };
 
   return (
-    <View className="flex-1 bg-[#F7F5FA]">
+    <View className="flex-1 bg-background">
       <Header title={canViewSensitiveData ? "Student Profile" : "Profile"} />
 
       <ScrollView
@@ -549,9 +549,9 @@ export default function UserProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* 1. Profile Header */}
-        <View className="rounded-3xl overflow-hidden mb-5 border border-indigo-900/10">
+        <View className="rounded-3xl overflow-hidden mb-5">
           <LinearGradient
-            colors={[COLORS.textDark, COLORS.textLight, COLORS.brand]}
+            colors={[COLORS.brandAccent, COLORS.brand]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
@@ -564,7 +564,7 @@ export default function UserProfileScreen() {
                       user.profile_photo ||
                       `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=C13383&color=fff&size=128`,
                   }}
-                  className="w-20 h-20 rounded-2xl border-2 border-white/30"
+                  className="w-20 h-20 rounded-2xl"
                   style={{ backgroundColor: COLORS.textDark }}
                   resizeMode="cover"
                 />
@@ -678,7 +678,7 @@ export default function UserProfileScreen() {
             <SectionLabel title="Payment History" count={payments.length} />
 
             {payments.length === 0 ? (
-              <View className="bg-white border border-pink-100 p-6 rounded-2xl items-center mb-4">
+              <View className="bg-white border border-borderLight p-6 rounded-2xl items-center mb-4">
                 <Ionicons
                   name="receipt-outline"
                   size={32}
@@ -699,7 +699,7 @@ export default function UserProfileScreen() {
 
         {/* 📌 NOW ALWAYS VISIBLE: Address and Coordinates are masked for safety */}
         <SectionLabel title="More Details" />
-        <View className="bg-white rounded-2xl border border-indigo-100 overflow-hidden mb-4">
+        <View className="bg-white rounded-2xl border border-borderLight overflow-hidden mb-4">
           <View className="px-4 py-2">
             <InfoRow
               emoji="🏠"

@@ -355,7 +355,7 @@ export default function OwnerBillingScreen() {
                   key={index}
                   onPress={() => handleUpgradeClick(tier)}
                   disabled={processingPayment}
-                  className={`bg-white border border-brand/20 rounded-2xl p-5 mb-4 flex-row justify-between items-center ${processingPayment ? "opacity-50" : ""}`}
+                  className={`bg-white border border-borderLight rounded-2xl p-5 mb-4 flex-row justify-between items-center ${processingPayment ? "opacity-50" : ""}`}
                 >
                   <View className="flex-1">
                     <Text className="text-lg font-m-bold text-brand">
