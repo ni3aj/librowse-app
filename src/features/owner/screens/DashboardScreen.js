@@ -3,7 +3,7 @@ import AlertModal from "@/components/ui/AlertModal";
 import Button from "@/components/ui/Button";
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
-import { useAuthStore } from "@/store/authStore"; // 📌 1. Imported authStore
+import { useAuthStore } from "@/store/authStore";
 import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
@@ -40,17 +40,13 @@ export default function DashboardScreen() {
 
   const [modalVisible, setModalVisible] = useState(false);
 
-  // 📌 2. Pulled hasInventory directly from Zustand! (Removed local state)
   const hasInventory = useAuthStore((state) => state.hasInventory);
-
   const libraryStatus = useLibraryStore((state) => state.libraryStatus);
 
   const isPending =
     selectedLibrary && libraryStatus === "PENDING_ADMIN_APPROVAL";
   const isUnverified = selectedLibrary && libraryStatus === "UNVERIFIED";
   const isLocked = isPending || isUnverified;
-
-  // 📌 3. Deleted the old checkSetupStatus function completely!
 
   const fetchDashboardStats = async (libraryId) => {
     try {
@@ -68,25 +64,19 @@ export default function DashboardScreen() {
   };
 
   const loadDashboardData = async () => {
-    let currentLibId = selectedLibrary?.id;
-
-    if (!currentLibId) {
+    if (!selectedLibrary?.id) {
       try {
         const response = await apiClient.get("/owner/my-libraries");
         if (response.data.success && response.data.libraries.length > 0) {
           setLibraries(response.data.libraries);
           setSelectedLibrary(response.data.libraries[0]);
-          currentLibId = response.data.libraries[0].id;
         }
       } catch (error) {
         console.error("Failed to load libraries", error);
-        return;
       }
+      return;
     }
-
-    if (currentLibId) {
-      await fetchDashboardStats(currentLibId);
-    }
+    await fetchDashboardStats(selectedLibrary.id);
   };
 
   useFocusEffect(

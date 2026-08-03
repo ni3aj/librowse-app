@@ -29,8 +29,9 @@ export default function LoginScreen() {
   const [biometricSupported, setBiometricSupported] = useState(false);
   const [cachedRouteState, setCachedRouteState] = useState(null);
 
-  // 📌 This ref acts as our lock to prevent double-navigation
+  // 📌 Locks to prevent React lifecycle race conditions
   const isNavigating = useRef(false);
+  const isBiometricPromptOpen = useRef(false); // 📌 NEW: Tracks the OS prompt
 
   const {
     jwt_token,
@@ -45,8 +46,8 @@ export default function LoginScreen() {
   useFocusEffect(
     useCallback(() => {
       const checkSession = async () => {
-        // 📌 If a navigation is already in progress, stop immediately.
-        if (isNavigating.current) return;
+        // 📌 If routing OR the fingerprint scanner is open, DO NOT run the check again
+        if (isNavigating.current || isBiometricPromptOpen.current) return;
 
         setIsChecking(true);
 
@@ -77,7 +78,6 @@ export default function LoginScreen() {
         setCachedRouteState(currentState);
 
         if (currentState.startsWith("ACTIVE")) {
-          // 📌 We are staying on this screen (moving to Step 3), so it is safe to update Zustand.
           loginSuccess(data);
           setMpinConfigured(true);
 
@@ -87,7 +87,6 @@ export default function LoginScreen() {
             setStep(3);
           }
         } else {
-          // 📌 We are LEAVING this screen. Lock the effect before updating Zustand.
           isNavigating.current = true;
           loginSuccess(data);
 
@@ -109,6 +108,9 @@ export default function LoginScreen() {
 
   const handleBiometricLogin = async (targetState) => {
     try {
+      // 📌 Lock the focus effect BEFORE opening the OS prompt
+      isBiometricPromptOpen.current = true;
+
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: "Unlock LiBrowse",
         fallbackLabel: "Use MPIN",
@@ -116,10 +118,12 @@ export default function LoginScreen() {
         cancelLabel: "Cancel",
       });
 
+      // 📌 Unlock it once the prompt closes
+      isBiometricPromptOpen.current = false;
+
       if (result.success) {
         const finalState = targetState || cachedRouteState;
         if (finalState && ONBOARDING_ROUTE_MAP[finalState]) {
-          // 📌 Lock navigation right before replacing the route
           isNavigating.current = true;
           router.replace(ONBOARDING_ROUTE_MAP[finalState]);
         } else {
@@ -129,6 +133,7 @@ export default function LoginScreen() {
         setStep(3);
       }
     } catch (error) {
+      isBiometricPromptOpen.current = false; // 📌 Ensure it unlocks on error too
       setStep(3);
     }
   };
@@ -174,7 +179,6 @@ export default function LoginScreen() {
       if (response.data.success) {
         const { data } = response;
 
-        // 📌 Lock navigation before updating Zustand
         isNavigating.current = true;
         loginSuccess(data);
 
@@ -213,7 +217,6 @@ export default function LoginScreen() {
       if (response.data.success) {
         const { data } = response;
 
-        // 📌 Lock navigation before updating Zustand
         isNavigating.current = true;
         loginSuccess(data);
 

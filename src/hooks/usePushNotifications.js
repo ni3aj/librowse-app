@@ -1,6 +1,6 @@
 import apiClient from "@/api/client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Constants from "expo-constants"; // 📌 ADD THIS IMPORT
+import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { useEffect } from "react";
@@ -36,7 +36,6 @@ export const usePushNotifications = () => {
       }
 
       try {
-        // 📌 1. GRAB THE PROJECT ID FROM app.json
         const projectId = Constants.expoConfig?.extra?.eas?.projectId;
 
         if (!projectId) {
@@ -44,14 +43,11 @@ export const usePushNotifications = () => {
           return;
         }
 
-        // 📌 2. PASS THE ID INTO THE TOKEN REQUEST
         const expoPushToken = (
           await Notifications.getExpoPushTokenAsync({
             projectId: projectId,
           })
         ).data;
-
-        console.log("🟢 Expo Push Token:", expoPushToken);
 
         await apiClient.post("/user/fcm-token", { token: expoPushToken });
       } catch (error) {
