@@ -17,6 +17,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import Toast from "react-native-toast-message";
 
 export default function LoginScreen() {
   const [phone, setPhone] = useState("");
@@ -159,7 +160,11 @@ export default function LoginScreen() {
 
   const handleSendOtp = async () => {
     if (phone.length !== 10)
-      return Alert.alert("Error", "Enter 10-digit number.");
+      return Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Enter 10-digit number.",
+      });
     setLoading(true);
     try {
       const response = await apiClient.post("/auth/send-otp", { phone });

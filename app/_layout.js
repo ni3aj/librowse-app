@@ -46,7 +46,7 @@ export default function RootLayout() {
   return (
     <>
       <Stack screenOptions={{ headerShown: false }} />
-      <Toast config={toastConfig} position="bottom" bottomOffset={80} />
+      <Toast config={toastConfig} position="top" topOffset={0} />
     </>
   );
 }
