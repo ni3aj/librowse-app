@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Toast from "react-native-toast-message";
 
 export default function SetupProfileScreen() {
   const [fullName, setFullName] = useState("");
@@ -24,13 +25,17 @@ export default function SetupProfileScreen() {
 
   const handleNext = async () => {
     if (!fullName.trim())
-      return Alert.alert("Hold on", "Please enter your full name.");
+      return Toast.show({
+        type: "error",
+        text1: "Hold on",
+        text2: "Please enter your full name.",
+      });
     if (!role)
-      return Alert.alert(
-        "Almost there",
-        "Please select if you are a Student or Library Owner.",
-      );
-
+      return Toast.show({
+        type: "error",
+        text1: "Almost there",
+        text2: "Please select if you are a Student or Library Owner.",
+      });
     setLoading(true);
     const { success, token, error } = await completeUserProfile(fullName, role);
     setLoading(false);
@@ -46,7 +51,7 @@ export default function SetupProfileScreen() {
 
       router.replace(ONBOARDING_ROUTE_MAP.REQUIRES_MPIN);
     } else {
-      Alert.alert("Error", error);
+      Toast.show({ type: "error", text1: "Error", text2: error });
     }
   };
 

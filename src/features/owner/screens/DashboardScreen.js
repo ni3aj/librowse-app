@@ -58,8 +58,11 @@ export default function DashboardScreen() {
         setStats(response.data);
       }
     } catch (error) {
-      console.error("DASHBOARD FETCH ERROR:", error);
-      Alert.alert("Error", "Failed to fetch stats.");
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to fetch stats.",
+      });
     }
   };
 
@@ -161,10 +164,11 @@ export default function DashboardScreen() {
         if (selectedLibrary) fetchDashboardStats(selectedLibrary.id);
       }
     } catch (error) {
-      Alert.alert(
-        "Error",
-        error.response?.data?.error || "Failed to approve student.",
-      );
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error.response?.data?.error || "Failed to approve student.",
+      });
     }
   };
 
@@ -186,10 +190,11 @@ export default function DashboardScreen() {
                 if (selectedLibrary) fetchDashboardStats(selectedLibrary.id);
               }
             } catch (error) {
-              Alert.alert(
-                "Error",
-                error.response?.data?.error || "Failed to reject.",
-              );
+              Toast.show({
+                type: "error",
+                text1: "Error",
+                text2: error.response?.data?.error || "Failed to reject.",
+              });
             }
           },
         },

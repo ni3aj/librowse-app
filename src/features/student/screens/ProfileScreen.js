@@ -2,7 +2,7 @@ import apiClient from "@/api/client";
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
 import { useAuthStore } from "@/store/authStore";
-import { useLibraryStore } from "@/store/libraryStore"; // 📌 Kept this for clearing cache
+import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
@@ -18,6 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Toast from "react-native-toast-message";
 
 const ProfileMenuItem = ({
   icon,
@@ -89,7 +90,11 @@ export default function StudentProfileScreen() {
         setUser(response.data.user);
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to load profile data.");
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to load profile data.",
+      });
     } finally {
       setLoading(false);
     }
@@ -100,7 +105,11 @@ export default function StudentProfileScreen() {
       await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (permissionResult.granted === false) {
-      Alert.alert("Permission Required", "Please allow access to your photos.");
+      Toast.show({
+        type: "error",
+        text1: "Permission Required",
+        text2: "Please allow access to your photos.",
+      });
       return;
     }
 
@@ -136,19 +145,25 @@ export default function StudentProfileScreen() {
 
       if (response.data.success) {
         setUser({ ...user, profile_photo: response.data.photo_url });
-        Alert.alert("Success", "Profile photo updated!");
+        Toast.show({
+          type: "success",
+          text1: "Success",
+          text2: "Profile photo updated!",
+        });
       }
     } catch (error) {
-      Alert.alert(
-        "Upload Failed",
-        error.response?.data?.error || "Could not upload photo.",
-      );
+      Toast.show({
+        type: "error",
+        text1: "Upload Failed",
+        text2: error.response?.data?.error || "Could not upload photo.",
+      });
     } finally {
       setIsUploading(false);
     }
   };
 
   const handleLogout = () => {
+    // 📌 KEPT ALERT HERE because it is a Yes/No confirmation dialog
     Alert.alert("Logout", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
       {

@@ -19,6 +19,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Toast from "react-native-toast-message";
 
 export default function ActivitiesScreen() {
   const {
@@ -53,7 +54,11 @@ export default function ActivitiesScreen() {
         setActivities(response.data.activities);
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to load messages.");
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to load messages.",
+      });
       console.error(error);
     } finally {
       setLoading(false);
@@ -89,10 +94,11 @@ export default function ActivitiesScreen() {
         fetchActivities();
       }
     } catch (error) {
-      Alert.alert(
-        "Error",
-        error.response?.data?.error || "Failed to send message.",
-      );
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error.response?.data?.error || "Failed to send message.",
+      });
       setInputText(payload.content);
       setIsAnnouncement(payload.type === "ANNOUNCEMENT");
     }
@@ -107,10 +113,11 @@ export default function ActivitiesScreen() {
         setActivities((prev) => prev.filter((msg) => msg.id !== activityId));
       }
     } catch (error) {
-      Alert.alert(
-        "Error",
-        error.response?.data?.error || "Failed to delete message.",
-      );
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error.response?.data?.error || "Failed to delete message.",
+      });
     }
   };
 

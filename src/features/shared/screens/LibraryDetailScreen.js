@@ -1,7 +1,7 @@
 import WriteReviewModal from "@/components/student/WriteReviewModal";
 import Button from "@/components/ui/Button";
 import { COLORS } from "@/constants/theme";
-import { useAuthStore } from "@/store/authStore"; // 📌 Imported AuthStore for role check
+import { useAuthStore } from "@/store/authStore";
 import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -19,8 +19,9 @@ import {
   ScrollView,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
+import Toast from "react-native-toast-message";
 import { studentApi } from "../api";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -42,9 +43,7 @@ const getAmenityIcon = (name) => {
 export default function LibraryDetailScreen() {
   const { id } = useLocalSearchParams();
 
-  // 📌 Extract user to check role
   const { user } = useAuthStore();
-  // Safe check: If they aren't explicitly an OWNER, they are a STUDENT/GUEST
   const isStudent = user?.role !== "OWNER" && user?.account_type !== "OWNER";
 
   const [myReview, setMyReview] = useState(null);
@@ -62,7 +61,6 @@ export default function LibraryDetailScreen() {
   const [isBooking, setIsBooking] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
 
-  // 📌 New State for Enquiry
   const [isEnquiring, setIsEnquiring] = useState(false);
 
   const [isChangeModalVisible, setIsChangeModalVisible] = useState(false);
@@ -143,13 +141,19 @@ export default function LibraryDetailScreen() {
       if (phoneToCall) {
         Linking.openURL(`tel:${phoneToCall}`);
       } else {
-        Alert.alert(
-          "Enquiry Sent",
-          "The library owner has been notified and will contact you soon.",
-        );
+        Toast.show({
+          type: "success",
+          text1: "Enquiry Sent",
+          text2:
+            "The library owner has been notified and will contact you soon.",
+        });
       }
     } catch (error) {
-      Alert.alert("Error", "Could not process enquiry. Please try again.");
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Could not process enquiry. Please try again.",
+      });
     } finally {
       setIsEnquiring(false);
     }
@@ -159,10 +163,12 @@ export default function LibraryDetailScreen() {
     const { latitude, longitude, name } = library;
 
     if (!latitude || !longitude) {
-      Alert.alert(
-        "Location Unavailable",
-        "The library owner hasn't configured GPS coordinates for this study room yet.",
-      );
+      Toast.show({
+        type: "info",
+        text1: "Location Unavailable",
+        text2:
+          "The library owner hasn't configured GPS coordinates for this study room yet.",
+      });
       return;
     }
 
@@ -181,7 +187,11 @@ export default function LibraryDetailScreen() {
         await Linking.openURL(browserUrl);
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to launch default maps application.");
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to launch default maps application.",
+      });
     }
   };
 
@@ -218,18 +228,20 @@ export default function LibraryDetailScreen() {
           status: "PENDING",
           inventory_id: selectedSeat.id,
         });
-        Alert.alert(
-          "Request Sent! 🎉",
-          "Waiting for the library owner to accept.",
-        );
+        Toast.show({
+          type: "success",
+          text1: "Request Sent! 🎉",
+          text2: "Waiting for the library owner to accept.",
+        });
         await loadLibraryData();
       }
     } catch (error) {
       console.log(error);
-      Alert.alert(
-        "Booking Failed",
-        error.response?.data?.error || "Something went wrong.",
-      );
+      Toast.show({
+        type: "error",
+        text1: "Booking Failed",
+        text2: error.response?.data?.error || "Something went wrong.",
+      });
     } finally {
       setIsBooking(false);
     }
@@ -254,14 +266,19 @@ export default function LibraryDetailScreen() {
                 setMyEnrollment(null);
                 setSelectedSeat(null);
                 setSelectedSeatNumber(null);
-                Alert.alert("Cancelled", "Your request has been withdrawn.");
+                Toast.show({
+                  type: "success",
+                  text1: "Cancelled",
+                  text2: "Your request has been withdrawn.",
+                });
                 await loadLibraryData();
               }
             } catch (error) {
-              Alert.alert(
-                "Error",
-                error.response?.data?.error || "Failed to cancel.",
-              );
+              Toast.show({
+                type: "error",
+                text1: "Error",
+                text2: error.response?.data?.error || "Failed to cancel.",
+              });
             } finally {
               setIsCancelling(false);
             }
@@ -289,16 +306,18 @@ export default function LibraryDetailScreen() {
               if (response.data.success) {
                 setFutureEnrollment(null);
                 await loadLibraryData();
-                Alert.alert(
-                  "Cancelled",
-                  "Your request for next month has been withdrawn.",
-                );
+                Toast.show({
+                  type: "success",
+                  text1: "Cancelled",
+                  text2: "Your request for next month has been withdrawn.",
+                });
               }
             } catch (error) {
-              Alert.alert(
-                "Error",
-                error.response?.data?.message || "Failed to cancel.",
-              );
+              Toast.show({
+                type: "error",
+                text1: "Error",
+                text2: error.response?.data?.message || "Failed to cancel.",
+              });
             } finally {
               setIsCancelling(false);
             }
@@ -320,17 +339,19 @@ export default function LibraryDetailScreen() {
 
       if (response.data.success) {
         setIsChangeModalVisible(false);
-        Alert.alert(
-          "Plan Updated! 🔄",
-          "Your request for next month has been sent to the owner.",
-        );
+        Toast.show({
+          type: "success",
+          text1: "Plan Updated! 🔄",
+          text2: "Your request for next month has been sent to the owner.",
+        });
         await loadLibraryData();
       }
     } catch (error) {
-      Alert.alert(
-        "Update Failed",
-        error.response?.data?.error || "Something went wrong.",
-      );
+      Toast.show({
+        type: "error",
+        text1: "Update Failed",
+        text2: error.response?.data?.error || "Something went wrong.",
+      });
     } finally {
       setIsChangingPlan(false);
     }
@@ -449,7 +470,6 @@ export default function LibraryDetailScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* 📌 Added Enquiry Button Right Next to Timings */}
           <View className="flex-row items-center mt-4 border-b border-borderLight pb-6">
             <View
               className={`px-3 py-1.5 rounded-full flex-row items-center mr-3 ${library.is_open ? "bg-emerald-500" : "bg-gray-200"}`}
@@ -468,7 +488,6 @@ export default function LibraryDetailScreen() {
               {library.timing_string}
             </Text>
 
-            {/* 🔥 Make Enquiry Button (Only visible for students) */}
             {isStudent && (
               <TouchableOpacity
                 onPress={handleEnquiry}
@@ -824,7 +843,11 @@ export default function LibraryDetailScreen() {
               variant="primary"
               className="py-3 px-8"
               onPress={() =>
-                Alert.alert("Coming Soon", "Payment gateway will open here.")
+                Toast.show({
+                  type: "info",
+                  text1: "Coming Soon",
+                  text2: "Payment gateway will open here.",
+                })
               }
             />
           </View>

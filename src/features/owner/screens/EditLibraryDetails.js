@@ -12,19 +12,18 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
-  RefreshControl, // 📌 1. Imported Native RefreshControl
+  RefreshControl,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import Toast from "react-native-toast-message";
 
 export default function EditLibraryDetailsScreen() {
   const { libraryId } = useAuthStore();
 
-  // 📌 2. Split loading states
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -41,12 +40,11 @@ export default function EditLibraryDetailsScreen() {
 
   const [localPhotos, setLocalPhotos] = useState([]);
 
-  // 📌 3. The master fetch function
   const fetchLibraryDetails = async () => {
     if (!libraryId) return;
 
     try {
-      const res = await apiClient.get(`/owner/library/${libraryId}`); // Fixed: Using the Zustand libraryId
+      const res = await apiClient.get(`/owner/library/${libraryId}`);
       if (res.data.success) {
         const lib = res.data.library;
         setFormData({
@@ -61,16 +59,18 @@ export default function EditLibraryDetailsScreen() {
         });
       }
     } catch (error) {
-      Alert.alert("Error", "Could not load library details.");
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Could not load library details.",
+      });
       router.back();
     }
   };
 
-  // 📌 4. Auto-fetch on Focus
   useFocusEffect(
     useCallback(() => {
       const init = async () => {
-        // Only show full screen spinner on very first load
         if (!formData.name) setLoading(true);
         await fetchLibraryDetails();
         setLocalPhotos([]); // WIPE the local photos array clean on entry!
@@ -81,7 +81,6 @@ export default function EditLibraryDetailsScreen() {
     }, [libraryId]),
   );
 
-  // 📌 5. Manual Pull-to-Refresh Handler
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchLibraryDetails();
@@ -105,10 +104,11 @@ export default function EditLibraryDetailsScreen() {
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert(
-        "Permission Denied",
-        "Sorry, we need camera roll permissions to upload photos.",
-      );
+      Toast.show({
+        type: "error",
+        text1: "Permission Denied",
+        text2: "Sorry, we need camera roll permissions to upload photos.",
+      });
       return;
     }
 
@@ -165,7 +165,11 @@ export default function EditLibraryDetailsScreen() {
 
   const handleSave = async () => {
     if (!formData.name || !formData.city || !formData.address) {
-      Alert.alert("Validation Error", "Name, City, and Address are required.");
+      Toast.show({
+        type: "error",
+        text1: "Validation Error",
+        text2: "Name, City, and Address are required.",
+      });
       return;
     }
 
@@ -204,12 +208,21 @@ export default function EditLibraryDetailsScreen() {
 
       if (res.data.success) {
         useLibraryStore.getState().setLibraryStatus(newStatus);
-        Alert.alert("Success", "Library details updated successfully!");
+        Toast.show({
+          type: "success",
+          text1: "Success",
+          text2: "Library details updated successfully!",
+        });
+
         setLocalPhotos([]);
         router.back();
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to save changes. Please try again.");
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to save changes. Please try again.",
+      });
     } finally {
       setSaving(false);
       setSaveStatusText("Save Changes");
@@ -228,7 +241,6 @@ export default function EditLibraryDetailsScreen() {
     <View className="flex-1 bg-background">
       <Header title="Edit Library" />
 
-      {/* 📌 6. Added Native RefreshControl to the ScrollView */}
       <ScrollView
         className="flex-1 px-6"
         showsVerticalScrollIndicator={false}

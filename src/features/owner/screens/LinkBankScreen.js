@@ -6,7 +6,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -85,11 +84,14 @@ export default function LinkBankAccountScreen() {
       }
     } catch (error) {
       console.log("Bank Link Error:", error.response?.data || error.message);
-      Alert.alert(
-        "Linking Failed",
-        error.response?.data?.error ||
+
+      Toast.show({
+        type: "error",
+        text1: "Linking Failed",
+        text2:
+          error.response?.data?.error ||
           "Could not connect to Razorpay. Please try again later.",
-      );
+      });
     } finally {
       setIsSubmitting(false);
     }

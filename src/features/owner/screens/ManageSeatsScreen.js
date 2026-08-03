@@ -9,7 +9,7 @@ import {
   getLibraryInventory,
   updateInventoryBucket,
 } from "@/features/owner/api";
-import { useAuthStore } from "@/store/authStore"; // 📌 1. Import Auth Store
+import { useAuthStore } from "@/store/authStore";
 import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -26,7 +26,6 @@ import {
 import Toast from "react-native-toast-message";
 
 export default function ManageSeatsScreen() {
-  // 📌 2. Extract libraryId synchronously from Zustand
   const { libraryId } = useAuthStore();
 
   const [inventory, setInventory] = useState([]);
@@ -61,10 +60,11 @@ export default function ManageSeatsScreen() {
     if (libraryId) {
       loadInventory(libraryId);
     } else {
-      Alert.alert(
-        "Error",
-        "Library profile not found. Please select a library from your profile.",
-      );
+      Toast.show({
+        type: "error",
+        text1: "Profile Not Found",
+        text2: "Please select a library from your profile.",
+      });
       setLoading(false);
     }
   }, [libraryId]);
@@ -86,8 +86,15 @@ export default function ManageSeatsScreen() {
   const loadInventory = async (id) => {
     setLoading(true);
     const { data, error } = await getLibraryInventory(id);
-    if (error) Alert.alert("Error", error);
-    else setInventory(data.data || []);
+    if (error) {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error,
+      });
+    } else {
+      setInventory(data.data || []);
+    }
     setLoading(false);
   };
 
@@ -182,8 +189,20 @@ export default function ManageSeatsScreen() {
           onPress: async () => {
             setLoading(true);
             const { success, error } = await deleteInventoryBucket(id);
-            if (error) Alert.alert("Cannot Delete", error);
-            else loadInventory(libraryId);
+            if (error) {
+              Toast.show({
+                type: "error",
+                text1: "Cannot Delete",
+                text2: error,
+              });
+            } else {
+              loadInventory(libraryId);
+              Toast.show({
+                type: "success",
+                text1: "Deleted",
+                text2: "Seat category removed successfully.",
+              });
+            }
             setLoading(false);
           },
         },
@@ -250,7 +269,13 @@ export default function ManageSeatsScreen() {
       });
     }
 
-    if (!libraryId) return Alert.alert("Error", "Library ID is missing.");
+    if (!libraryId) {
+      return Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Library ID is missing.",
+      });
+    }
 
     setLoading(true);
 
@@ -270,19 +295,36 @@ export default function ManageSeatsScreen() {
         editingId,
         payload,
       );
-      if (error) Alert.alert("Error", error);
-      else {
-        Alert.alert("Success", "Seat category updated!");
+      if (error) {
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: error,
+        });
+      } else {
+        Toast.show({
+          type: "success",
+          text1: "Success",
+          text2: "Seat category updated!",
+        });
         handleCancelEdit();
         loadInventory(libraryId);
       }
     } else {
       const { success, error } = await addInventoryBucket(libraryId, payload);
-      if (error) Alert.alert("Error", error);
-      else {
-        Alert.alert("Success", "Seat category added!");
+      if (error) {
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: error,
+        });
+      } else {
+        Toast.show({
+          type: "success",
+          text1: "Success",
+          text2: "Seat category added!",
+        });
 
-        // 📌 4. Update Zustand state directly instead of using AsyncStorage!
         useAuthStore.setState({ hasInventory: true });
 
         await checkAndUpgradeStatus(libraryId);

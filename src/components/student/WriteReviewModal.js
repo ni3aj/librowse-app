@@ -4,15 +4,15 @@ import { COLORS } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
+import Toast from "react-native-toast-message";
 
 export default function WriteReviewModal({
   visible,
@@ -39,10 +39,11 @@ export default function WriteReviewModal({
 
   const handleSubmit = async () => {
     if (rating === 0) {
-      return Alert.alert(
-        "Rating Required",
-        "Please tap a star to leave a rating.",
-      );
+      return Toast.show({
+        type: "error",
+        text1: "Rating Required",
+        text2: "Please tap a star to leave a rating.",
+      });
     }
 
     setLoading(true);
@@ -64,26 +65,29 @@ export default function WriteReviewModal({
       }
 
       if (response.data.success) {
-        Alert.alert(
-          "Success 🎉",
-          existingReview
+        Toast.show({
+          type: "success",
+          text1: "Success",
+          text2: existingReview
             ? "Your review was updated."
             : "Your review was posted.",
-        );
+        });
         onSuccess();
         onClose();
       }
     } catch (error) {
       if (error.response?.status === 409) {
-        Alert.alert(
-          "Already Reviewed",
-          "You have already left a review for this library.",
-        );
+        Toast.show({
+          type: "info",
+          text1: "Already Reviewed",
+          text2: "You have already left a review for this library.",
+        });
       } else {
-        Alert.alert(
-          "Error",
-          error.response?.data?.error || "Failed to process review.",
-        );
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: error.response?.data?.error || "Failed to process review.",
+        });
       }
     } finally {
       setLoading(false);

@@ -5,13 +5,8 @@ import { ONBOARDING_ROUTE_MAP } from "@/constants/config";
 import { useAuthStore } from "@/store/authStore";
 import { router } from "expo-router";
 import { useState } from "react";
-import {
-  Alert,
-  Keyboard,
-  Text,
-  TouchableWithoutFeedback,
-  View,
-} from "react-native";
+import { Keyboard, Text, TouchableWithoutFeedback, View } from "react-native";
+import Toast from "react-native-toast-message";
 
 export default function SetupMpinScreen() {
   const [mpin, setMpin] = useState("");
@@ -23,9 +18,17 @@ export default function SetupMpinScreen() {
 
   const handleSaveMpin = async () => {
     if (mpin.length !== 4)
-      return Alert.alert("Error", "MPIN must be 4 digits.");
+      return Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "MPIN must be 4 digits.",
+      });
     if (mpin !== confirmMpin)
-      return Alert.alert("Error", "MPINs do not match.");
+      return Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "MPINs do not match.",
+      });
 
     setLoading(true);
     try {
@@ -35,15 +38,12 @@ export default function SetupMpinScreen() {
       });
 
       if (response.data.success) {
-        // 📌 2. Update Zustand! It will auto-save to AsyncStorage in the background
         setMpinConfigured(true);
-
-        Alert.alert(
-          "Success!",
-          "Your MPIN is set. You can use it next time for faster login.",
-        );
-
-        // Route based on backend response
+        Toast.show({
+          type: "success",
+          text1: "Success",
+          text2: "Your MPIN is set. You can use it next time for faster login.",
+        });
         if (response.data.role === "owner" && !response.data.hasLibrary) {
           router.replace("/create-library-wizard");
         } else if (response.data.role === "owner") {
@@ -53,23 +53,22 @@ export default function SetupMpinScreen() {
         }
       }
     } catch (error) {
-      console.log("CRITICAL ERROR:", error);
-      Alert.alert(
-        "Error",
-        error.response?.data?.error || "Failed to save MPIN",
-      );
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error.response?.data?.error || "Failed to save MPIN",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleSkip = () => {
-    // 📌 3. Smart Skip: Route them to their proper home based on Zustand state
     const nextRoute = ONBOARDING_ROUTE_MAP[account_state];
     if (nextRoute) {
       router.replace(nextRoute);
     } else {
-      router.replace("/(student)/dashboard"); // Fallback
+      router.replace("/(student)/dashboard");
     }
   };
 
@@ -107,7 +106,6 @@ export default function SetupMpinScreen() {
           />
         </View>
 
-        {/* 📌 Replaced raw TouchableOpacity with your custom Button components */}
         <Button
           title="Save MPIN & Continue"
           variant="primary"

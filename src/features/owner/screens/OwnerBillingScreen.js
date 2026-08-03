@@ -13,14 +13,13 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-// 📌 Uncommented for production!
 import RazorpayCheckout from "react-native-razorpay";
+import Toast from "react-native-toast-message";
 
 export default function OwnerBillingScreen() {
   const [loading, setLoading] = useState(true);
@@ -65,7 +64,11 @@ export default function OwnerBillingScreen() {
         });
       }
     } catch (error) {
-      Alert.alert("Error", "Could not connect to the server.");
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Could not connect to the server.",
+      });
     } finally {
       setLoading(false);
     }
@@ -183,7 +186,11 @@ export default function OwnerBillingScreen() {
 
     if (!activeLibraryId) {
       setProcessingPayment(false);
-      return Alert.alert("Error", "Could not identify active library.");
+      return Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Could not identify active library.",
+      });
     }
 
     // 2. Call the clean API helper

@@ -8,12 +8,12 @@ import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   View,
 } from "react-native";
+import Toast from "react-native-toast-message";
 
 export default function EditProfileScreen() {
   const [loading, setLoading] = useState(true);
@@ -45,7 +45,11 @@ export default function EditProfileScreen() {
         });
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to load profile data.");
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to load profile data.",
+      });
       router.back();
     } finally {
       setLoading(false);
@@ -54,7 +58,11 @@ export default function EditProfileScreen() {
 
   const handleSave = async () => {
     if (!formData.full_name.trim()) {
-      return Alert.alert("Validation Error", "Full Name is required.");
+      return Toast.show({
+        type: "error",
+        text1: "Validation Error",
+        text2: "Full Name is required.",
+      });
     }
 
     setIsSaving(true);
@@ -69,15 +77,20 @@ export default function EditProfileScreen() {
       const response = await updateStudentProfile(payload);
 
       if (response.data.success) {
-        Alert.alert("Success! 🎉", "Your profile has been updated.", [
-          { text: "OK", onPress: () => router.push("(student)/profile") },
-        ]);
+        Toast.show({
+          type: "success",
+          text1: "Success! 🎉",
+          text2: "Your profile has been updated.",
+        });
+        setTimeout(() => router.push("(student)/profile"), 1000);
       }
     } catch (error) {
-      Alert.alert(
-        "Update Failed",
-        error.response?.data?.error || "Something went wrong while saving.",
-      );
+      Toast.show({
+        type: "error",
+        text1: "Update Failed",
+        text2:
+          error.response?.data?.error || "Something went wrong while saving.",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -104,7 +117,6 @@ export default function EditProfileScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
         >
-          {/* 📌 Form Fields (Message Box removed) */}
           <View>
             <Input
               label="Full Name"
@@ -116,7 +128,6 @@ export default function EditProfileScreen() {
               autoCapitalize="words"
             />
 
-            {/* 📌 Locked Mobile Number Field */}
             <Input
               label="Mobile Number"
               value={`+91 ${formData.phone}`}

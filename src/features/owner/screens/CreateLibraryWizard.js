@@ -10,13 +10,14 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Modal, // 📌 Imported Modal
+  Modal,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import MapView, { Marker } from "react-native-maps"; // 📌 Imported Map Components
+import MapView, { Marker } from "react-native-maps";
+import Toast from "react-native-toast-message";
 
 const AVAILABLE_AMENITIES = ["AC", "WIFI", "CCTV", "RO WATER", "PARKING"];
 
@@ -50,10 +51,12 @@ export default function CreateLibraryWizard() {
     try {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert(
-          "Permission Denied",
-          "We need location access to show your library on the student map.",
-        );
+        Toast.show({
+          type: "error",
+          text1: "Permission Denied",
+          text2:
+            "We need location access to show your library on the student map.",
+        });
         setLocationLoading(false);
         return;
       }
@@ -67,22 +70,36 @@ export default function CreateLibraryWizard() {
         longitude: location.coords.longitude,
       });
 
-      Alert.alert("Success", "GPS Location found!");
+      Toast.show({
+        type: "success",
+        text1: "Success",
+        text2: "GPS Location found!",
+      });
     } catch (error) {
-      Alert.alert("Error", "Could not fetch location. Please try again.");
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Could not fetch location. Please try again.",
+      });
     }
     setLocationLoading(false);
   };
 
   const handleNextStep = () => {
     if (!name.trim() || !city.trim() || !address.trim()) {
-      return Alert.alert("Missing Info", "Please fill in all the details.");
+      return Toast.show({
+        type: "info",
+        text1: "Missing Info",
+        text2: "Please fill in all the details.",
+      });
     }
     if (!coords.latitude || !coords.longitude) {
-      return Alert.alert(
-        "Location Required",
-        "Please detect or pick your map location so students can find you.",
-      );
+      return Toast.show({
+        type: "info",
+        text1: "Location Required",
+        text2:
+          "Please detect or pick your map location so students can find you.",
+      });
     }
     setStep(2);
   };
@@ -114,7 +131,7 @@ export default function CreateLibraryWizard() {
         ],
       );
     } else {
-      Alert.alert("Setup Failed", error);
+      Toast.show({ type: "error", text1: "Setup Failed", text2: error });
     }
   };
 

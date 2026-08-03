@@ -93,7 +93,11 @@ export default function LoginScreen() {
 
           const nextRoute = ONBOARDING_ROUTE_MAP[currentState];
           if (!nextRoute) {
-            Alert.alert("Routing Error", `Missing route for: ${currentState}`);
+            Toast.show({
+              type: "error",
+              text1: "Routing Error",
+              text2: `Missing route for: ${currentState}`,
+            });
             setLoading(false);
             return;
           }
@@ -170,14 +174,23 @@ export default function LoginScreen() {
       const response = await apiClient.post("/auth/send-otp", { phone });
       if (response.data.success) setStep(2);
     } catch (error) {
-      Alert.alert("Error", error.response?.data?.error || "Failed to send OTP");
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error.response?.data?.error || "Failed to send OTP",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleVerifyOtp = async () => {
-    if (otp.length !== 6) return Alert.alert("Error", "Enter 6-digit OTP.");
+    if (otp.length !== 6)
+      return Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Enter 6-digit OTP.",
+      });
     setLoading(true);
     try {
       const response = await apiClient.post("/auth/verify-otp", { phone, otp });
@@ -198,24 +211,34 @@ export default function LoginScreen() {
 
         const nextRoute = ONBOARDING_ROUTE_MAP[finalState];
         if (!nextRoute) {
-          Alert.alert("Routing Error", `Missing route for: ${finalState}`);
+          Toast.show({
+            type: "error",
+            text1: "Routing Error",
+            text2: `Missing route for: ${finalState}`,
+          });
           setLoading(false);
           return;
         }
         router.replace(nextRoute);
       }
     } catch (error) {
-      Alert.alert(
-        "Error",
-        error.response?.data?.error || "Verification failed",
-      );
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error.response?.data?.error || "Verification failed",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleMpinLogin = async () => {
-    if (mpin.length !== 4) return Alert.alert("Error", "Enter 4-digit MPIN.");
+    if (mpin.length !== 4)
+      return Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Enter 4-digit MPIN.",
+      });
     setLoading(true);
     try {
       const response = await apiClient.post("/auth/login-mpin", { mpin });
@@ -229,7 +252,11 @@ export default function LoginScreen() {
         const nextRoute = ONBOARDING_ROUTE_MAP[currentState];
 
         if (!nextRoute) {
-          Alert.alert("Routing Error", `Missing route for: ${currentState}`);
+          Toast.show({
+            type: "error",
+            text1: "Routing Error",
+            text2: `Missing route for: ${currentState}`,
+          });
           setLoading(false);
           return;
         }
@@ -237,10 +264,11 @@ export default function LoginScreen() {
         router.replace(nextRoute);
       }
     } catch (error) {
-      Alert.alert(
-        "Login Failed",
-        error.response?.data?.error || "Invalid MPIN",
-      );
+      Toast.show({
+        type: "error",
+        text1: "Login Failed",
+        text2: error.response?.data?.error || "Invalid MPIN",
+      });
     } finally {
       setLoading(false);
     }
