@@ -245,12 +245,14 @@ export default function ActivitiesScreen() {
           </View>
         ) : !libraryId ? (
           <View className="flex-1 justify-center items-center px-6 pb-20">
-            <View className="bg-white border border-borderLight rounded-[24px] p-8 items-center w-full">
-              <View className="w-16 h-16 bg-brand/10 rounded-full items-center justify-center mb-4">
+            <View className="bg-surface border border-borderLight rounded-[24px] p-8 items-center w-full">
+              <View className="w-16 h-16 bg-white rounded-full items-center justify-center mb-4">
                 <Text className="text-3xl">🏢</Text>
               </View>
               <Text className="text-xl font-m-bold text-textDark text-center mb-2">
-                No Library Enrolled
+                {currentUserRole === "owner"
+                  ? "No Library Created Yet"
+                  : "No Library Enrolled"}
               </Text>
               <Text className="text-textLight text-center font-m leading-5">
                 {currentUserRole === "owner"

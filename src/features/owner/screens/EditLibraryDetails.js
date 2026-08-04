@@ -9,7 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react"; // 📌 Imported useEffect
 import {
   ActivityIndicator,
   Image,
@@ -30,6 +30,9 @@ export default function EditLibraryDetailsScreen() {
   const [saving, setSaving] = useState(false);
   const [saveStatusText, setSaveStatusText] = useState("Save Changes");
 
+  // 📌 State for fetched amenities
+  const [availableAmenities, setAvailableAmenities] = useState([]);
+
   const [formData, setFormData] = useState({
     name: "",
     city: "",
@@ -39,6 +42,21 @@ export default function EditLibraryDetailsScreen() {
   });
 
   const [localPhotos, setLocalPhotos] = useState([]);
+
+  // 📌 Fetch global amenities list from backend
+  useEffect(() => {
+    const fetchAmenities = async () => {
+      try {
+        const response = await apiClient.get("/shared/amenities");
+        if (response.data.success) {
+          setAvailableAmenities(response.data.amenities);
+        }
+      } catch (error) {
+        console.log("Failed to fetch amenities", error);
+      }
+    };
+    fetchAmenities();
+  }, []);
 
   const fetchLibraryDetails = async () => {
     if (!libraryId) return;
@@ -87,16 +105,17 @@ export default function EditLibraryDetailsScreen() {
     setRefreshing(false);
   };
 
-  const toggleAmenity = (amenity) => {
+  // 📌 Use amenity ID for the toggle
+  const toggleAmenity = (amenityId) => {
     setFormData((prev) => {
-      const exists = prev.amenities.includes(amenity);
+      const exists = prev.amenities.includes(amenityId);
       if (exists) {
         return {
           ...prev,
-          amenities: prev.amenities.filter((a) => a !== amenity),
+          amenities: prev.amenities.filter((a) => a !== amenityId),
         };
       } else {
-        return { ...prev, amenities: [...prev.amenities, amenity] };
+        return { ...prev, amenities: [...prev.amenities, amenityId] };
       }
     });
   };
@@ -277,33 +296,42 @@ export default function EditLibraryDetailsScreen() {
           multiline
         />
 
-        <Text className="text-lg font-m-bold text-textDark mb-4 ml-2 mt-4">
+        <Text className="text-lg font-m-bold text-textDark mb-4 mt-4">
           Amenities
         </Text>
-        <View className="flex-row flex-wrap gap-3 mb-6 ml-2">
-          {["AC", "WIFI", "RO WATER", "CCTV"].map((item) => {
-            const isSelected = formData.amenities.includes(item);
+        {/* 📌 Render dynamically from fetched data, matched UI with Create page */}
+        <View className="flex-row flex-wrap justify-between mb-6">
+          {availableAmenities.map((amenity) => {
+            const isSelected = formData.amenities.includes(amenity.id);
             return (
               <TouchableOpacity
-                key={item}
-                onPress={() => toggleAmenity(item)}
-                className={`px-4 py-2 rounded-full border ${
+                key={amenity.id}
+                onPress={() => toggleAmenity(amenity.id)}
+                className={`w-[48%] p-3 rounded-2xl border mb-3 flex-row items-center ${
                   isSelected
-                    ? "bg-brand border-brand"
-                    : "bg-surface border-borderLight"
+                    ? "border-brand bg-brand/10"
+                    : "border-borderLight bg-surface"
                 }`}
               >
+                <Ionicons
+                  name={amenity.icon}
+                  size={20}
+                  color={isSelected ? COLORS.brand : COLORS.textLight}
+                  style={{ marginRight: 8 }}
+                />
                 <Text
-                  className={`font-m-bold text-sm ${isSelected ? "text-white" : "text-textLight"}`}
+                  className={`font-m-bold flex-1 text-sm ${
+                    isSelected ? "text-brand" : "text-textDark"
+                  }`}
                 >
-                  {item.replace("_", " ")}
+                  {amenity.label}
                 </Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        <Text className="text-lg font-m-bold text-textDark mb-3 ml-2">
+        <Text className="text-lg font-m-bold text-textDark mb-3">
           Library Photos
         </Text>
         <ScrollView
@@ -315,7 +343,7 @@ export default function EditLibraryDetailsScreen() {
           <TouchableOpacity
             onPress={pickImage}
             disabled={saving}
-            className="w-24 h-24 ml-2 bg-surface border-2 border-dashed border-borderLight rounded-xl items-center justify-center mr-4"
+            className="w-24 h-24 bg-surface border-2 border-dashed border-borderLight rounded-xl items-center justify-center mr-4"
           >
             <Ionicons name="camera" size={28} color={COLORS.textLight} />
             <Text className="text-xs text-textLight mt-1 font-m-bold">Add</Text>

@@ -27,7 +27,7 @@ export default function Button({
 
   const textStyles = {
     primary: "text-white font-m-bold text-lg",
-    outline: "text-textLight font-m-semi text-lg",
+    outline: "text-textDark font-m-semi text-lg",
     dark: "text-white font-m-bold text-lg",
   };
 

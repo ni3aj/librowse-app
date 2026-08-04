@@ -138,14 +138,14 @@ export default function OwnerProfileScreen() {
                 <Text className="text-3xl">🏢</Text>
               </View>
               <Text className="text-xl font-m-bold text-textDark text-center mb-2">
-                No Library Added Yet
+                No Library Created Yet
               </Text>
               <Text className="text-textLight text-center font-m mb-6 leading-5 px-2">
-                You haven't set up a library profile. Create one to start
-                managing seats and students!
+                You haven't created any libraries to your account yet. Let's get
+                started!
               </Text>
               <Button
-                title="Add a Library"
+                title="Create New Library"
                 variant="primary"
                 onPress={() => router.push("/(owner)/create-library-wizard")}
                 className="w-full"
@@ -210,25 +210,26 @@ export default function OwnerProfileScreen() {
           <Text className="text-lg font-m-bold text-textDark mb-4 ml-1">
             App & Billing
           </Text>
-
-          <TouchableOpacity
-            className="bg-surface p-4 rounded-2xl border border-borderLight flex-row items-center justify-between mb-2"
-            onPress={() => router.push("/billing")}
-          >
-            <View className="flex-row items-center">
-              <View className="w-10 h-10 rounded-full bg-brand/10 items-center justify-center mr-3">
-                <Ionicons name="card" size={20} color={COLORS.brand} />
+          {libraries?.length > 0 && (
+            <TouchableOpacity
+              className="bg-surface p-4 rounded-2xl border border-borderLight flex-row items-center justify-between mb-2"
+              onPress={() => router.push("/billing")}
+            >
+              <View className="flex-row items-center">
+                <View className="w-10 h-10 rounded-full bg-brand/10 items-center justify-center mr-3">
+                  <Ionicons name="card" size={20} color={COLORS.brand} />
+                </View>
+                <Text className="text-base font-m-bold text-textDark">
+                  Platform Subscription
+                </Text>
               </View>
-              <Text className="text-base font-m-bold text-textDark">
-                Platform Subscription
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color={COLORS.textLight}
-            />
-          </TouchableOpacity>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={COLORS.textLight}
+              />
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             className="bg-surface p-4 rounded-2xl border border-borderLight flex-row items-center justify-between"

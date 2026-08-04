@@ -1,14 +1,14 @@
 import { BaseToast, ErrorToast } from "react-native-toast-message";
 
-// 1. Create a reusable factory function for your toasts
 const createToast =
   (Component, backgroundColor, borderRadius = 0) =>
   (props) => (
     <Component
       {...props}
       style={{
-        height: 100,
-        paddingTop: 20,
+        height: "auto",
+        minHeight: 105,
+        paddingTop: 25,
         backgroundColor,
         borderLeftWidth: 0,
         borderRadius,
@@ -25,10 +25,11 @@ const createToast =
         fontFamily: "m",
         color: "#ffffff",
       }}
+      text1NumberOfLines={1}
+      text2NumberOfLines={0}
     />
   );
 
-// 2. Map your states using the factory
 export const toastConfig = {
   success: createToast(BaseToast, "green"),
   error: createToast(ErrorToast, "#ef233c"),

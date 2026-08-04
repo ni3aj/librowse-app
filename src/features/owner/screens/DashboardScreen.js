@@ -7,7 +7,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -52,9 +52,38 @@ export default function DashboardScreen() {
     try {
       const response = await apiClient.get(`/owner/dashboard/${libraryId}`);
       if (response.data.success) {
-        useLibraryStore
-          .getState()
-          .setLibraryStatus(response.data.libraryStatus);
+        let currentStatus = response.data.libraryStatus;
+
+        // 📌 SELF-HEALING LOGIC: Auto-upgrade to PENDING if they have seats & photos
+        if (currentStatus === "UNVERIFIED" && hasInventory) {
+          const libRes = await apiClient.get(`/owner/library/${libraryId}`);
+          if (libRes.data.success) {
+            const lib = libRes.data.library;
+            if (lib.photos && lib.photos.length > 0) {
+              // The user has photos and seats, auto-submit for review!
+              const payload = {
+                name: lib.name,
+                city: lib.city,
+                address: lib.address,
+                amenities:
+                  typeof lib.amenities === "string"
+                    ? JSON.parse(lib.amenities)
+                    : lib.amenities || [],
+                photos: lib.photos,
+                status: "PENDING_ADMIN_APPROVAL",
+              };
+              await apiClient.put(`/owner/library/${libraryId}`, payload);
+              currentStatus = "PENDING_ADMIN_APPROVAL";
+              Toast.show({
+                type: "success",
+                text1: "Profile Submitted! 🎉",
+                text2: "Your library is now pending admin approval.",
+              });
+            }
+          }
+        }
+
+        useLibraryStore.getState().setLibraryStatus(currentStatus);
         setStats(response.data);
       }
     } catch (error) {
@@ -66,33 +95,41 @@ export default function DashboardScreen() {
     }
   };
 
-  const loadDashboardData = async () => {
-    if (!selectedLibrary?.id) {
+  // 📌 1. Fetch the library list EXACTLY ONCE when the app loads
+  useEffect(() => {
+    const fetchInitialLibraries = async () => {
       try {
         const response = await apiClient.get("/owner/my-libraries");
         if (response.data.success && response.data.libraries.length > 0) {
           setLibraries(response.data.libraries);
+          // Setting this will automatically trigger the useFocusEffect below
           setSelectedLibrary(response.data.libraries[0]);
+        } else {
+          setLoading(false); // No libraries, stop loading
         }
       } catch (error) {
         console.error("Failed to load libraries", error);
+        setLoading(false);
       }
-      return;
-    }
-    await fetchDashboardStats(selectedLibrary.id);
-  };
+    };
 
+    fetchInitialLibraries();
+  }, []);
+
+  // 📌 2. Fetch stats ONLY when the selected library changes OR screen comes into focus
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
 
-      const init = async () => {
-        if (!stats) setLoading(true);
-        if (isActive) await loadDashboardData();
-        if (isActive) setLoading(false);
+      const loadStats = async () => {
+        if (selectedLibrary?.id) {
+          if (!stats) setLoading(true);
+          if (isActive) await fetchDashboardStats(selectedLibrary.id);
+          if (isActive) setLoading(false);
+        }
       };
 
-      init();
+      loadStats();
 
       return () => {
         isActive = false;
@@ -101,8 +138,9 @@ export default function DashboardScreen() {
   );
 
   const handlePullToRefresh = async () => {
+    if (!selectedLibrary?.id) return;
     setRefreshing(true);
-    await loadDashboardData();
+    await fetchDashboardStats(selectedLibrary.id);
     setRefreshing(false);
   };
 
@@ -296,11 +334,10 @@ export default function DashboardScreen() {
               </Text>
               <Text className="text-textDark text-sm font-m leading-5 mb-3">
                 Your library is currently Unverified. Students cannot book seats
-                until you upload library photos and submit your profile for
-                admin review.
+                until you upload library photos and submit your profile.
               </Text>
               <Button
-                title="Complete Profile"
+                title="Upload Photos"
                 variant="primary"
                 onPress={() => router.push("/edit-library")}
                 className="py-2"
@@ -311,10 +348,9 @@ export default function DashboardScreen() {
 
         {isPending && (
           <View className="bg-orange-50 border border-orange-200 p-4 rounded-2xl mb-6 flex-row items-start">
-            <Text className="text-xl mr-3">⚠️</Text>
             <View className="flex-1">
               <Text className="text-orange-900 font-m-bold text-base mb-2">
-                Library Under Review
+                <Text className="text-l">⚠️</Text> Library Under Review
               </Text>
               <Text className="text-orange-800 text-sm font-m leading-5">
                 Your library is currently being verified. You can set up your
@@ -580,17 +616,17 @@ export default function DashboardScreen() {
             )}
           </>
         ) : (
-          <View className="items-center bg-white p-8 rounded-3xl border border-borderLight">
+          <View className="items-center bg-surface p-8 rounded-3xl border border-borderLight">
             <Text className="text-4xl mb-4">🏢</Text>
             <Text className="text-xl font-m-bold text-textDark mb-2 text-center">
-              No Libraries Yet
+              No Library Created Yet
             </Text>
             <Text className="text-textLight font-m text-center mb-6">
-              You haven't added any libraries to your account yet. Let's get
+              You haven't created any libraries to your account yet. Let's get
               started!
             </Text>
             <Button
-              title="Add a Library"
+              title="Create New Library"
               variant="primary"
               onPress={() => router.push("/create-library-wizard")}
               className="w-full"

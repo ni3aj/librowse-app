@@ -1,3 +1,4 @@
+import apiClient from "@/api/client"; // 📌 1. Imported apiClient
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { COLORS } from "@/constants/theme";
@@ -6,27 +7,27 @@ import { useAuthStore } from "@/store/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react"; // 📌 2. Imported useEffect
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   ScrollView,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import Toast from "react-native-toast-message";
-
-const AVAILABLE_AMENITIES = ["AC", "WIFI", "CCTV", "RO WATER", "PARKING"];
 
 export default function CreateLibraryWizard() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
 
-  // 📌 Map Modal State
+  // 📌 3. State for fetched amenities
+  const [availableAmenities, setAvailableAmenities] = useState([]);
+
+  // Map Modal State
   const [showMap, setShowMap] = useState(false);
 
   // Form State
@@ -38,11 +39,28 @@ export default function CreateLibraryWizard() {
   const [coords, setCoords] = useState({ latitude: null, longitude: null });
   const [selectedAmenities, setSelectedAmenities] = useState([]);
 
-  const toggleAmenity = (amenity) => {
+  // 📌 4. Fetch Amenities on Mount
+  useEffect(() => {
+    const fetchAmenities = async () => {
+      try {
+        // Adjust this endpoint to match where you put the route in Fastify
+        const response = await apiClient.get("/shared/amenities");
+        if (response.data.success) {
+          setAvailableAmenities(response.data.amenities);
+        }
+      } catch (error) {
+        console.log("Failed to fetch amenities", error);
+      }
+    };
+    fetchAmenities();
+  }, []);
+
+  // 📌 5. Toggle by ID instead of string name
+  const toggleAmenity = (amenityId) => {
     setSelectedAmenities((prev) =>
-      prev.includes(amenity)
-        ? prev.filter((item) => item !== amenity)
-        : [...prev, amenity],
+      prev.includes(amenityId)
+        ? prev.filter((id) => id !== amenityId)
+        : [...prev, amenityId],
     );
   };
 
@@ -113,23 +131,19 @@ export default function CreateLibraryWizard() {
       address: address.trim(),
       latitude: coords.latitude,
       longitude: coords.longitude,
-      amenities: selectedAmenities,
+      amenities: selectedAmenities, // Array of IDs like ["AC", "WIFI"]
     });
 
     setLoading(false);
 
     if (success) {
       useAuthStore.setState({ libraryId: data.libraryId });
-      Alert.alert(
-        "Library Created!",
-        "Welcome to LiBrowse. Let's add your seating capacity next.",
-        [
-          {
-            text: "Let's Go",
-            onPress: () => router.replace("/(owner)/manage-seats"),
-          },
-        ],
-      );
+      Toast.show({
+        type: "success",
+        text1: "Library Created",
+        text2: "Welcome to LiBrowse. Let's add your seating capacity next.",
+      });
+      router.replace("/(owner)/manage-seats");
     } else {
       Toast.show({ type: "error", text1: "Setup Failed", text2: error });
     }
@@ -212,7 +226,7 @@ export default function CreateLibraryWizard() {
                     <>
                       <Ionicons name="locate" size={16} color={COLORS.brand} />
                       <Text className="text-brand font-m-bold ml-1.5 text-xs">
-                        Use GPS
+                        Current Location
                       </Text>
                     </>
                   )}
@@ -238,37 +252,43 @@ export default function CreateLibraryWizard() {
         {step === 2 && (
           <View>
             <View className="flex-row flex-wrap justify-between">
-              {AVAILABLE_AMENITIES.map((amenity) => {
-                const isSelected = selectedAmenities.includes(amenity);
+              {/* 📌 6. Render dynamically from fetched data */}
+              {availableAmenities.map((amenity) => {
+                const isSelected = selectedAmenities.includes(amenity.id);
                 return (
                   <TouchableOpacity
-                    key={amenity}
-                    onPress={() => toggleAmenity(amenity)}
-                    className={`w-[48%] p-4 rounded-2xl border mb-4 items-center ${
+                    key={amenity.id}
+                    onPress={() => toggleAmenity(amenity.id)}
+                    className={`w-[48%] p-3 rounded-2xl border mb-4 flex-row items-center ${
                       isSelected
                         ? "border-brand bg-brand/10"
                         : "border-borderLight bg-surface"
                     }`}
                   >
+                    <Ionicons
+                      name={amenity.icon}
+                      size={20}
+                      color={isSelected ? COLORS.brand : COLORS.textLight}
+                      style={{ marginRight: 8 }}
+                    />
                     <Text
-                      className={`font-m-bold capitalize ${
+                      className={`font-m-bold flex-1 text-sm ${
                         isSelected ? "text-brand" : "text-textDark"
                       }`}
                     >
-                      {amenity}
+                      {amenity.label}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            <View className="flex-row justify-between mt-8">
-              <TouchableOpacity
+            <View className="flex-row justify-between mt-4">
+              <Button
+                title="Back"
+                variant="outline"
                 onPress={() => setStep(1)}
-                className="p-4 flex-1 items-center bg-surface border border-borderLight rounded-xl mr-2"
-              >
-                <Text className="text-textDark font-m-bold">Back</Text>
-              </TouchableOpacity>
+              />
 
               <View className="flex-[2] ml-2">
                 <Button
@@ -314,11 +334,10 @@ export default function CreateLibraryWizard() {
           <MapView
             style={{ flex: 1 }}
             showsUserLocation={true}
-            // Default to India's center if no coords exist, or jump to their coords
             initialRegion={{
               latitude: coords.latitude || 20.5937,
               longitude: coords.longitude || 78.9629,
-              latitudeDelta: coords.latitude ? 0.005 : 15, // Zoom in if coords exist
+              latitudeDelta: coords.latitude ? 0.005 : 15,
               longitudeDelta: coords.longitude ? 0.005 : 15,
             }}
             onPress={(e) => setCoords(e.nativeEvent.coordinate)}

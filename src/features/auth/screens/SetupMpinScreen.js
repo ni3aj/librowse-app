@@ -84,7 +84,7 @@ export default function SetupMpinScreen() {
           </Text>
         </View>
 
-        <View className="space-y-4 mb-8">
+        <View className="space-y-4 mb-2">
           <Input
             label="Create MPIN"
             placeholder="••••"
