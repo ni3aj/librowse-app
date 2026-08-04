@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   Modal,
   Pressable,
   RefreshControl,
@@ -54,13 +55,11 @@ export default function DashboardScreen() {
       if (response.data.success) {
         let currentStatus = response.data.libraryStatus;
 
-        // 📌 SELF-HEALING LOGIC: Auto-upgrade to PENDING if they have seats & photos
         if (currentStatus === "UNVERIFIED" && hasInventory) {
           const libRes = await apiClient.get(`/owner/library/${libraryId}`);
           if (libRes.data.success) {
             const lib = libRes.data.library;
             if (lib.photos && lib.photos.length > 0) {
-              // The user has photos and seats, auto-submit for review!
               const payload = {
                 name: lib.name,
                 city: lib.city,
@@ -74,11 +73,6 @@ export default function DashboardScreen() {
               };
               await apiClient.put(`/owner/library/${libraryId}`, payload);
               currentStatus = "PENDING_ADMIN_APPROVAL";
-              Toast.show({
-                type: "success",
-                text1: "Profile Submitted! 🎉",
-                text2: "Your library is now pending admin approval.",
-              });
             }
           }
         }
@@ -95,17 +89,15 @@ export default function DashboardScreen() {
     }
   };
 
-  // 📌 1. Fetch the library list EXACTLY ONCE when the app loads
   useEffect(() => {
     const fetchInitialLibraries = async () => {
       try {
         const response = await apiClient.get("/owner/my-libraries");
         if (response.data.success && response.data.libraries.length > 0) {
           setLibraries(response.data.libraries);
-          // Setting this will automatically trigger the useFocusEffect below
           setSelectedLibrary(response.data.libraries[0]);
         } else {
-          setLoading(false); // No libraries, stop loading
+          setLoading(false);
         }
       } catch (error) {
         console.error("Failed to load libraries", error);
@@ -116,7 +108,6 @@ export default function DashboardScreen() {
     fetchInitialLibraries();
   }, []);
 
-  // 📌 2. Fetch stats ONLY when the selected library changes OR screen comes into focus
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
@@ -136,6 +127,18 @@ export default function DashboardScreen() {
       };
     }, [selectedLibrary?.id]),
   );
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active" && selectedLibrary?.id) {
+        fetchDashboardStats(selectedLibrary.id);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [selectedLibrary?.id]);
 
   const handlePullToRefresh = async () => {
     if (!selectedLibrary?.id) return;
