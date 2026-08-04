@@ -213,8 +213,8 @@ export default function LibrariesListingScreen() {
                 />
               </View>
             ) : (
-              <View className="items-center bg-surface w-full p-8 rounded-[24px] border border-borderLight shadow-sm">
-                <Text className="text-4xl mb-4">📭</Text>
+              <View className="items-center bg-surface w-full px-8 rounded-[24px] border border-borderLight">
+                <Text className="text-4xl my-4">📭</Text>
                 <Text className="text-lg font-m-bold text-textDark mb-2">
                   No Libraries Found
                 </Text>
@@ -232,7 +232,7 @@ export default function LibrariesListingScreen() {
                     title="Clear All Filters"
                     variant="outline"
                     onPress={clearAllFilters}
-                    className="mt-6 w-full"
+                    className="my-4 w-full"
                   />
                 )}
               </View>

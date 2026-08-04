@@ -6,11 +6,12 @@ export default function StudentLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: COLORS.brand,
+        tabBarActiveTintColor: COLORS.textDark,
         tabBarInactiveTintColor: COLORS.textLight,
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: COLORS.surface,
+          backgroundColor: COLORS.background,
+          borderTopColor: COLORS.background,
           height: 100,
           paddingTop: 5,
         },

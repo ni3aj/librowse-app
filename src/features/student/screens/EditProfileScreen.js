@@ -79,7 +79,7 @@ export default function EditProfileScreen() {
       if (response.data.success) {
         Toast.show({
           type: "success",
-          text1: "Success! 🎉",
+          text1: "Success",
           text2: "Your profile has been updated.",
         });
         setTimeout(() => router.push("(student)/profile"), 1000);

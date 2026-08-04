@@ -1,3 +1,4 @@
+import apiClient from "@/api/client"; // 📌 1. Imported apiClient
 import WriteReviewModal from "@/components/student/WriteReviewModal";
 import Button from "@/components/ui/Button";
 import { COLORS } from "@/constants/theme";
@@ -5,7 +6,7 @@ import { useAuthStore } from "@/store/authStore";
 import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react"; // 📌 2. Imported useEffect
 import {
   ActivityIndicator,
   Alert,
@@ -19,26 +20,12 @@ import {
   ScrollView,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { studentApi } from "../api";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
-
-const getAmenityIcon = (name) => {
-  const n = name.toLowerCase();
-  if (n.includes("wi-fi") || n.includes("wifi")) return "wifi";
-  if (n.includes("ac") || n.includes("air")) return "snow-outline";
-  if (n.includes("power") || n.includes("outlet")) return "flash-outline";
-  if (n.includes("park")) return "car-outline";
-  if (n.includes("print") || n.includes("scan")) return "print-outline";
-  if (n.includes("book") || n.includes("reference")) return "book-outline";
-  if (n.includes("cafe") || n.includes("pantry")) return "cafe-outline";
-  if (n.includes("cctv") || n.includes("security"))
-    return "shield-checkmark-outline";
-  return "checkmark-circle-outline";
-};
 
 export default function LibraryDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -52,6 +39,9 @@ export default function LibraryDetailScreen() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // 📌 3. State for fetched amenities
+  const [availableAmenities, setAvailableAmenities] = useState([]);
 
   const [selectedSeat, setSelectedSeat] = useState(null);
   const [selectedSeatNumber, setSelectedSeatNumber] = useState(null);
@@ -70,6 +60,21 @@ export default function LibraryDetailScreen() {
 
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // 📌 4. Fetch global amenities on mount
+  useEffect(() => {
+    const fetchAmenities = async () => {
+      try {
+        const response = await apiClient.get("/shared/amenities");
+        if (response.data.success) {
+          setAvailableAmenities(response.data.amenities);
+        }
+      } catch (error) {
+        console.log("Failed to fetch amenities", error);
+      }
+    };
+    fetchAmenities();
+  }, []);
 
   const loadLibraryData = async () => {
     try {
@@ -357,6 +362,17 @@ export default function LibraryDetailScreen() {
     }
   };
 
+  // 📌 5. Helper function to get amenity details from the backend list
+  const getAmenityDetails = (amenityId) => {
+    const found = availableAmenities.find((a) => a.id === amenityId);
+    if (found) return found;
+    // Fallback if backend data hasn't loaded yet or ID is missing
+    return {
+      label: amenityId.replace(/_/g, " "),
+      icon: "checkmark-circle-outline",
+    };
+  };
+
   if (loading) {
     return (
       <View className="flex-1 bg-background justify-center items-center">
@@ -512,34 +528,25 @@ export default function LibraryDetailScreen() {
             Amenities
           </Text>
           <View className="flex-row flex-wrap justify-between">
+            {/* 📌 6. Dynamically render fetched amenities */}
             {Array.isArray(library.amenities)
-              ? library.amenities.map((amenity, index) => {
-                  const normalized = amenity.toLowerCase();
-                  let displayAmenity =
-                    amenity.charAt(0).toUpperCase() +
-                    amenity.slice(1).toLowerCase();
-
-                  if (normalized === "ac") displayAmenity = "AC";
-                  if (normalized === "cctv") displayAmenity = "CCTV";
-                  if (normalized === "wifi" || normalized === "wi-fi")
-                    displayAmenity = "Wi-Fi";
-                  if (normalized === "ro water" || normalized === "ro_water")
-                    displayAmenity = "RO Water";
+              ? library.amenities.map((amenityId, index) => {
+                  const details = getAmenityDetails(amenityId);
 
                   return (
                     <View
                       key={index}
-                      className="w-[48%] bg-white border border-borderLight rounded-2xl p-2 flex-row items-center mb-3"
+                      className="w-[49%] bg-white border border-borderLight rounded-2xl p-2 flex-row items-center mb-3"
                     >
-                      <View className="bg-surface p-1 rounded-full mr-3">
+                      <View className="bg-surface p-1.5 rounded-full mr-3">
                         <Ionicons
-                          name={getAmenityIcon(amenity)}
-                          size={18}
+                          name={details.icon}
+                          size={16}
                           color={COLORS.brand}
                         />
                       </View>
                       <Text className="text-textDark font-medium flex-1 text-sm">
-                        {displayAmenity}
+                        {details.label}
                       </Text>
                     </View>
                   );
@@ -695,7 +702,7 @@ export default function LibraryDetailScreen() {
                     }}
                     activeOpacity={isSoldOut ? 1 : 0.8}
                     className={`flex-row justify-between items-center p-4 rounded-3xl mb-3 border-2 
-                      ${isSoldOut ? "border-transparent bg-surface opacity-60" : isSelected ? "border-brand bg-brand" : "border-transparent bg-white"}`}
+                      ${isSoldOut ? "border-transparent bg-surface opacity-60" : isSelected ? "border-brand bg-brand" : "border-surface border-1 bg-brand/5"}`}
                   >
                     <Ionicons
                       name={isSelected ? "radio-button-on" : "radio-button-off"}
@@ -882,10 +889,11 @@ export default function LibraryDetailScreen() {
               </Text>
               {selectedSeat ? (
                 <>
-                  <Text className="text-base font-m-bold text-textDark">
-                    {selectedSeat.amenity?.replace("_", " ")}{" "}
-                    {selectedSeatNumber ? `(Seat ${selectedSeatNumber})` : ""}
-                  </Text>
+                  {selectedSeatNumber && (
+                    <Text className="text-base font-m-bold text-textDark">
+                      {selectedSeatNumber ? `(Seat ${selectedSeatNumber})` : ""}
+                    </Text>
+                  )}
                   <Text className="text-base font-m-bold text-textDark">
                     ₹{selectedSeat.price}/mo
                   </Text>
