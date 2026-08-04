@@ -1,5 +1,5 @@
 import apiClient from "@/api/client";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuthStore } from "@/store/authStore";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
@@ -14,12 +14,13 @@ Notifications.setNotificationHandler({
 });
 
 export const usePushNotifications = () => {
+  const userId = useAuthStore((state) => state.userId);
+
   useEffect(() => {
     const registerForPushNotificationsAsync = async () => {
       if (!Device.isDevice) return;
 
-      const token = await AsyncStorage.getItem("jwt_token");
-      if (!token) return;
+      if (!userId) return;
 
       const { status: existingStatus } =
         await Notifications.getPermissionsAsync();
@@ -50,11 +51,12 @@ export const usePushNotifications = () => {
         ).data;
 
         await apiClient.post("/user/fcm-token", { token: expoPushToken });
+        console.log("Push token synced successfully!");
       } catch (error) {
         console.error("Error saving fcm token:", error);
       }
     };
 
     registerForPushNotificationsAsync();
-  }, []);
+  }, [userId]);
 };
