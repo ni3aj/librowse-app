@@ -1,4 +1,5 @@
 import apiClient from "@/api/client";
+import Chip from "@/components/ui/Chip";
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
 import { useAuthStore } from "@/store/authStore";
@@ -25,13 +26,6 @@ function fmtCurrency(val) {
   return "₹" + parseFloat(val).toLocaleString("en-IN");
 }
 
-const SHIFT_CONFIG = {
-  NIGHT: { label: "Night", icon: "moon-outline" },
-  FULL_DAY: { label: "Full Day", icon: "sunny-outline" },
-  MORNING: { label: "Morning", icon: "partly-sunny-outline" },
-  DAY: { label: "Day", icon: "sunny-outline" },
-};
-
 const STATUS_CONFIG = {
   ACTIVE: { label: "Active", bg: "bg-emerald-500", dot: "bg-emerald-400" },
   PAYMENT_PENDING: {
@@ -49,59 +43,6 @@ const STATUS_CONFIG = {
   EXPIRED: { label: "Expired", bg: "bg-red-500", dot: "bg-red-400" },
   REJECTED: { label: "Rejected", bg: "bg-gray-500", dot: "bg-gray-400" },
 };
-
-// ── Atoms ──────────────────────────────────────────────────────────
-function Chip({ label, variant = "purple", icon }) {
-  const styles = {
-    pink: {
-      container: "bg-pink-50 border border-pink-200",
-      text: "text-pink-700",
-      hex: "#be185d",
-    },
-    purple: {
-      container: "bg-purple-50 border border-purple-200",
-      text: "text-purple-700",
-      hex: "#6d28d9",
-    },
-    green: {
-      container: "bg-emerald-50 border border-emerald-200",
-      text: "text-emerald-700",
-      hex: "#047857",
-    },
-    amber: {
-      container: "bg-amber-50 border border-amber-200",
-      text: "text-amber-700",
-      hex: "#b45309",
-    },
-    gray: {
-      container: "bg-gray-100 border border-gray-200",
-      text: "text-gray-500",
-      hex: "#6b7280",
-    },
-  };
-
-  const theme = styles[variant] || styles.gray;
-
-  return (
-    <View
-      className={`flex-row items-center rounded-full px-2.5 py-1 mr-1.5 mb-1.5 ${theme.container}`}
-    >
-      {icon && (
-        <Ionicons
-          name={icon}
-          size={10}
-          color={theme.hex}
-          style={{ marginRight: 4 }}
-        />
-      )}
-      <Text
-        className={`text-[9px] font-m-bold uppercase tracking-wider ${theme.text}`}
-      >
-        {label}
-      </Text>
-    </View>
-  );
-}
 
 function StatusBadge({ status }) {
   const cfg = STATUS_CONFIG[status] ?? {
@@ -162,7 +103,6 @@ function InfoRow({ emoji, label, value, mono = false }) {
   );
 }
 
-// ── Enrollment Card ────────────────────────────────────────────────
 function EnrollmentCard({
   enrollment,
   isFuture = false,
@@ -174,12 +114,9 @@ function EnrollmentCard({
   const titleCl = isFuture ? "text-red-500" : "text-pink-600";
   const priceCl = isFuture ? "text-red-500" : "text-pink-600";
 
-  const isAC = enrollment.amenity === "AC";
-  const isReserved = enrollment.reservation === "RESERVED";
-
   return (
     <View
-      className={`rounded-2xl overflow-hidden bg-white border mb-4  ${borderCl}`}
+      className={`rounded-2xl overflow-hidden bg-white border mb-4 ${borderCl}`}
     >
       <View
         className={`flex-row items-center justify-between px-4 py-3 border-b ${headerBg} ${borderCl}`}
@@ -207,29 +144,11 @@ function EnrollmentCard({
           </Text>
         </View>
 
-        <View className="flex-row flex-wrap mb-1 mt-2">
-          <Chip
-            label={SHIFT_CONFIG[enrollment.shift]?.label || enrollment.shift}
-            icon={SHIFT_CONFIG[enrollment.shift]?.icon || "time"}
-            variant="purple"
-          />
-          <Chip
-            label={isAC ? "AC" : "Non-AC"}
-            icon={isAC ? "snow" : "thermometer-outline"}
-            variant={isAC ? "pink" : "gray"}
-          />
-          <Chip
-            label={isReserved ? "Reserved" : "Unreserved"}
-            icon={isReserved ? "star-outline" : "lock-open-outline"}
-            variant={isReserved ? "green" : "amber"}
-          />
-          {enrollment.assigned_seat && (
-            <Chip
-              label={enrollment.assigned_seat.replace("_", " ")}
-              icon="bed-outline"
-              variant="purple"
-            />
-          )}
+        <View className="flex-row flex-wrap mb-1 mt-2 gap-1">
+          <Chip label={enrollment.shift} />
+          <Chip label={enrollment.amenity} />
+          <Chip label={enrollment.reservation} />
+          <Chip label={enrollment.assigned_seat} />
         </View>
 
         <View className="h-px bg-gray-100 my-3" />
@@ -261,11 +180,9 @@ function EnrollmentCard({
   );
 }
 
-// ── Payment Card ───────────────────────────────────────────────────
 function PaymentCard({ payment }) {
-  const isAC = payment.amenity === "AC";
   return (
-    <View className="bg-white rounded-2xl border border-pink-100  mb-3 overflow-hidden">
+    <View className="bg-white rounded-2xl border border-pink-100 mb-3 overflow-hidden">
       <View className="px-4 py-4">
         <View className="flex-row items-start justify-between gap-3">
           <View className="flex-row items-center gap-3 flex-1 min-w-0">
@@ -284,24 +201,10 @@ function PaymentCard({ payment }) {
           <StatusBadge status={payment.payment_status} />
         </View>
 
-        <View className="flex-row flex-wrap mt-3">
-          <Chip
-            label={SHIFT_CONFIG[payment.shift]?.label || payment.shift}
-            icon={SHIFT_CONFIG[payment.shift]?.icon || "time"}
-            variant="purple"
-          />
-          <Chip
-            label={isAC ? "AC" : "Non-AC"}
-            icon={isAC ? "snow" : "thermometer-outline"}
-            variant={isAC ? "pink" : "gray"}
-          />
-          {payment.assigned_seat && (
-            <Chip
-              label={payment.assigned_seat.replace("_", " ")}
-              icon="ticket-outline"
-              variant="purple"
-            />
-          )}
+        <View className="flex-row flex-wrap mt-3 gap-1">
+          <Chip label={payment.shift} />
+          <Chip label={payment.amenity} />
+          <Chip label={payment.assigned_seat} />
         </View>
 
         <View className="mt-3 pt-3 border-t border-pink-50 flex-row gap-6">
@@ -328,7 +231,6 @@ function PaymentCard({ payment }) {
   );
 }
 
-// ── Main Screen ────────────────────────────────────────────────────
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams();
   const { libraryId, role, userId } = useAuthStore();
@@ -548,14 +450,12 @@ export default function UserProfileScreen() {
         contentContainerClassName="px-4 pt-2 pb-12"
         showsVerticalScrollIndicator={false}
       >
-        {/* 1. Profile Header */}
         <View className="rounded-3xl overflow-hidden mb-5">
           <LinearGradient
             colors={[COLORS.brandAccent, COLORS.brand]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            {/* --- TOP SECTION (Public Info) --- */}
             <View className="px-5 pt-7 pb-5 flex-row gap-4 items-start">
               <View className="relative shrink-0">
                 <Image
@@ -608,8 +508,6 @@ export default function UserProfileScreen() {
               </View>
             </View>
 
-            {/* --- BOTTOM SECTION (Contact & Location) --- */}
-            {/* 📌 NOW ALWAYS VISIBLE: Replaces text and icons based on permission */}
             <View className="px-5 py-4 gap-2 border-t border-white/10 bg-black/5">
               <View className="flex-row gap-4">
                 <View className="flex-row items-center gap-2 flex-1 min-w-0">
@@ -648,10 +546,8 @@ export default function UserProfileScreen() {
           </LinearGradient>
         </View>
 
-        {/* 📌 ONLY KEEP ENROLLMENTS/PAYMENTS FOR AUTHORIZED VIEWERS */}
         {canViewSensitiveData && (
           <>
-            {/* 2. Enrollments */}
             {enrollment && (
               <>
                 <SectionLabel title="Current Enrollment" />
@@ -674,7 +570,6 @@ export default function UserProfileScreen() {
               </>
             )}
 
-            {/* 3. Payment History */}
             <SectionLabel title="Payment History" count={payments.length} />
 
             {payments.length === 0 ? (
@@ -697,7 +592,6 @@ export default function UserProfileScreen() {
           </>
         )}
 
-        {/* 📌 NOW ALWAYS VISIBLE: Address and Coordinates are masked for safety */}
         <SectionLabel title="More Details" />
         <View className="bg-white rounded-2xl border border-borderLight overflow-hidden mb-4">
           <View className="px-4 py-2">
@@ -723,7 +617,6 @@ export default function UserProfileScreen() {
                     : "🔒 Hidden for safety purpose"
                 }
               />
-              {/* Map icon button is only shown if they actually have access */}
               {canViewSensitiveData && user.latitude && (
                 <TouchableOpacity
                   onPress={openMap}

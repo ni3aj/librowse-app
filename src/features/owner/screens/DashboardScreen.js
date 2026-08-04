@@ -1,6 +1,7 @@
 import apiClient from "@/api/client";
 import AlertModal from "@/components/ui/AlertModal";
 import Button from "@/components/ui/Button";
+import Chip from "@/components/ui/Chip";
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
 import { useAuthStore } from "@/store/authStore";
@@ -571,9 +572,11 @@ export default function DashboardScreen() {
                           {req.student_name}
                         </Text>
                       </View>
-                      <Text className="text-sm font-m text-textLight">
-                        {req.seat_type}
-                      </Text>
+                      <View className="flex-row flex-wrap gap-1">
+                        <Chip label={req.shift} />
+                        <Chip label={req.amenity} />
+                        <Chip label={req.reservation} />
+                      </View>
                       <Text className="text-sm font-m text-textLight">
                         Approved {req.start_date}
                       </Text>
