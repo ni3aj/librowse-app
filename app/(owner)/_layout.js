@@ -51,6 +51,7 @@ export default function OwnerTabLayout() {
       <Tabs.Screen name="manage-seats" options={{ href: null }} />
       <Tabs.Screen name="payments-history" options={{ href: null }} />
       <Tabs.Screen name="link-bank" options={{ href: null }} />
+      <Tabs.Screen name="edit-profile" options={{ href: null }} />
     </Tabs>
   );
 }

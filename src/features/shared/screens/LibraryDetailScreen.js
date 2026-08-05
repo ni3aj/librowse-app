@@ -1,4 +1,4 @@
-import apiClient from "@/api/client"; // 📌 1. Imported apiClient
+import apiClient from "@/api/client";
 import WriteReviewModal from "@/components/student/WriteReviewModal";
 import Button from "@/components/ui/Button";
 import { COLORS } from "@/constants/theme";
@@ -6,7 +6,7 @@ import { useAuthStore } from "@/store/authStore";
 import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useState } from "react"; // 📌 2. Imported useEffect
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -40,7 +40,6 @@ export default function LibraryDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // 📌 3. State for fetched amenities
   const [availableAmenities, setAvailableAmenities] = useState([]);
 
   const [selectedSeat, setSelectedSeat] = useState(null);
@@ -61,7 +60,6 @@ export default function LibraryDetailScreen() {
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // 📌 4. Fetch global amenities on mount
   useEffect(() => {
     const fetchAmenities = async () => {
       try {
@@ -118,6 +116,13 @@ export default function LibraryDetailScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      setSelectedSeat(null);
+      setSelectedSeatNumber(null);
+      setSelectedFutureSeat(null);
+      setIsChangeModalVisible(false);
+      setIsReviewModalVisible(false);
+      setIsImageViewerVisible(false);
+
       const init = async () => {
         if (!library) setLoading(true);
         await loadLibraryData();
@@ -274,7 +279,7 @@ export default function LibraryDetailScreen() {
                 Toast.show({
                   type: "success",
                   text1: "Cancelled",
-                  text2: "Your request has been withdrawn.",
+                  text2: "Your request has been cancelled.",
                 });
                 await loadLibraryData();
               }
@@ -346,7 +351,7 @@ export default function LibraryDetailScreen() {
         setIsChangeModalVisible(false);
         Toast.show({
           type: "success",
-          text1: "Plan Updated! 🔄",
+          text1: "Plan Updated",
           text2: "Your request for next month has been sent to the owner.",
         });
         await loadLibraryData();
@@ -362,11 +367,9 @@ export default function LibraryDetailScreen() {
     }
   };
 
-  // 📌 5. Helper function to get amenity details from the backend list
   const getAmenityDetails = (amenityId) => {
     const found = availableAmenities.find((a) => a.id === amenityId);
     if (found) return found;
-    // Fallback if backend data hasn't loaded yet or ID is missing
     return {
       label: amenityId.replace(/_/g, " "),
       icon: "checkmark-circle-outline",
@@ -528,7 +531,6 @@ export default function LibraryDetailScreen() {
             Amenities
           </Text>
           <View className="flex-row flex-wrap justify-between">
-            {/* 📌 6. Dynamically render fetched amenities */}
             {Array.isArray(library.amenities)
               ? library.amenities.map((amenityId, index) => {
                   const details = getAmenityDetails(amenityId);
@@ -536,7 +538,7 @@ export default function LibraryDetailScreen() {
                   return (
                     <View
                       key={index}
-                      className="w-[49%] bg-white border border-borderLight rounded-2xl p-2 flex-row items-center mb-3"
+                      className="w-[48%] bg-white border border-borderLight rounded-2xl p-2 flex-row items-center mb-3"
                     >
                       <View className="bg-surface p-1.5 rounded-full mr-3">
                         <Ionicons
@@ -749,7 +751,7 @@ export default function LibraryDetailScreen() {
 
               {selectedSeat?.reservation === "RESERVED" &&
                 selectedSeat?.seat_numbers?.length > 0 && (
-                  <View className="mt-6 mb-4">
+                  <View className="mt-6 mb-4 mx-2">
                     <Text className="text-xl font-m-bold text-textDark mb-1">
                       Select a Seat Number
                     </Text>
@@ -889,11 +891,10 @@ export default function LibraryDetailScreen() {
               </Text>
               {selectedSeat ? (
                 <>
-                  {selectedSeatNumber && (
-                    <Text className="text-base font-m-bold text-textDark">
-                      {selectedSeatNumber ? `(Seat ${selectedSeatNumber})` : ""}
-                    </Text>
-                  )}
+                  <Text className="text-base font-m-bold text-textDark">
+                    {selectedSeat.amenity?.replace("_", " ")}{" "}
+                    {selectedSeatNumber ? `(Seat ${selectedSeatNumber})` : ""}
+                  </Text>
                   <Text className="text-base font-m-bold text-textDark">
                     ₹{selectedSeat.price}/mo
                   </Text>

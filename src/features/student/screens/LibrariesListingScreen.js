@@ -106,19 +106,17 @@ export default function LibrariesListingScreen() {
     setIsFilterModalVisible(false);
   };
 
-  // 📌 THE FIX: This now strictly resets ONLY the advanced modal filters
   const clearModalFilters = () => {
     setTempFilters(DEFAULT_FILTERS);
     setAppliedFilters(DEFAULT_FILTERS);
     setIsFilterModalVisible(false);
   };
 
-  // 📌 THE FIX: This is a Master Reset for the Empty State button! It clears EVERYTHING.
   const clearAllFilters = () => {
     setTempFilters(DEFAULT_FILTERS);
     setAppliedFilters(DEFAULT_FILTERS);
-    setActiveChip("All"); // Resets the Chips
-    setSearchQuery(""); // Resets the Search Bar
+    setActiveChip("All");
+    setSearchQuery("");
   };
 
   const filteredLibraries = libraries.filter((lib) => {
@@ -193,16 +191,20 @@ export default function LibrariesListingScreen() {
           </>
         }
         ListEmptyComponent={
-          <View className="mt-12 items-center px-6">
+          <View className="mt-8 items-center px-6">
             {loading ? (
               <>
-                <ActivityIndicator size="large" color={COLORS.brand} />
+                <ActivityIndicator
+                  size="large"
+                  color={COLORS.brand}
+                  className="mt-4"
+                />
                 <Text className="text-textLight mt-4 font-m-med">
                   Finding nearby libraries...
                 </Text>
               </>
             ) : locationError ? (
-              <View className="items-center bg-surface w-full p-8 rounded-[24px] border border-borderLight">
+              <View className="items-center bg-surface w-full p-8 rounded-[24px] border border-borderLight mt-4">
                 <Text className="text-xl font-m-bold text-textDark mb-2">
                   Location Required
                 </Text>
@@ -212,17 +214,30 @@ export default function LibrariesListingScreen() {
                   className="w-full"
                 />
               </View>
+            ) : libraries.length === 0 ? (
+              /* 📌 NEW: Scenario where absolutely NO libraries are within radius */
+              <View className="items-center bg-surface w-full px-8 py-8 rounded-[24px] border border-borderLight mt-4">
+                <Text className="text-2xl mb-4">🌍</Text>
+                <Text className="text-lg font-m-bold text-textDark mb-2 text-center">
+                  No Libraries Nearby
+                </Text>
+                <Text className="text-textLight text-center font-m leading-5">
+                  We haven't reached your area yet! If you know a great library
+                  nearby, invite them to join LiBrowse.
+                </Text>
+              </View>
             ) : (
-              <View className="items-center bg-surface w-full px-8 rounded-[24px] border border-borderLight">
+              /* 📌 EXISTING: Scenario where libraries exist, but filters blocked them */
+              <View className="items-center bg-surface w-full px-8 py-6 rounded-[24px] border border-borderLight mt-4">
                 <Text className="text-4xl my-4">📭</Text>
                 <Text className="text-lg font-m-bold text-textDark mb-2">
-                  No Libraries Found
+                  No Matches Found
                 </Text>
                 <Text className="text-textLight text-center font-m">
-                  Try clearing your filters or expanding your search distance.
+                  We found libraries nearby, but none match your current
+                  filters. Try adjusting them.
                 </Text>
 
-                {/* 📌 THE FIX: Uses the Master Reset (clearAllFilters) */}
                 {(activeChip !== "All" ||
                   appliedFilters.maxPrice !== 5000 ||
                   appliedFilters.minRating !== 0 ||
@@ -232,7 +247,7 @@ export default function LibrariesListingScreen() {
                     title="Clear All Filters"
                     variant="outline"
                     onPress={clearAllFilters}
-                    className="my-4 w-full"
+                    className="mt-6 mb-2 w-full"
                   />
                 )}
               </View>

@@ -2,6 +2,7 @@ import apiClient from "@/api/client";
 import Button from "@/components/ui/Button";
 import Header from "@/components/ui/Header";
 import Input from "@/components/ui/Input";
+import { useAuthStore } from "@/store/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -10,14 +11,17 @@ import {
   Platform,
   ScrollView,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import Toast from "react-native-toast-message";
 
 export default function LinkBankAccountScreen() {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { libraryId } = useAuthStore();
 
-  // Form State
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [applyToAll, setApplyToAll] = useState(true);
+
   const [formData, setFormData] = useState({
     accountName: "",
     accountNumber: "",
@@ -25,7 +29,6 @@ export default function LinkBankAccountScreen() {
     ifscCode: "",
   });
 
-  // Validation Errors State
   const [errors, setErrors] = useState({});
 
   const validateForm = () => {
@@ -56,30 +59,38 @@ export default function LinkBankAccountScreen() {
   };
 
   const handleLinkAccount = async () => {
+    if (!libraryId) {
+      return Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "No active library selected.",
+      });
+    }
+
     if (!validateForm()) return;
 
     setIsSubmitting(true);
 
     try {
-      // 📌 Replace 'mock_library_id' with the actual library ID context you have
       const payload = {
+        library_id: libraryId,
         account_name: formData.accountName.trim(),
         account_number: formData.accountNumber.trim(),
         ifsc_code: formData.ifscCode.trim().toUpperCase(),
-        // library_id: currentLibraryId, <-- Add this if your backend requires it!
+        apply_to_all: applyToAll,
       };
 
-      // 📌 Hits the Fastify route we built previously
       const response = await apiClient.post("/owner/bank-details", payload);
 
       if (response.data.success) {
         Toast.show({
           type: "success",
-          text1: "Bank Linked!",
-          text2: "Your account is ready to receive payments.",
+          text1: "Bank Linked",
+          text2: applyToAll
+            ? "Account successfully linked to all your libraries."
+            : "Your account is ready to receive payments.",
         });
 
-        // Go back to previous screen or dashboard
         setTimeout(() => router.back(), 1500);
       }
     } catch (error) {
@@ -108,9 +119,12 @@ export default function LinkBankAccountScreen() {
       >
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ padding: 24, paddingBottom: 60 }}
+          contentContainerStyle={{
+            paddingLeft: 24,
+            paddingRight: 24,
+            paddingBottom: 60,
+          }}
         >
-          {/* Trust & Transparency Banner */}
           <View className="mb-6 flex-row items-center bg-blue-50 border border-blue-200 p-4 rounded-2xl">
             <View className="bg-blue-100 w-12 h-12 rounded-full items-center justify-center mr-4">
               <Ionicons name="shield-checkmark" size={24} color="#2563EB" />
@@ -127,7 +141,6 @@ export default function LinkBankAccountScreen() {
             </View>
           </View>
 
-          {/* Form Fields */}
           <View className="space-y-4">
             <Input
               label="Account Holder Name"
@@ -153,7 +166,7 @@ export default function LinkBankAccountScreen() {
                   setErrors({ ...errors, accountNumber: null });
               }}
               keyboardType="number-pad"
-              secureTextEntry={true} // Hides number while typing for privacy
+              secureTextEntry={true}
             />
 
             <Input
@@ -181,12 +194,29 @@ export default function LinkBankAccountScreen() {
               autoCapitalize="characters"
               maxLength={11}
             />
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setApplyToAll(!applyToAll)}
+              className="flex-row items-center mt-2 mb-2 p-3 bg-surface border border-borderLight rounded-xl"
+            >
+              <View
+                className={`w-5 h-5 rounded items-center justify-center mr-3 border ${applyToAll ? "bg-brand border-brand" : "bg-white border-gray-300"}`}
+              >
+                {applyToAll && (
+                  <Ionicons name="checkmark" size={14} color="white" />
+                )}
+              </View>
+              <Text className="text-textDark font-m-semi text-sm flex-1">
+                Use this bank account for all my libraries
+              </Text>
+            </TouchableOpacity>
           </View>
 
           <Button
             title="Verify & Link Account"
             variant="primary"
-            className="mt-2 py-4"
+            className="mt-4 py-4"
             loading={isSubmitting}
             onPress={handleLinkAccount}
           />

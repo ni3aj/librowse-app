@@ -3,7 +3,6 @@ import Button from "@/components/ui/Button";
 import Header from "@/components/ui/Header";
 import Input from "@/components/ui/Input";
 import { COLORS } from "@/constants/theme";
-import { updateStudentProfile } from "@/features/student/api";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -15,7 +14,7 @@ import {
 } from "react-native";
 import Toast from "react-native-toast-message";
 
-export default function EditProfileScreen() {
+export default function OwnerEditProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -33,7 +32,8 @@ export default function EditProfileScreen() {
 
   const fetchUserData = async () => {
     try {
-      const response = await apiClient.get("/student/profile");
+      // 📌 Hitting the new owner profile endpoint
+      const response = await apiClient.get("/owner/personal-profile");
       if (response.data.success) {
         const user = response.data.user;
         setFormData({
@@ -74,7 +74,8 @@ export default function EditProfileScreen() {
         city: formData.city.trim(),
       };
 
-      const response = await updateStudentProfile(payload);
+      // 📌 Saving to the new owner profile endpoint
+      const response = await apiClient.put("/owner/personal-profile", payload);
 
       if (response.data.success) {
         Toast.show({
@@ -82,7 +83,9 @@ export default function EditProfileScreen() {
           text1: "Success",
           text2: "Your profile has been updated.",
         });
-        setTimeout(() => router.push("(student)/profile"), 1000);
+
+        // Go back to the owner profile tab
+        setTimeout(() => router.back(), 1000);
       }
     } catch (error) {
       Toast.show({
@@ -137,7 +140,7 @@ export default function EditProfileScreen() {
 
             <Input
               label="Email Address"
-              placeholder="student@example.com"
+              placeholder="owner@example.com"
               value={formData.email}
               onChangeText={(text) => setFormData({ ...formData, email: text })}
               keyboardType="email-address"
@@ -153,7 +156,7 @@ export default function EditProfileScreen() {
 
             <Input
               label="Residential Address"
-              placeholder="Enter your address"
+              placeholder="Enter your personal address"
               value={formData.address}
               onChangeText={(text) =>
                 setFormData({ ...formData, address: text })

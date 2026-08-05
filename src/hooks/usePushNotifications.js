@@ -51,7 +51,6 @@ export const usePushNotifications = () => {
         ).data;
 
         await apiClient.post("/user/fcm-token", { token: expoPushToken });
-        console.log("Push token synced successfully!");
       } catch (error) {
         console.error("Error saving fcm token:", error);
       }

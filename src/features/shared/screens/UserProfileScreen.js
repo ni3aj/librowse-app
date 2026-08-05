@@ -106,13 +106,23 @@ function InfoRow({ emoji, label, value, mono = false }) {
 function EnrollmentCard({
   enrollment,
   isFuture = false,
+  isRejected = false,
   isOwner = false,
   children,
 }) {
   const headerBg = "bg-background";
   const borderCl = "border-borderLight";
-  const titleCl = isFuture ? "text-red-500" : "text-pink-600";
-  const priceCl = isFuture ? "text-red-500" : "text-pink-600";
+
+  let titleCl = "text-emerald-600";
+  let title = "Current Plan";
+
+  if (isRejected) {
+    titleCl = "text-gray-600";
+    title = "Rejected Request";
+  } else if (isFuture) {
+    titleCl = "text-red-500";
+    title = "Upcoming Plan";
+  }
 
   return (
     <View
@@ -122,14 +132,7 @@ function EnrollmentCard({
         className={`flex-row items-center justify-between px-4 py-3 border-b ${headerBg} ${borderCl}`}
       >
         <View className="flex-row items-center gap-2">
-          <View
-            className={`w-8 h-8 rounded-xl items-center justify-center ${isFuture ? "bg-red-100" : "bg-pink-100"}`}
-          >
-            <Text className="text-sm">{isFuture ? "📆" : "📌"}</Text>
-          </View>
-          <Text className={`text-s font-m-bold ${titleCl}`}>
-            {isFuture ? "Upcoming Plan" : "Current Plan"}
-          </Text>
+          <Text className={`text-s font-m-bold ${titleCl}`}>{title}</Text>
         </View>
         <StatusBadge status={enrollment.status} />
       </View>
@@ -154,7 +157,7 @@ function EnrollmentCard({
         <View className="h-px bg-gray-100 my-3" />
 
         <View className="flex-row items-center justify-between pb-2">
-          <Text className={`text-3xl font-black ${priceCl}`}>
+          <Text className={`text-3xl font-black text-textDark/80`}>
             {fmtCurrency(enrollment.price)}
           </Text>
           {isOwner && (
@@ -162,7 +165,7 @@ function EnrollmentCard({
               <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">
                 Requested
               </Text>
-              <Text className="text-xs font-semibold text-gray-500 mt-0.5">
+              <Text className="text-xs font-m-semi text-gray-500 mt-0.5">
                 {formatCleanDate(enrollment.requested_on)}
               </Text>
             </View>
@@ -242,6 +245,7 @@ export default function UserProfileScreen() {
   const [user, setUser] = useState(null);
   const [enrollment, setEnrollment] = useState(null);
   const [futureEnrollment, setFutureEnrollment] = useState(null);
+  const [rejectedEnrollments, setRejectedEnrollments] = useState([]); // 📌 Added state for rejected
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -259,6 +263,7 @@ export default function UserProfileScreen() {
         setUser(response.data.user);
         setEnrollment(response.data.enrollment);
         setFutureEnrollment(response.data.future_enrollment);
+        setRejectedEnrollments(response.data.rejected_enrollments || []); // 📌 Populate rejected list
         setPayments(response.data.payments || []);
       }
     } catch (error) {
@@ -546,52 +551,6 @@ export default function UserProfileScreen() {
           </LinearGradient>
         </View>
 
-        {canViewSensitiveData && (
-          <>
-            {enrollment && (
-              <>
-                <SectionLabel title="Current Enrollment" />
-                <EnrollmentCard enrollment={enrollment} isOwner={isViewerOwner}>
-                  {renderActionButtons(enrollment)}
-                </EnrollmentCard>
-              </>
-            )}
-
-            {futureEnrollment && (
-              <>
-                <SectionLabel title="Upcoming Enrollment" />
-                <EnrollmentCard
-                  enrollment={futureEnrollment}
-                  isFuture={true}
-                  isOwner={isViewerOwner}
-                >
-                  {renderActionButtons(futureEnrollment)}
-                </EnrollmentCard>
-              </>
-            )}
-
-            <SectionLabel title="Payment History" count={payments.length} />
-
-            {payments.length === 0 ? (
-              <View className="bg-white border border-borderLight p-6 rounded-2xl items-center mb-4">
-                <Ionicons
-                  name="receipt-outline"
-                  size={32}
-                  color="#9ca3af"
-                  className="mb-2"
-                />
-                <Text className="text-gray-400 font-medium mt-2 text-xs">
-                  No payment history yet.
-                </Text>
-              </View>
-            ) : (
-              payments.map((payment, i) => (
-                <PaymentCard key={i} payment={payment} />
-              ))
-            )}
-          </>
-        )}
-
         <SectionLabel title="More Details" />
         <View className="bg-white rounded-2xl border border-borderLight overflow-hidden mb-4">
           <View className="px-4 py-2">
@@ -628,6 +587,70 @@ export default function UserProfileScreen() {
             </View>
           </View>
         </View>
+
+        {canViewSensitiveData && (
+          <>
+            {enrollment && (
+              <>
+                <SectionLabel title="Current Enrollment" />
+                <EnrollmentCard enrollment={enrollment} isOwner={isViewerOwner}>
+                  {renderActionButtons(enrollment)}
+                </EnrollmentCard>
+              </>
+            )}
+
+            {futureEnrollment && (
+              <>
+                <SectionLabel title="Upcoming Enrollment" />
+                <EnrollmentCard
+                  enrollment={futureEnrollment}
+                  isFuture={true}
+                  isOwner={isViewerOwner}
+                >
+                  {renderActionButtons(futureEnrollment)}
+                </EnrollmentCard>
+              </>
+            )}
+
+            {/* 📌 New: Render Rejected Enrollments */}
+            {rejectedEnrollments.length > 0 && (
+              <>
+                <SectionLabel
+                  title="Rejected Requests"
+                  count={rejectedEnrollments.length}
+                />
+                {rejectedEnrollments.map((rejEnrollment, idx) => (
+                  <EnrollmentCard
+                    key={`rej-${idx}`}
+                    enrollment={rejEnrollment}
+                    isRejected={true}
+                    isOwner={isViewerOwner}
+                  />
+                ))}
+              </>
+            )}
+
+            <SectionLabel title="Payment History" count={payments.length} />
+
+            {payments.length === 0 ? (
+              <View className="bg-white border border-borderLight p-6 rounded-2xl items-center mb-4">
+                <Ionicons
+                  name="receipt-outline"
+                  size={32}
+                  color="#9ca3af"
+                  className="mb-2"
+                />
+                <Text className="text-gray-400 font-medium mt-2 text-xs">
+                  No payment history yet.
+                </Text>
+              </View>
+            ) : (
+              payments.map((payment, i) => (
+                <PaymentCard key={i} payment={payment} />
+              ))
+            )}
+          </>
+        )}
       </ScrollView>
     </View>
   );

@@ -3,7 +3,7 @@ import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
 import { useAuthStore } from "@/store/authStore";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient"; // 📌 Used for that beautiful blue card
+import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -16,7 +16,6 @@ import {
 } from "react-native";
 import Toast from "react-native-toast-message";
 
-// 📌 Reusable Avatar Component
 const Av = ({ initials, src, size = 38 }) => {
   if (src) {
     return (
@@ -39,6 +38,8 @@ const Av = ({ initials, src, size = 38 }) => {
 };
 
 export default function PaymentsHistory() {
+  const libraryId = useAuthStore((state) => state.libraryId);
+
   const [view, setView] = useState("pending");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -48,8 +49,9 @@ export default function PaymentsHistory() {
   const [historyPayments, setHistoryPayments] = useState([]);
 
   const fetchData = async () => {
+    if (!libraryId) return;
+
     try {
-      const { libraryId } = useAuthStore();
       const response = await apiClient.get(`/owner/payments/${libraryId}`);
       if (response.data.success) {
         setTotalCollected(response.data.data.totalCollected);
@@ -66,14 +68,13 @@ export default function PaymentsHistory() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [libraryId]);
 
   const handleRefresh = () => {
     setRefreshing(true);
     fetchData();
   };
 
-  // 📌 Calls the existing mark-paid endpoint
   const onMarkPaid = async (enrollmentId) => {
     try {
       const response = await apiClient.patch(
@@ -81,7 +82,7 @@ export default function PaymentsHistory() {
       );
       if (response.data.success) {
         Toast.show({ type: "success", text1: "Payment Marked as Paid!" });
-        fetchData(); // Refresh list automatically
+        fetchData();
       }
     } catch (error) {
       Toast.show({ type: "error", text1: "Failed to mark paid" });
@@ -110,9 +111,8 @@ export default function PaymentsHistory() {
         }
       >
         <View className="px-4 pt-4 pb-3">
-          {/* Summary Card */}
           <LinearGradient
-            colors={[COLORS.textDark, COLORS.textLight]}
+            colors={[COLORS.brand, COLORS.brandAccent]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{ borderRadius: 24 }}
@@ -147,7 +147,6 @@ export default function PaymentsHistory() {
           </LinearGradient>
         </View>
 
-        {/* Toggle */}
         <View className="px-4 mb-3">
           <View className="flex-row bg-gray-200 p-1 rounded-2xl">
             {["pending", "history"].map((v) => {
@@ -176,7 +175,6 @@ export default function PaymentsHistory() {
           </View>
         </View>
 
-        {/* List Section */}
         <View className="px-4 space-y-3 mt-2">
           {view === "pending" ? (
             pendingPayments.length === 0 ? (

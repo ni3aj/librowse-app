@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Alert,
   AppState,
+  Image, // 📌 Ensure Image is imported
   Modal,
   Pressable,
   RefreshControl,
@@ -494,11 +495,7 @@ export default function DashboardScreen() {
                       onPress={() => router.push(`/user/${req.student_id}`)}
                       className="bg-white rounded-2xl p-3.5 flex-row items-center mb-2 border border-borderLight active:opacity-70"
                     >
-                      <View className="w-10 h-10 rounded-full bg-brand/10 items-center justify-center mr-3">
-                        <Text className="text-brand font-m-bold text-base">
-                          {req.student_name?.charAt(0)?.toUpperCase()}
-                        </Text>
-                      </View>
+                      <Avatar src={req.student_photo} name={req.student_name} />
 
                       <View className="flex-1 pr-2">
                         <Text
@@ -508,10 +505,11 @@ export default function DashboardScreen() {
                           {req.student_name}
                         </Text>
                         <Text
-                          className="text-[12px] font-m text-textLight mt-0.5"
+                          className="text-[12px] text-xs text-textLight"
                           numberOfLines={1}
                         >
-                          {req.seat_type}
+                          {req.amenity} / {req.shift} / {req.reservation}{" "}
+                          {req.assigned_seat && `(${req.assigned_seat})`}
                         </Text>
                       </View>
 
@@ -567,17 +565,26 @@ export default function DashboardScreen() {
                       key={req.id}
                       className="bg-white p-4 rounded-2xl mb-3 border border-borderLight active:opacity-70"
                     >
-                      <View className="flex-row justify-between items-center mb-1">
-                        <Text className="font-m-bold text-textDark text-lg">
-                          {req.student_name}
-                        </Text>
+                      {/* 📌 Added Avatar Component here alongside the name */}
+                      <View className="flex-row items-center mb-2">
+                        <Avatar
+                          src={req.student_photo}
+                          name={req.student_name}
+                          size={40}
+                        />
+                        <View className="flex-1">
+                          <Text className="font-m-bold text-textDark text-lg">
+                            {req.student_name}
+                          </Text>
+                        </View>
                       </View>
-                      <View className="flex-row flex-wrap gap-1">
+
+                      <View className="flex-row flex-wrap gap-1 mt-1">
                         <Chip label={req.shift} />
                         <Chip label={req.amenity} />
                         <Chip label={req.reservation} />
                       </View>
-                      <Text className="text-sm font-m text-textLight">
+                      <Text className="text-sm font-m text-textLight mt-1">
                         Approved {req.start_date}
                       </Text>
 
@@ -676,6 +683,29 @@ export default function DashboardScreen() {
         onSecondaryPress={hideAlert}
         onClose={hideAlert}
       />
+    </View>
+  );
+}
+
+// 📌 Reusable Avatar Component added here
+function Avatar({ src, name, size = 40 }) {
+  if (src) {
+    return (
+      <Image
+        source={{ uri: src }}
+        style={{ width: size, height: size, borderRadius: size / 2 }}
+        className="mr-3 bg-gray-100"
+      />
+    );
+  }
+  return (
+    <View
+      style={{ width: size, height: size, borderRadius: size / 2 }}
+      className="bg-brand/10 items-center justify-center border border-brand/20 mr-3"
+    >
+      <Text className="text-brand font-m-bold text-base">
+        {name?.charAt(0)?.toUpperCase() || "?"}
+      </Text>
     </View>
   );
 }

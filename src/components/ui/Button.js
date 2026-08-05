@@ -53,12 +53,11 @@ export default function Button({
       {loading ? (
         <ActivityIndicator color={loaderColor} />
       ) : (
-        // 📌 THE FIX: Added numberOfLines, adjustsFontSizeToFit, and text-center
         <Text
           className={`${textStyles[variant]} text-center`}
           numberOfLines={1}
           adjustsFontSizeToFit
-          minimumFontScale={0.7} // Allows text to shrink up to 30% to make it fit
+          minimumFontScale={0.7}
         >
           {title}
         </Text>

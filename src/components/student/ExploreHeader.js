@@ -8,7 +8,7 @@ export default function ExploreHeader({
   onFilterPress,
 }) {
   return (
-    <View className="mt-10">
+    <View className="mt-10 mx-2">
       <View className="flex-row items-center bg-white rounded-2xl px-4 py-2 m-4 border border-borderLight">
         <Ionicons
           name="search"

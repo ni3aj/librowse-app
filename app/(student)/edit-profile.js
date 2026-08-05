@@ -1,5 +1,5 @@
-import EditProfileScreen from "@/features/student/screens/EditProfileScreen";
+import StudentEditProfileScreen from "@/features/student/screens/StudentEditProfileScreen";
 
-export default function EditProfileRoute() {
-  return <EditProfileScreen />;
+export default function StudentEditProfileRoute() {
+  return <StudentEditProfileScreen />;
 }
