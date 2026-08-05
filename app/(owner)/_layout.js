@@ -52,6 +52,7 @@ export default function OwnerTabLayout() {
       <Tabs.Screen name="payments-history" options={{ href: null }} />
       <Tabs.Screen name="link-bank" options={{ href: null }} />
       <Tabs.Screen name="edit-profile" options={{ href: null }} />
+      <Tabs.Screen name="reviews" options={{ href: null }} />
     </Tabs>
   );
 }

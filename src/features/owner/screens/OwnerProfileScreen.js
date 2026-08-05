@@ -237,9 +237,9 @@ export default function OwnerProfileScreen() {
               libraries.map((lib) => (
                 <View
                   key={lib.id}
-                  className="bg-surface p-5 rounded-2xl border border-borderLight mb-3"
+                  className="bg-surface p-2 rounded-2xl border border-borderLight mb-3"
                 >
-                  <View className="flex-row justify-between items-start mb-3">
+                  <View className="flex-row justify-between items-start p-2">
                     <View>
                       <Text className="text-base font-m-bold text-textDark">
                         {lib.name}
@@ -259,25 +259,36 @@ export default function OwnerProfileScreen() {
 
                   <View className="flex-row space-x-3 mt-2">
                     <TouchableOpacity
-                      className="flex-1 bg-background py-2 rounded-xl border border-borderLight items-center mr-2"
+                      className="flex-1 bg-background py-2.5 rounded-xl border border-borderLight items-center mr-1"
                       onPress={() => {
                         useAuthStore.setState({ libraryId: lib.id });
                         router.push(`/edit-library`);
                       }}
                     >
-                      <Text className="text-textDark font-m-bold text-sm">
+                      <Text className="text-textDark font-m-bold text-xs">
                         Edit Details
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      className="flex-1 bg-background py-2 rounded-xl border border-borderLight items-center"
+                      className="flex-1 bg-background py-2.5 px-2 rounded-xl border border-borderLight items-center mr-1"
                       onPress={() => {
                         useAuthStore.setState({ libraryId: lib.id });
                         router.push("/manage-seats");
                       }}
                     >
-                      <Text className="text-textDark font-m-bold text-sm">
+                      <Text className="text-textDark font-m-bold text-xs">
                         Manage Seats
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      className="flex-1 bg-background py-2.5 rounded-xl border border-borderLight items-center"
+                      onPress={() => {
+                        useAuthStore.setState({ libraryId: lib.id });
+                        router.push(`/reviews`);
+                      }}
+                    >
+                      <Text className="text-textDark font-m-bold text-xs">
+                        Reviews
                       </Text>
                     </TouchableOpacity>
                   </View>
