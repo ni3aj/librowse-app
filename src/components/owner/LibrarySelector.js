@@ -1,6 +1,7 @@
 import { COLORS } from "@/constants/theme";
 import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
+import { useState } from "react"; // 📌 Added missing import
 import { FlatList, Modal, Text, TouchableOpacity, View } from "react-native";
 
 export default function LibrarySelector({
@@ -14,7 +15,7 @@ export default function LibrarySelector({
     <>
       <TouchableOpacity
         onPress={() => setModalVisible(true)}
-        className="flex-row items-center bg-white border border-borderLight rounded-full px-4 py-2 shadow-sm"
+        className="flex-row items-center bg-white border border-borderLight rounded-full px-4 py-2"
       >
         <Text
           className="text-textDark font-m-bold text-sm mr-2"
@@ -25,10 +26,10 @@ export default function LibrarySelector({
         <Ionicons name="chevron-down" size={16} color={COLORS.textDark} />
       </TouchableOpacity>
 
-      {/* Simple Modal for selection */}
       <Modal visible={modalVisible} transparent animationType="fade">
         <TouchableOpacity
           className="flex-1 bg-black/30 justify-center items-center"
+          activeOpacity={1}
           onPress={() => setModalVisible(false)}
         >
           <View className="bg-white w-4/5 rounded-3xl p-4">
@@ -43,7 +44,10 @@ export default function LibrarySelector({
                   className="py-4 border-b border-borderLight"
                   onPress={() => {
                     useLibraryStore.setState({ libraryId: item.id });
-                    onSelect(item);
+                    if (onSelect) {
+                      onSelect(item);
+                    }
+
                     setModalVisible(false);
                   }}
                 >

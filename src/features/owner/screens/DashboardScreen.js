@@ -4,7 +4,6 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
-// 📌 Removed authStore, pulling everything from libraryStore now
 import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
@@ -43,7 +42,6 @@ export default function DashboardScreen() {
 
   const [modalVisible, setModalVisible] = useState(false);
 
-  // 📌 Fixed: Pulled hasInventory and libraryStatus directly from libraryStore
   const { hasInventory, libraryStatus } = useLibraryStore();
 
   const isPending =
@@ -91,24 +89,52 @@ export default function DashboardScreen() {
     }
   };
 
-  useEffect(() => {
-    const fetchInitialLibraries = async () => {
-      try {
-        const response = await apiClient.get("/owner/my-libraries");
-        if (response.data.success && response.data.libraries.length > 0) {
-          setLibraries(response.data.libraries);
-          setSelectedLibrary(response.data.libraries[0]);
-        } else {
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error("Failed to load libraries", error);
-        setLoading(false);
-      }
-    };
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
 
-    fetchInitialLibraries();
-  }, []);
+      const fetchLibraries = async () => {
+        try {
+          const response = await apiClient.get("/owner/my-libraries");
+          if (response.data.success && response.data.libraries.length > 0) {
+            if (isActive) {
+              setLibraries(response.data.libraries);
+              setSelectedLibrary((prevSelected) => {
+                const stillExists =
+                  prevSelected &&
+                  response.data.libraries.find(
+                    (lib) => lib.id === prevSelected.id,
+                  );
+                // We ONLY return the state here. No side-effects!
+                return stillExists || response.data.libraries[0];
+              });
+            }
+          } else {
+            if (isActive) {
+              setLibraries([]);
+              setLoading(false);
+            }
+          }
+        } catch (error) {
+          console.error("Failed to load libraries", error);
+          if (isActive) setLoading(false);
+        }
+      };
+
+      fetchLibraries();
+
+      return () => {
+        isActive = false;
+      };
+    }, []),
+  );
+
+  // 📌 THE FIX: Safely update the global store outside of the React render cycle
+  useEffect(() => {
+    if (selectedLibrary?.id) {
+      useLibraryStore.setState({ libraryId: selectedLibrary.id });
+    }
+  }, [selectedLibrary?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -308,7 +334,7 @@ export default function DashboardScreen() {
           libraries?.length > 1 && (
             <TouchableOpacity
               onPress={() => setModalVisible(true)}
-              className="flex-row items-center bg-white border border-borderLight rounded-full px-2 py-2 mt-1"
+              className="flex-row items-center bg-white border border-borderLight rounded-full px-3 py-2 mt-1"
             >
               <Text className="text-textDark font-m-bold text-sm mr-2">
                 {selectedLibrary?.name || "Select"}
@@ -662,6 +688,9 @@ export default function DashboardScreen() {
                 onPress={() => {
                   setSelectedLibrary(lib);
                   setModalVisible(false);
+
+                  setLoading(true);
+                  fetchDashboardStats(lib.id).finally(() => setLoading(false));
                 }}
               >
                 <Text className="text-textDark font-m-med">{lib.name}</Text>
