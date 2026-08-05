@@ -261,7 +261,7 @@ export default function OwnerProfileScreen() {
                     <TouchableOpacity
                       className="flex-1 bg-background py-2.5 rounded-xl border border-borderLight items-center mr-1"
                       onPress={() => {
-                        useAuthStore.setState({ libraryId: lib.id });
+                        useLibraryStore.setState({ libraryId: lib.id });
                         router.push(`/edit-library`);
                       }}
                     >
@@ -272,7 +272,7 @@ export default function OwnerProfileScreen() {
                     <TouchableOpacity
                       className="flex-1 bg-background py-2.5 px-2 rounded-xl border border-borderLight items-center mr-1"
                       onPress={() => {
-                        useAuthStore.setState({ libraryId: lib.id });
+                        useLibraryStore.setState({ libraryId: lib.id });
                         router.push("/manage-seats");
                       }}
                     >
@@ -283,7 +283,7 @@ export default function OwnerProfileScreen() {
                     <TouchableOpacity
                       className="flex-1 bg-background py-2.5 rounded-xl border border-borderLight items-center"
                       onPress={() => {
-                        useAuthStore.setState({ libraryId: lib.id });
+                        useLibraryStore.setState({ libraryId: lib.id });
                         router.push(`/reviews`);
                       }}
                     >

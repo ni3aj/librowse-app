@@ -7,7 +7,7 @@ import { COLORS } from "@/constants/theme";
 import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -34,29 +34,40 @@ export default function DashboardScreen() {
     setAlertConfig((prev) => ({ ...prev, visible: false }));
 
   const [libraries, setLibraries] = useState([]);
-  const [selectedLibrary, setSelectedLibrary] = useState(null);
   const [stats, setStats] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
   const [modalVisible, setModalVisible] = useState(false);
 
-  const { hasInventory, libraryStatus } = useLibraryStore();
+  // 📌 THE FIX: Rely entirely on libraryStore for the active ID
+  const { libraryId, hasInventory, libraryStatus } = useLibraryStore();
+  const lastFetchedId = useRef(null);
+
+  // Derive the active library object for the dropdown UI
+  const selectedLibrary =
+    libraries.find((lib) => lib.id === libraryId) || libraries[0];
 
   const isPending =
     selectedLibrary && libraryStatus === "PENDING_ADMIN_APPROVAL";
   const isUnverified = selectedLibrary && libraryStatus === "UNVERIFIED";
   const isLocked = isPending || isUnverified;
 
-  const fetchDashboardStats = async (libraryId) => {
+  const fetchDashboardStats = async (targetLibraryId) => {
     try {
-      const response = await apiClient.get(`/owner/dashboard/${libraryId}`);
+      const response = await apiClient.get(
+        `/owner/dashboard/${targetLibraryId}`,
+      );
       if (response.data.success) {
         let currentStatus = response.data.libraryStatus;
 
-        if (currentStatus === "UNVERIFIED" && hasInventory) {
-          const libRes = await apiClient.get(`/owner/library/${libraryId}`);
+        // 📌 Derive hasInventory directly from the fetched metrics
+        const currentHasInventory = response.data.metrics?.total_capacity > 0;
+
+        if (currentStatus === "UNVERIFIED" && currentHasInventory) {
+          const libRes = await apiClient.get(
+            `/owner/library/${targetLibraryId}`,
+          );
           if (libRes.data.success) {
             const lib = libRes.data.library;
             if (lib.photos && lib.photos.length > 0) {
@@ -71,13 +82,18 @@ export default function DashboardScreen() {
                 photos: lib.photos,
                 status: "PENDING_ADMIN_APPROVAL",
               };
-              await apiClient.put(`/owner/library/${libraryId}`, payload);
+              await apiClient.put(`/owner/library/${targetLibraryId}`, payload);
               currentStatus = "PENDING_ADMIN_APPROVAL";
             }
           }
         }
 
-        useLibraryStore.getState().setLibraryStatus(currentStatus);
+        // 📌 THE FIX: Sync the newly fetched status AND inventory back to the global store!
+        useLibraryStore.setState({
+          libraryStatus: currentStatus,
+          hasInventory: currentHasInventory,
+        });
+
         setStats(response.data);
       }
     } catch (error) {
@@ -89,6 +105,7 @@ export default function DashboardScreen() {
     }
   };
 
+  // 1. Fetch library list (Runs on mount/focus)
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
@@ -99,15 +116,12 @@ export default function DashboardScreen() {
           if (response.data.success && response.data.libraries.length > 0) {
             if (isActive) {
               setLibraries(response.data.libraries);
-              setSelectedLibrary((prevSelected) => {
-                const stillExists =
-                  prevSelected &&
-                  response.data.libraries.find(
-                    (lib) => lib.id === prevSelected.id,
-                  );
-                // We ONLY return the state here. No side-effects!
-                return stillExists || response.data.libraries[0];
-              });
+              // Auto-select first library if none is currently active in store
+              if (!useLibraryStore.getState().libraryId) {
+                useLibraryStore.setState({
+                  libraryId: response.data.libraries[0].id,
+                });
+              }
             }
           } else {
             if (isActive) {
@@ -122,56 +136,55 @@ export default function DashboardScreen() {
       };
 
       fetchLibraries();
-
       return () => {
         isActive = false;
       };
     }, []),
   );
 
-  // 📌 THE FIX: Safely update the global store outside of the React render cycle
-  useEffect(() => {
-    if (selectedLibrary?.id) {
-      useLibraryStore.setState({ libraryId: selectedLibrary.id });
-    }
-  }, [selectedLibrary?.id]);
-
+  // 2. Fetch stats safely whenever libraryId changes! (Runs on focus & dropdown changes)
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
 
       const loadStats = async () => {
-        if (selectedLibrary?.id) {
-          if (!stats) setLoading(true);
-          if (isActive) await fetchDashboardStats(selectedLibrary.id);
-          if (isActive) setLoading(false);
+        if (libraryId) {
+          // If we switched libraries, show loading & wipe old stats so UI resets cleanly
+          if (lastFetchedId.current !== libraryId) {
+            setLoading(true);
+            setStats(null);
+          }
+
+          await fetchDashboardStats(libraryId);
+
+          if (isActive) {
+            lastFetchedId.current = libraryId;
+            setLoading(false);
+          }
         }
       };
 
       loadStats();
-
       return () => {
         isActive = false;
       };
-    }, [selectedLibrary?.id]),
+    }, [libraryId]),
   );
 
+  // 3. App State listener for returning from background
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextAppState) => {
-      if (nextAppState === "active" && selectedLibrary?.id) {
-        fetchDashboardStats(selectedLibrary.id);
+      if (nextAppState === "active" && libraryId) {
+        fetchDashboardStats(libraryId);
       }
     });
-
-    return () => {
-      subscription.remove();
-    };
-  }, [selectedLibrary?.id]);
+    return () => subscription.remove();
+  }, [libraryId]);
 
   const handlePullToRefresh = async () => {
-    if (!selectedLibrary?.id) return;
+    if (!libraryId) return;
     setRefreshing(true);
-    await fetchDashboardStats(selectedLibrary.id);
+    await fetchDashboardStats(libraryId);
     setRefreshing(false);
   };
 
@@ -199,7 +212,7 @@ export default function DashboardScreen() {
               secondaryButtonText: null,
               onPrimaryPress: () => {
                 hideAlert();
-                if (selectedLibrary) fetchDashboardStats(selectedLibrary.id);
+                if (libraryId) fetchDashboardStats(libraryId);
               },
             });
           }
@@ -230,7 +243,7 @@ export default function DashboardScreen() {
           text1: "Approved!",
           text2: "Awaiting their payment.",
         });
-        if (selectedLibrary) fetchDashboardStats(selectedLibrary.id);
+        if (libraryId) fetchDashboardStats(libraryId);
       }
     } catch (error) {
       Toast.show({
@@ -256,7 +269,7 @@ export default function DashboardScreen() {
                 `/owner/requests/${enrollmentId}/reject`,
               );
               if (response.data.success) {
-                if (selectedLibrary) fetchDashboardStats(selectedLibrary.id);
+                if (libraryId) fetchDashboardStats(libraryId);
               }
             } catch (error) {
               Toast.show({
@@ -453,7 +466,7 @@ export default function DashboardScreen() {
                         : () =>
                             router.push({
                               pathname: "/students-list",
-                              params: { id: selectedLibrary?.id },
+                              params: { id: libraryId },
                             })
                     }
                     value={`${stats.metrics.active_users_count}/${stats.metrics.total_students_count}`}
@@ -507,7 +520,7 @@ export default function DashboardScreen() {
                             : () =>
                                 router.push({
                                   pathname: "/students-list",
-                                  params: { id: selectedLibrary?.id },
+                                  params: { id: libraryId },
                                 })
                         }
                       >
@@ -578,7 +591,7 @@ export default function DashboardScreen() {
                             : () =>
                                 router.push({
                                   pathname: "/students-list",
-                                  params: { id: selectedLibrary?.id },
+                                  params: { id: libraryId },
                                 })
                         }
                       >
@@ -686,11 +699,11 @@ export default function DashboardScreen() {
                 key={lib.id}
                 className="py-4 border-b border-borderLight"
                 onPress={() => {
-                  setSelectedLibrary(lib);
                   setModalVisible(false);
 
-                  setLoading(true);
-                  fetchDashboardStats(lib.id).finally(() => setLoading(false));
+                  // 📌 THE FIX: ONLY update the global store here.
+                  // The `useFocusEffect` will automatically detect this and run `fetchDashboardStats` ONCE.
+                  useLibraryStore.setState({ libraryId: lib.id });
                 }}
               >
                 <Text className="text-textDark font-m-med">{lib.name}</Text>

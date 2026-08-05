@@ -8,7 +8,7 @@ import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react"; // 📌 Added useRef
 import {
   ActivityIndicator,
   Image,
@@ -42,6 +42,9 @@ export default function EditLibraryDetailsScreen() {
   });
 
   const [localPhotos, setLocalPhotos] = useState([]);
+
+  // 📌 Keep track of the currently loaded library ID to handle stale data
+  const loadedLibIdRef = useRef(null);
 
   useEffect(() => {
     const fetchAmenities = async () => {
@@ -85,17 +88,41 @@ export default function EditLibraryDetailsScreen() {
     }
   };
 
+  // 📌 THE FIX: Safe useFocusEffect tracking libraryId changes
   useFocusEffect(
     useCallback(() => {
+      let isActive = true;
+
       const init = async () => {
-        if (!formData.name) setLoading(true);
-        await fetchLibraryDetails();
-        setLocalPhotos([]); // WIPE the local photos array clean on entry!
-        setLoading(false);
+        // Only show the loading spinner & wipe stale data if switching to a NEW library
+        if (loadedLibIdRef.current !== libraryId) {
+          setLoading(true);
+          setFormData({
+            name: "",
+            city: "",
+            address: "",
+            amenities: [],
+            photos: [],
+          });
+        }
+
+        if (libraryId) {
+          await fetchLibraryDetails();
+        }
+
+        if (isActive) {
+          loadedLibIdRef.current = libraryId; // Store the ID we just loaded
+          setLocalPhotos([]); // WIPE the local photos array clean on entry!
+          setLoading(false);
+        }
       };
 
       init();
-    }, [libraryId]),
+
+      return () => {
+        isActive = false; // Cleanup to prevent memory leaks if component unmounts mid-fetch
+      };
+    }, [libraryId]), // Re-run automatically if libraryId changes!
   );
 
   const handleRefresh = async () => {
