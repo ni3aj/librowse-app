@@ -4,6 +4,7 @@ import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
 import { useAuthStore } from "@/store/authStore";
 import { useLibraryStore } from "@/store/libraryStore";
+import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router, useFocusEffect } from "expo-router";
@@ -27,6 +28,12 @@ export default function OwnerProfileScreen() {
 
   const [isUploading, setIsUploading] = useState(false);
   const [isPhotoViewerVisible, setIsPhotoViewerVisible] = useState(false);
+
+  // --- NEW STATES FOR ACCOUNT DELETION ---
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [deleteCheckData, setDeleteCheckData] = useState(null);
+  const [isCheckingDelete, setIsCheckingDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { logout } = useAuthStore();
   const clearLibrary = useLibraryStore((state) => state.clearLibrary);
@@ -127,6 +134,43 @@ export default function OwnerProfileScreen() {
         },
       },
     ]);
+  };
+
+  // --- NEW HANDLERS FOR ACCOUNT DELETION ---
+  const handleDeleteCheck = async () => {
+    try {
+      setIsCheckingDelete(true);
+      const res = await apiClient.get("/auth/account/delete-check");
+      setDeleteCheckData(res.data);
+      setIsDeleteModalVisible(true);
+    } catch (error) {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2:
+          error.response?.data?.error || "Could not check deletion status.",
+      });
+    } finally {
+      setIsCheckingDelete(false);
+    }
+  };
+
+  const handleFinalDelete = async () => {
+    Alert.alert(
+      "Final Confirmation",
+      "Are you absolutely sure? This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Yes, Delete Everything",
+          style: "destructive",
+          onPress: async () => {
+            // Placeholder for actual delete API
+            Toast.show({ type: "info", text1: "Coming next!" });
+          },
+        },
+      ],
+    );
   };
 
   if (loading || !owner) {
@@ -302,24 +346,6 @@ export default function OwnerProfileScreen() {
             <Text className="text-lg font-m-bold text-textDark mb-4 ml-1">
               App & Billing
             </Text>
-            {/* <TouchableOpacity
-              className="bg-surface p-4 mb-2 rounded-2xl border border-borderLight flex-row items-center justify-between"
-              onPress={() => router.push("/link-bank")}
-            >
-              <View className="flex-row items-center">
-                <View className="w-10 h-10 rounded-full bg-brand/10 items-center justify-center mr-3">
-                  <Ionicons name="logo-usd" size={20} color={COLORS.brand} />
-                </View>
-                <Text className="text-base font-m-bold text-textDark">
-                  Start Receiving Payments
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={COLORS.textLight}
-              />
-            </TouchableOpacity> */}
 
             {libraries?.length > 0 && (
               <TouchableOpacity
@@ -367,8 +393,23 @@ export default function OwnerProfileScreen() {
             title="Logout"
             variant="primary"
             onPress={handleLogout}
-            className="text-brandAccent bg-transparent border border-red-100"
+            className="text-brandAccent bg-transparent border border-red-100 mb-4"
           />
+
+          {/* DELETE ACCOUNT TRIGGER */}
+          <TouchableOpacity
+            onPress={handleDeleteCheck}
+            disabled={isCheckingDelete}
+            className="items-center py-3"
+          >
+            {isCheckingDelete ? (
+              <ActivityIndicator size="small" color="#EF4444" />
+            ) : (
+              <Text className="text-red-500 font-m-bold text-sm">
+                Delete Account
+              </Text>
+            )}
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -398,6 +439,141 @@ export default function OwnerProfileScreen() {
             style={{ width: "100%", height: "70%" }}
             resizeMode="contain"
           />
+        </View>
+      </Modal>
+
+      {/* --- 📌 ACCOUNT DELETION MODAL --- */}
+      <Modal
+        visible={isDeleteModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsDeleteModalVisible(false)}
+      >
+        <View className="flex-1 bg-black/60 justify-end">
+          <View className="bg-white w-full rounded-t-3xl p-6 pb-20 max-h-[85%]">
+            <View className="flex-row justify-between items-center mb-6">
+              <Text className="text-xl font-m-bold text-textDark">
+                {deleteCheckData?.can_delete
+                  ? "Delete Account"
+                  : "Cannot Delete Account"}
+              </Text>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {deleteCheckData && (
+                <>
+                  {/* SCENARIO A: BLOCKED */}
+                  {!deleteCheckData.can_delete && (
+                    <View>
+                      <View className="bg-red-50 border border-red-100 p-4 rounded-2xl mb-5">
+                        <Text className="text-red-800 font-m text-base leading-5">
+                          {deleteCheckData.reason}
+                        </Text>
+                      </View>
+
+                      <Text className="font-m-bold text-textDark mb-3 text-base">
+                        Active Enrollments Found:
+                      </Text>
+
+                      {deleteCheckData.blockers?.libraries?.map((lib) => (
+                        <View
+                          key={lib.library_id}
+                          className="bg-surface p-4 rounded-xl border border-borderLight mb-3"
+                        >
+                          <Text className="font-m-bold text-textDark text-base">
+                            {lib.library_name}
+                          </Text>
+                          <View className="flex-row items-center mt-2">
+                            <Ionicons
+                              name="people"
+                              size={16}
+                              color={COLORS.textLight}
+                            />
+                            <Text className="text-textLight font-m ml-2">
+                              {lib.active_students} Active Student(s)
+                            </Text>
+                          </View>
+                          <View className="flex-row items-center mt-1">
+                            <Ionicons
+                              name="calendar"
+                              size={16}
+                              color={COLORS.textLight}
+                            />
+                            <Text className="text-textLight font-m ml-2">
+                              Latest expiry:{" "}
+                              {formatCleanDate(lib.latest_membership_end)}
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+
+                      <Text className="text-textLight font-m text-sm mt-2 mb-6">
+                        <Text className="font-m-bold">Action Required: </Text>
+                        {deleteCheckData.action_required}
+                      </Text>
+
+                      <Button
+                        title="Understood"
+                        onPress={() => setIsDeleteModalVisible(false)}
+                        className="w-full bg-gray-200 border border-gray-200"
+                        textClassName="text-textDark"
+                      />
+                    </View>
+                  )}
+
+                  {/* SCENARIO B: ALLOWED */}
+                  {deleteCheckData.can_delete && (
+                    <View>
+                      <View className="bg-orange-50 border border-orange-200 p-4 rounded-2xl mb-6 flex-row">
+                        <Ionicons
+                          name="warning"
+                          size={24}
+                          color="#C2410C"
+                          className="mr-3"
+                        />
+                        <Text className="text-orange-800 font-m text-sm leading-5 flex-1 ml-2">
+                          This action is permanent and cannot be undone. You
+                          will lose access to your libraries, history, and
+                          settings immediately.
+                        </Text>
+                      </View>
+
+                      <Text className="font-m-bold text-textDark mb-3 text-base">
+                        What will happen:
+                      </Text>
+
+                      <View className="mb-8">
+                        {deleteCheckData.warnings?.map((warning, idx) => (
+                          <View key={idx} className="flex-row items-start mb-3">
+                            <Text className="text-red-500 mr-2 mt-0.5">•</Text>
+                            <Text className="text-textDark font-m text-sm leading-5 flex-1">
+                              {warning}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+
+                      <Button
+                        title="Permanently Delete Account"
+                        onPress={handleFinalDelete}
+                        className="w-full bg-red-500 border-red-500"
+                        textClassName="text-white"
+                        loading={isDeleting}
+                      />
+                      <TouchableOpacity
+                        onPress={() => setIsDeleteModalVisible(false)}
+                        className="py-4 items-center mt-2"
+                      >
+                        <Text className="text-textLight font-m-bold text-sm">
+                          Cancel
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </>
+              )}
+            </ScrollView>
+          </View>
         </View>
       </Modal>
     </View>
