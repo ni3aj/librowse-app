@@ -7,7 +7,9 @@ import {
   FlatList,
   Image,
   Linking,
+  ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -36,10 +38,22 @@ function Avatar({ src, name, size = 48 }) {
   );
 }
 
+const FILTER_OPTIONS = [
+  { label: "All", value: "All" },
+  { label: "Active", value: "ACTIVE" },
+  { label: "Pending Request", value: "PENDING" },
+  { label: "Awaiting Payment", value: "PAYMENT_PENDING" },
+  { label: "Expired", value: "EXPIRED" },
+  { label: "Rejected", value: "REJECTED" },
+];
+
 export default function OwnerStudentsListScreen() {
-  const { id } = useLocalSearchParams(); // Library ID
+  const { id } = useLocalSearchParams();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeFilter, setActiveFilter] = useState("All");
 
   useEffect(() => {
     fetchStudents();
@@ -58,7 +72,6 @@ export default function OwnerStudentsListScreen() {
     }
   };
 
-  // 📌 UPDATED: Now adds "th/st/nd/rd" and includes the full year!
   const formatExpiry = (dateStr) => {
     if (!dateStr) return "N/A";
 
@@ -66,7 +79,6 @@ export default function OwnerStudentsListScreen() {
     const day = date.getDate();
     const month = date.toLocaleString("en-IN", { month: "short" });
 
-    // Helper to get the correct suffix
     const getOrdinal = (n) => {
       const s = ["th", "st", "nd", "rd"];
       const v = n % 100;
@@ -75,6 +87,17 @@ export default function OwnerStudentsListScreen() {
 
     return `${getOrdinal(day)} ${month}`;
   };
+
+  const filteredStudents = students.filter((student) => {
+    const matchesSearch = student.full_name
+      ?.toLowerCase()
+      .includes(searchQuery.toLowerCase());
+
+    const matchesFilter =
+      activeFilter === "All" || student.status === activeFilter;
+
+    return matchesSearch && matchesFilter;
+  });
 
   const renderStudent = ({ item }) => {
     const isActive = item.status === "ACTIVE";
@@ -173,17 +196,73 @@ export default function OwnerStudentsListScreen() {
       <Header title="My Students" />
 
       <FlatList
-        data={students}
+        data={filteredStudents}
         keyExtractor={(item) => item.user_id}
         renderItem={renderStudent}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 20 }}
+        className="m-6 mt-0"
+        ListHeaderComponent={
+          <View className="mb-4">
+            <View className="flex-row items-center bg-white px-4 py-2 rounded-2xl border border-borderLight mb-4">
+              <Ionicons name="search" size={20} color={COLORS.textLight} />
+              <TextInput
+                className="flex-1 ml-2 text-base font-m text-textDark"
+                placeholder="Search students by name..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholderTextColor={COLORS.textLight}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery("")}>
+                  <Ionicons
+                    name="close-circle"
+                    size={20}
+                    color={COLORS.textLight}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingRight: 20 }}
+              className="mb-2"
+            >
+              {FILTER_OPTIONS.map((filter) => {
+                const isActive = activeFilter === filter.value;
+                return (
+                  <TouchableOpacity
+                    key={filter.value}
+                    onPress={() => setActiveFilter(filter.value)}
+                    activeOpacity={0.7}
+                    className={`px-4 py-2 rounded-full border mr-2 ${
+                      isActive
+                        ? "bg-textDark border-textDark"
+                        : "bg-white border-borderLight"
+                    }`}
+                  >
+                    <Text
+                      className={`font-m-bold ${
+                        isActive ? "text-white" : "text-textLight"
+                      }`}
+                    >
+                      {filter.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        }
         ListEmptyComponent={
-          <Text className="text-center text-textLight mt-2">
-            No students found.
+          <Text className="text-center text-textLight mt-10">
+            {students.length === 0
+              ? "No students enrolled yet."
+              : "No students match your filter."}
           </Text>
         }
-        className="m-6"
       />
     </View>
   );
