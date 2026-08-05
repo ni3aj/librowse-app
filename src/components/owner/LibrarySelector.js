@@ -1,5 +1,5 @@
 import { COLORS } from "@/constants/theme";
-import { useAuthStore } from "@/store/authStore";
+import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import { FlatList, Modal, Text, TouchableOpacity, View } from "react-native";
 
@@ -42,7 +42,7 @@ export default function LibrarySelector({
                 <TouchableOpacity
                   className="py-4 border-b border-borderLight"
                   onPress={() => {
-                    useAuthStore.setState({ libraryId: item.id });
+                    useLibraryStore.setState({ libraryId: item.id });
                     onSelect(item);
                     setModalVisible(false);
                   }}

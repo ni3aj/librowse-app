@@ -3,6 +3,7 @@ import Chip from "@/components/ui/Chip";
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
 import { useAuthStore } from "@/store/authStore";
+import { useLibraryStore } from "@/store/libraryStore";
 import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -236,7 +237,8 @@ function PaymentCard({ payment }) {
 
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams();
-  const { libraryId, role, userId } = useAuthStore();
+  const { role, userId } = useAuthStore();
+  const { libraryId } = useLibraryStore();
 
   const isViewerOwner = role === "owner";
   const isSelf = String(userId) === String(id);

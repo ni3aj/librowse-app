@@ -1,7 +1,7 @@
 import apiClient from "@/api/client";
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
-import { useAuthStore } from "@/store/authStore";
+import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
@@ -56,7 +56,7 @@ function StarRating({ rating }) {
 }
 
 export default function LibraryReviewsScreen() {
-  const { libraryId } = useAuthStore();
+  const { libraryId } = useLibraryStore();
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

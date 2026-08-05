@@ -3,7 +3,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { COLORS } from "@/constants/theme";
 import { createLibraryProfile } from "@/features/owner/api";
-import { useAuthStore } from "@/store/authStore";
+import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { router } from "expo-router";
@@ -14,7 +14,7 @@ import {
   ScrollView,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import Toast from "react-native-toast-message";
@@ -137,7 +137,7 @@ export default function CreateLibraryWizard() {
     setLoading(false);
 
     if (success) {
-      useAuthStore.setState({ libraryId: data.libraryId });
+      useLibraryStore.setState({ libraryId: data.libraryId });
       Toast.show({
         type: "success",
         text1: "Library Created",

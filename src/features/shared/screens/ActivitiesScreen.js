@@ -2,6 +2,7 @@ import apiClient from "@/api/client";
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
 import { useAuthStore } from "@/store/authStore";
+import { useLibraryStore } from "@/store/libraryStore";
 import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router"; // 📌 1. Imported router
@@ -22,11 +23,8 @@ import {
 import Toast from "react-native-toast-message";
 
 export default function ActivitiesScreen() {
-  const {
-    role: currentUserRole,
-    userId: currentUserId,
-    libraryId,
-  } = useAuthStore();
+  const { role: currentUserRole, userId: currentUserId } = useAuthStore();
+  const { libraryId } = useLibraryStore();
 
   const [activities, setActivities] = useState([]);
   const [inputText, setInputText] = useState("");

@@ -4,7 +4,7 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
-import { useAuthStore } from "@/store/authStore";
+// 📌 Removed authStore, pulling everything from libraryStore now
 import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
   Alert,
   AppState,
-  Image, // 📌 Ensure Image is imported
+  Image,
   Modal,
   Pressable,
   RefreshControl,
@@ -43,8 +43,8 @@ export default function DashboardScreen() {
 
   const [modalVisible, setModalVisible] = useState(false);
 
-  const hasInventory = useAuthStore((state) => state.hasInventory);
-  const libraryStatus = useLibraryStore((state) => state.libraryStatus);
+  // 📌 Fixed: Pulled hasInventory and libraryStatus directly from libraryStore
+  const { hasInventory, libraryStatus } = useLibraryStore();
 
   const isPending =
     selectedLibrary && libraryStatus === "PENDING_ADMIN_APPROVAL";
@@ -565,7 +565,6 @@ export default function DashboardScreen() {
                       key={req.id}
                       className="bg-white p-4 rounded-2xl mb-3 border border-borderLight active:opacity-70"
                     >
-                      {/* 📌 Added Avatar Component here alongside the name */}
                       <View className="flex-row items-center mb-2">
                         <Avatar
                           src={req.student_photo}

@@ -14,7 +14,7 @@ Notifications.setNotificationHandler({
 });
 
 export const usePushNotifications = () => {
-  const userId = useAuthStore((state) => state.userId);
+  const { userId } = useAuthStore();
 
   useEffect(() => {
     const registerForPushNotificationsAsync = async () => {

@@ -2,7 +2,7 @@ import apiClient from "@/api/client";
 import Button from "@/components/ui/Button";
 import Header from "@/components/ui/Header";
 import Input from "@/components/ui/Input";
-import { useAuthStore } from "@/store/authStore";
+import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -17,7 +17,7 @@ import {
 import Toast from "react-native-toast-message";
 
 export default function LinkBankAccountScreen() {
-  const { libraryId } = useAuthStore();
+  const { libraryId } = useLibraryStore();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [applyToAll, setApplyToAll] = useState(true);

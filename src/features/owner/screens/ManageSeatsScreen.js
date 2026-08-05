@@ -9,7 +9,7 @@ import {
   getLibraryInventory,
   updateInventoryBucket,
 } from "@/features/owner/api";
-import { useAuthStore } from "@/store/authStore";
+// 📌 1. Removed useAuthStore
 import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -26,7 +26,8 @@ import {
 import Toast from "react-native-toast-message";
 
 export default function ManageSeatsScreen() {
-  const { libraryId } = useAuthStore();
+  // 📌 2. Swapped to useLibraryStore
+  const { libraryId } = useLibraryStore();
 
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -325,7 +326,8 @@ export default function ManageSeatsScreen() {
           text2: "Seat category added!",
         });
 
-        useAuthStore.setState({ hasInventory: true });
+        // 📌 3. Update hasInventory in libraryStore instead of authStore
+        useLibraryStore.setState({ hasInventory: true });
 
         await checkAndUpgradeStatus(libraryId);
 

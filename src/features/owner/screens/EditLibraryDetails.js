@@ -3,13 +3,12 @@ import Button from "@/components/ui/Button";
 import Header from "@/components/ui/Header";
 import Input from "@/components/ui/Input";
 import { COLORS } from "@/constants/theme";
-import { useAuthStore } from "@/store/authStore";
+// 📌 Removed authStore, we only need libraryStore now!
 import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useState } from "react"; // 📌 Imported useEffect
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -22,7 +21,9 @@ import {
 import Toast from "react-native-toast-message";
 
 export default function EditLibraryDetailsScreen() {
-  const { libraryId } = useAuthStore();
+  // 📌 Pull everything cleanly from your new libraryStore
+  const { libraryId, hasInventory, libraryStatus, setLibraryStatus } =
+    useLibraryStore();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -30,7 +31,6 @@ export default function EditLibraryDetailsScreen() {
   const [saving, setSaving] = useState(false);
   const [saveStatusText, setSaveStatusText] = useState("Save Changes");
 
-  // 📌 State for fetched amenities
   const [availableAmenities, setAvailableAmenities] = useState([]);
 
   const [formData, setFormData] = useState({
@@ -43,7 +43,6 @@ export default function EditLibraryDetailsScreen() {
 
   const [localPhotos, setLocalPhotos] = useState([]);
 
-  // 📌 Fetch global amenities list from backend
   useEffect(() => {
     const fetchAmenities = async () => {
       try {
@@ -105,7 +104,6 @@ export default function EditLibraryDetailsScreen() {
     setRefreshing(false);
   };
 
-  // 📌 Use amenity ID for the toggle
   const toggleAmenity = (amenityId) => {
     setFormData((prev) => {
       const exists = prev.amenities.includes(amenityId);
@@ -209,13 +207,12 @@ export default function EditLibraryDetailsScreen() {
 
       setSaveStatusText("Saving Details...");
 
-      const inventoryFlag = await AsyncStorage.getItem("hasInventory");
-      const hasSeats = inventoryFlag === "true";
-
-      const currentStatus = useLibraryStore.getState().libraryStatus;
+      // 📌 Beautifully simplified logic using the hooks! No more AsyncStorage!
       const isUpgrading =
-        currentStatus === "UNVERIFIED" && finalPhotoUrls.length > 0 && hasSeats;
-      const newStatus = isUpgrading ? "PENDING_ADMIN_APPROVAL" : currentStatus;
+        libraryStatus === "UNVERIFIED" &&
+        finalPhotoUrls.length > 0 &&
+        hasInventory;
+      const newStatus = isUpgrading ? "PENDING_ADMIN_APPROVAL" : libraryStatus;
 
       const payload = {
         ...formData,
@@ -226,7 +223,11 @@ export default function EditLibraryDetailsScreen() {
       const res = await apiClient.put(`/owner/library/${libraryId}`, payload);
 
       if (res.data.success) {
-        useLibraryStore.getState().setLibraryStatus(newStatus);
+        // Update the global store if the status upgraded
+        if (isUpgrading) {
+          setLibraryStatus(newStatus);
+        }
+
         Toast.show({
           type: "success",
           text1: "Success",
@@ -299,7 +300,6 @@ export default function EditLibraryDetailsScreen() {
         <Text className="text-lg font-m-bold text-textDark mb-4 mt-4">
           Amenities
         </Text>
-        {/* 📌 Render dynamically from fetched data, matched UI with Create page */}
         <View className="flex-row flex-wrap justify-between mb-6">
           {availableAmenities.map((amenity) => {
             const isSelected = formData.amenities.includes(amenity.id);

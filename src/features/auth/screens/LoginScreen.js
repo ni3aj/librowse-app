@@ -5,6 +5,7 @@ import Input from "@/components/ui/Input";
 import { ONBOARDING_ROUTE_MAP } from "@/constants/config";
 import { fetchCurrentUserStatus } from "@/features/auth/api";
 import { useAuthStore } from "@/store/authStore";
+import { useLibraryStore } from "@/store/libraryStore"; // 📌 1. Import new store
 import { Ionicons } from "@expo/vector-icons";
 import * as LocalAuthentication from "expo-local-authentication";
 import { router, useFocusEffect } from "expo-router";
@@ -30,9 +31,9 @@ export default function LoginScreen() {
   const [biometricSupported, setBiometricSupported] = useState(false);
   const [cachedRouteState, setCachedRouteState] = useState(null);
 
-  // 📌 Locks to prevent React lifecycle race conditions
+  // Locks to prevent React lifecycle race conditions
   const isNavigating = useRef(false);
-  const isBiometricPromptOpen = useRef(false); // 📌 NEW: Tracks the OS prompt
+  const isBiometricPromptOpen = useRef(false);
 
   const {
     jwt_token,
@@ -44,10 +45,20 @@ export default function LoginScreen() {
     setMpinConfigured,
   } = useAuthStore();
 
+  // 📌 2. Extract methods from libraryStore
+  const { setActiveLibrary, clearLibrary } = useLibraryStore();
+
+  // 📌 3. Helper to hydrate library store from API login response
+  const hydrateLibraryStore = (data) => {
+    if (data.libraryId) {
+      // If the API explicitly returned an active library context
+      setActiveLibrary(data.libraryId, data.hasInventory, data.libraryStatus);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       const checkSession = async () => {
-        // 📌 If routing OR the fingerprint scanner is open, DO NOT run the check again
         if (isNavigating.current || isBiometricPromptOpen.current) return;
 
         setIsChecking(true);
@@ -68,6 +79,7 @@ export default function LoginScreen() {
           if (isUnauthorized) {
             console.log("Token expired. Wiping storage.");
             logout();
+            clearLibrary(); // 📌 Wipe library store too
           } else {
             console.log("Network error. Keeping token safe in wallet.", error);
           }
@@ -80,6 +92,7 @@ export default function LoginScreen() {
 
         if (currentState.startsWith("ACTIVE")) {
           loginSuccess(data);
+          hydrateLibraryStore(data); // 📌 Hydrate
           setMpinConfigured(true);
 
           if (compatible && enrolled) {
@@ -90,6 +103,7 @@ export default function LoginScreen() {
         } else {
           isNavigating.current = true;
           loginSuccess(data);
+          hydrateLibraryStore(data); // 📌 Hydrate
 
           const nextRoute = ONBOARDING_ROUTE_MAP[currentState];
           if (!nextRoute) {
@@ -113,7 +127,6 @@ export default function LoginScreen() {
 
   const handleBiometricLogin = async (targetState) => {
     try {
-      // 📌 Lock the focus effect BEFORE opening the OS prompt
       isBiometricPromptOpen.current = true;
 
       const result = await LocalAuthentication.authenticateAsync({
@@ -123,7 +136,6 @@ export default function LoginScreen() {
         cancelLabel: "Cancel",
       });
 
-      // 📌 Unlock it once the prompt closes
       isBiometricPromptOpen.current = false;
 
       if (result.success) {
@@ -138,7 +150,7 @@ export default function LoginScreen() {
         setStep(3);
       }
     } catch (error) {
-      isBiometricPromptOpen.current = false; // 📌 Ensure it unlocks on error too
+      isBiometricPromptOpen.current = false;
       setStep(3);
     }
   };
@@ -154,6 +166,7 @@ export default function LoginScreen() {
           style: "destructive",
           onPress: () => {
             triggerMpinReset();
+            clearLibrary(); // 📌 Wipe library store on reset
             setCachedRouteState(null);
             setStep(1);
           },
@@ -199,6 +212,7 @@ export default function LoginScreen() {
 
         isNavigating.current = true;
         loginSuccess(data);
+        hydrateLibraryStore(data); // 📌 Hydrate
 
         let finalState = data.account_state;
         if (force_mpin_reset) {
@@ -247,6 +261,7 @@ export default function LoginScreen() {
 
         isNavigating.current = true;
         loginSuccess(data);
+        hydrateLibraryStore(data); // 📌 Hydrate
 
         const currentState = data.account_state;
         const nextRoute = ONBOARDING_ROUTE_MAP[currentState];

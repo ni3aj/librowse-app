@@ -1,7 +1,7 @@
 import apiClient from "@/api/client";
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
-import { useAuthStore } from "@/store/authStore";
+import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
@@ -38,7 +38,7 @@ const Av = ({ initials, src, size = 38 }) => {
 };
 
 export default function PaymentsHistory() {
-  const libraryId = useAuthStore((state) => state.libraryId);
+  const { libraryId } = useLibraryStore();
 
   const [view, setView] = useState("pending");
   const [loading, setLoading] = useState(true);

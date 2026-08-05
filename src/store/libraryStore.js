@@ -1,7 +1,37 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 
-export const useLibraryStore = create((set) => ({
-  libraryStatus: "UNVERIFIED",
-  setLibraryStatus: (status) => set({ libraryStatus: status }),
-  clearLibrary: () => set({ libraryStatus: "UNVERIFIED" }),
-}));
+export const useLibraryStore = create(
+  persist(
+    (set) => ({
+      libraries: [],
+      libraryId: null,
+      hasInventory: false,
+      libraryStatus: "UNVERIFIED",
+
+      setLibraries: (librariesArray) => set({ libraries: librariesArray }),
+
+      setLibraryStatus: (newStatus) => set({ libraryStatus: newStatus }),
+
+      setActiveLibrary: (id, hasInv, status) =>
+        set({
+          libraryId: id,
+          hasInventory: hasInv || false,
+          libraryStatus: status || "UNVERIFIED",
+        }),
+
+      clearLibrary: () =>
+        set({
+          libraries: [],
+          libraryId: null,
+          hasInventory: false,
+          libraryStatus: "UNVERIFIED",
+        }),
+    }),
+    {
+      name: "librowse-library-storage",
+      storage: createJSONStorage(() => AsyncStorage),
+    },
+  ),
+);
