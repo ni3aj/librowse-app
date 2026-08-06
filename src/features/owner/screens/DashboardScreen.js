@@ -347,9 +347,12 @@ export default function DashboardScreen() {
           libraries?.length > 1 && (
             <TouchableOpacity
               onPress={() => setModalVisible(true)}
-              className="flex-row items-center bg-white border border-borderLight rounded-full px-3 py-2 mt-1"
+              className="flex-row items-center bg-white border border-borderLight rounded-full px-3 py-2 mt-1 max-w-[180px]"
             >
-              <Text className="text-textDark font-m-bold text-sm mr-2">
+              <Text
+                className="text-textDark font-m-bold text-sm mr-1 flex-shrink"
+                numberOfLines={1}
+              >
                 {selectedLibrary?.name || "Select"}
               </Text>
               <Ionicons name="chevron-down" size={16} color={COLORS.textDark} />
@@ -694,21 +697,21 @@ export default function DashboardScreen() {
             <Text className="text-xl font-m-bold text-textDark mb-4">
               Select Library
             </Text>
-            {libraries.map((lib) => (
-              <TouchableOpacity
-                key={lib.id}
-                className="py-4 border-b border-borderLight"
-                onPress={() => {
-                  setModalVisible(false);
-
-                  // 📌 THE FIX: ONLY update the global store here.
-                  // The `useFocusEffect` will automatically detect this and run `fetchDashboardStats` ONCE.
-                  useLibraryStore.setState({ libraryId: lib.id });
-                }}
-              >
-                <Text className="text-textDark font-m-med">{lib.name}</Text>
-              </TouchableOpacity>
-            ))}
+            {libraries.map((lib, index) => {
+              const isLast = index === libraries.length - 1;
+              return (
+                <TouchableOpacity
+                  key={lib.id}
+                  className={`py-4 ${!isLast ? "border-b border-borderLight" : ""}`}
+                  onPress={() => {
+                    setModalVisible(false);
+                    useLibraryStore.setState({ libraryId: lib.id });
+                  }}
+                >
+                  <Text className="text-textDark font-m-med">{lib.name}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
       </Modal>

@@ -36,9 +36,7 @@ export default function Header({
       }}
     >
       <View className="flex-row items-center justify-between">
-        
         <View className="flex-row items-center flex-1 pr-4">
-          {/* 📌 3. Conditionally render the back button */}
           {enableBack && (
             <TouchableOpacity
               onPress={handleBack}
@@ -48,7 +46,6 @@ export default function Header({
               <Ionicons name="chevron-back" size={28} color={COLORS.textDark} />
             </TouchableOpacity>
           )}
-
           <Text
             className="text-2xl font-m-extra text-textDark flex-1"
             numberOfLines={1}
@@ -56,9 +53,7 @@ export default function Header({
             {title}
           </Text>
         </View>
-
         {rightComponent && <View>{rightComponent}</View>}
-        
       </View>
     </View>
   );
