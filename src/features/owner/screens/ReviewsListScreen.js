@@ -7,11 +7,12 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
+  Modal, // 📌 1. Added Modal to imports
   RefreshControl,
   Text,
+  TextInput, // 📌 2. Added TextInput to imports
   TouchableOpacity,
   View,
 } from "react-native";
@@ -61,6 +62,12 @@ export default function LibraryReviewsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // 📌 3. State variables for the Cross-Platform Prompt Modal
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportingReview, setReportingReview] = useState(null); // stores { id, studentName }
+  const [submittingReport, setSubmittingReport] = useState(false);
+
   const fetchReviews = useCallback(async () => {
     if (!libraryId) return;
     try {
@@ -91,53 +98,48 @@ export default function LibraryReviewsScreen() {
     fetchReviews();
   };
 
-  const handleFlagReview = (reviewId, studentName) => {
-    Alert.prompt(
-      "Report Review",
-      `Why are you reporting ${studentName}'s review? (e.g., Inappropriate language, spam, fake review)`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Submit",
-          style: "destructive",
-          onPress: async (reason) => {
-            if (!reason || reason.trim().length < 5) {
-              return Toast.show({
-                type: "error",
-                text1: "Invalid Reason",
-                text2: "Please provide a valid reason (min 5 chars).",
-              });
-            }
+  // 📌 4. Opens the modal instead of using the iOS-only Alert.prompt
+  const handleFlagReviewClick = (reviewId, studentName) => {
+    setReportingReview({ id: reviewId, studentName });
+    setReportReason("");
+    setReportModalVisible(true);
+  };
 
-            try {
-              const response = await apiClient.post(
-                `/reviews/${reviewId}/report`,
-                {
-                  reason: reason.trim(),
-                },
-              );
+  // 📌 5. The actual API submission logic
+  const submitReport = async () => {
+    if (!reportReason || reportReason.trim().length < 5) {
+      return Toast.show({
+        type: "error",
+        text1: "Invalid Reason",
+        text2: "Please provide a valid reason (min 5 chars).",
+      });
+    }
 
-              if (response.data.success) {
-                Toast.show({
-                  type: "success",
-                  text1: "Review Flagged",
-                  text2: "Our admin team will review it shortly.",
-                });
-                fetchReviews();
-              }
-            } catch (error) {
-              Toast.show({
-                type: "error",
-                text1: "Error",
-                text2:
-                  error.response?.data?.error || "Failed to report review.",
-              });
-            }
-          },
-        },
-      ],
-      "plain-text",
-    );
+    setSubmittingReport(true);
+    try {
+      const response = await apiClient.post(
+        `/reviews/${reportingReview.id}/report`,
+        { reason: reportReason.trim() },
+      );
+
+      if (response.data.success) {
+        Toast.show({
+          type: "success",
+          text1: "Review Flagged",
+          text2: "Our admin team will review it shortly.",
+        });
+        setReportModalVisible(false);
+        fetchReviews();
+      }
+    } catch (error) {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error.response?.data?.error || "Failed to report review.",
+      });
+    } finally {
+      setSubmittingReport(false);
+    }
   };
 
   const formatDate = (dateString) => {
@@ -175,7 +177,7 @@ export default function LibraryReviewsScreen() {
 
           <TouchableOpacity
             disabled={item.is_reported}
-            onPress={() => handleFlagReview(item.id, item.student_name)}
+            onPress={() => handleFlagReviewClick(item.id, item.student_name)}
             className={`flex-row items-center px-2 py-1 rounded-md ${
               item.is_reported
                 ? "bg-red-50 opacity-50"
@@ -247,6 +249,53 @@ export default function LibraryReviewsScreen() {
           </View>
         }
       />
+
+      {/* 📌 6. Cross-Platform Custom Report Modal */}
+      <Modal visible={reportModalVisible} transparent animationType="fade">
+        <View className="flex-1 bg-black/50 justify-center px-6">
+          <View className="bg-white rounded-3xl p-6 shadow-lg">
+            <Text className="text-xl font-m-bold text-textDark mb-2">
+              Report Review
+            </Text>
+            <Text className="text-sm font-m text-textLight mb-4 leading-5">
+              Why are you reporting {reportingReview?.studentName}'s review?
+              (e.g., Inappropriate language, spam, fake review)
+            </Text>
+
+            <TextInput
+              className="bg-background border border-borderLight rounded-xl px-4 py-3 min-h-[100px] text-textDark font-m mb-4"
+              placeholder="Type your reason here..."
+              placeholderTextColor={COLORS.textLight}
+              value={reportReason}
+              onChangeText={setReportReason}
+              multiline
+              textAlignVertical="top"
+              autoFocus
+            />
+
+            <View className="flex-row justify-end mt-2">
+              <TouchableOpacity
+                onPress={() => setReportModalVisible(false)}
+                className="px-5 py-2.5 mr-2 justify-center"
+                disabled={submittingReport}
+              >
+                <Text className="text-textLight font-m-bold">Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={submitReport}
+                className="bg-brand px-6 py-2.5 rounded-xl justify-center items-center min-w-[90px]"
+                disabled={submittingReport}
+              >
+                {submittingReport ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text className="text-white font-m-bold">Submit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
