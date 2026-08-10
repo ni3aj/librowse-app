@@ -79,18 +79,24 @@ export const createLibraryProfile = async (libraryData) => {
   }
 };
 
-export const fetchBillingStatusApi = async () => {
+export const fetchBillingStatusApi = async (libraryId) => {
   try {
-    const response = await apiClient.get("/owner/billing/status");
+    // 📌 Pass libraryId as a query parameter for the GET request
+    const response = await apiClient.get(
+      `/owner/billing/status?libraryId=${libraryId}`,
+    );
     return response.data; // Returns { success, data, error }
   } catch (error) {
     throw error.response?.data || { success: false, error: "Network Error" };
   }
 };
 
-export const createRazorpayOrderApi = async () => {
+export const createRazorpayOrderApi = async (libraryId) => {
   try {
-    const response = await apiClient.post("/owner/billing/create-order");
+    // 📌 Pass libraryId inside the request body for the POST request
+    const response = await apiClient.post("/owner/billing/create-order", {
+      libraryId,
+    });
     return response.data;
   } catch (error) {
     throw error.response?.data || { success: false, error: "Network Error" };
@@ -99,6 +105,7 @@ export const createRazorpayOrderApi = async () => {
 
 export const verifyRazorpayPaymentApi = async (paymentData) => {
   try {
+    // 📌 paymentData already includes `library_id` from your component
     const response = await apiClient.post("/owner/billing/verify", paymentData);
     return response.data;
   } catch (error) {

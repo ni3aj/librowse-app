@@ -7,6 +7,7 @@ import {
   fetchBillingStatusApi,
   verifyRazorpayPaymentApi,
 } from "@/features/owner/api";
+import { useLibraryStore } from "@/store/libraryStore"; // 📌 Imported libraryStore
 import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
@@ -22,6 +23,9 @@ import RazorpayCheckout from "react-native-razorpay";
 import Toast from "react-native-toast-message";
 
 export default function OwnerBillingScreen() {
+  // 📌 Pull the active library ID from the global store
+  const libraryId = useLibraryStore((state) => state.libraryId);
+
   const [loading, setLoading] = useState(true);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [billingData, setBillingData] = useState(null);
@@ -41,13 +45,17 @@ export default function OwnerBillingScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadBillingData();
-    }, []),
+      if (libraryId) {
+        loadBillingData();
+      }
+    }, [libraryId]),
   );
 
   const loadBillingData = async () => {
     try {
-      const response = await fetchBillingStatusApi();
+      setLoading(true);
+      // 📌 Pass libraryId to the API
+      const response = await fetchBillingStatusApi(libraryId);
       if (response.success) {
         setBillingData(response.data);
       } else {
@@ -104,6 +112,7 @@ export default function OwnerBillingScreen() {
         razorpay_order_id: data.razorpay_order_id,
         razorpay_payment_id: data.razorpay_payment_id,
         razorpay_signature: data.razorpay_signature,
+        library_id: libraryId, // 📌 Pass context if your backend needs it
       });
 
       if (verifyResponse.success) {
@@ -149,7 +158,8 @@ export default function OwnerBillingScreen() {
   const handlePayNow = async () => {
     try {
       setProcessingPayment(true);
-      const orderResponse = await createRazorpayOrderApi();
+      // 📌 Pass libraryId to tell the backend WHICH library to create an order for
+      const orderResponse = await createRazorpayOrderApi(libraryId);
 
       if (!orderResponse.success) {
         throw new Error(orderResponse.error);
@@ -181,10 +191,7 @@ export default function OwnerBillingScreen() {
   const handleUpgradeClick = async (tier) => {
     setProcessingPayment(true);
 
-    // 1. We must safely get the libraryId from the billing payload
-    const activeLibraryId = billingData?.libraryId || billingData?.id;
-
-    if (!activeLibraryId) {
+    if (!libraryId) {
       setProcessingPayment(false);
       return Toast.show({
         type: "error",
@@ -193,11 +200,8 @@ export default function OwnerBillingScreen() {
       });
     }
 
-    // 2. Call the clean API helper
-    const response = await calculateUpgradeDiscountApi(
-      activeLibraryId,
-      tier.id,
-    );
+    // 2. Call the clean API helper using the global libraryId
+    const response = await calculateUpgradeDiscountApi(libraryId, tier.id);
     setProcessingPayment(false);
 
     // 3. Handle Success UI & Calculate Math
@@ -250,7 +254,8 @@ export default function OwnerBillingScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Header title="Billing & Plans" />
+      {/* 📌 Added dynamic Library Name to Header */}
+      <Header title={billingData?.libraryName || "Billing & Plans"} />
 
       <ScrollView
         className="flex-1 px-6 pt-4"
