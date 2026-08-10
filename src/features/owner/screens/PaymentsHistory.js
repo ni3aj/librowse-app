@@ -4,7 +4,8 @@ import { COLORS } from "@/constants/theme";
 import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router"; // 📌 Imported useFocusEffect
+import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -48,6 +49,9 @@ export default function PaymentsHistory() {
   const [pendingPayments, setPendingPayments] = useState([]);
   const [historyPayments, setHistoryPayments] = useState([]);
 
+  // 📌 Ref to track if we need to show the loading spinner again
+  const loadedLibIdRef = useRef(null);
+
   const fetchData = async () => {
     if (!libraryId) return;
 
@@ -66,9 +70,36 @@ export default function PaymentsHistory() {
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [libraryId]);
+  // 📌 THE FIX: Replaced useEffect with useFocusEffect
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      const init = async () => {
+        // If we switched libraries, show the loading spinner and clear old data
+        if (loadedLibIdRef.current !== libraryId) {
+          setLoading(true);
+          setPendingPayments([]);
+          setHistoryPayments([]);
+          setTotalCollected(0);
+        }
+
+        if (libraryId) {
+          await fetchData();
+        }
+
+        if (isActive) {
+          loadedLibIdRef.current = libraryId;
+        }
+      };
+
+      init();
+
+      return () => {
+        isActive = false;
+      };
+    }, [libraryId]),
+  );
 
   const handleRefresh = () => {
     setRefreshing(true);
