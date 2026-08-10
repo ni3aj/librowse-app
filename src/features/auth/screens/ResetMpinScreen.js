@@ -81,7 +81,7 @@ export default function ResetMpinScreen() {
         <Header title="Change MPIN" />
 
         <ScrollView
-          className="flex-1 px-6 pt-6"
+          className="flex-1 px-6"
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >

@@ -133,7 +133,7 @@ export default function PaymentsHistory() {
 
   return (
     <View className="flex-1 bg-background">
-      <Header title="Payments" />
+      <Header title="Payments" showLibraryDropdown={true} />
 
       <ScrollView
         contentContainerStyle={{ paddingBottom: 40 }}

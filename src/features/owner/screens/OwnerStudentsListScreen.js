@@ -1,7 +1,8 @@
 import Header from "@/components/ui/Header";
+import { useLibraryStore } from "@/store/libraryStore"; // 📌 1. Imported the store
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { router, useFocusEffect } from "expo-router"; // 📌 2. Imported useFocusEffect
+import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -48,29 +49,54 @@ const FILTER_OPTIONS = [
 ];
 
 export default function OwnerStudentsListScreen() {
-  const { id } = useLocalSearchParams();
+  // 📌 3. Extract libraryId from the global store instead of URL params
+  const { libraryId } = useLibraryStore();
+  const lastFetchedId = useRef(null);
+
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
 
-  useEffect(() => {
-    fetchStudents();
-  }, [id]);
+  // 📌 4. Use useFocusEffect to react to dropdown changes and screen focus
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
 
-  const fetchStudents = async () => {
-    try {
-      const res = await apiClient.get(`/owner/libraries/${id}/students`);
-      if (res.data.success) {
-        setStudents(res.data.students);
-      }
-    } catch (error) {
-      console.log(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      const fetchStudents = async () => {
+        if (!libraryId) return;
+
+        // If the library was changed via dropdown, show the spinner and clear old data
+        if (lastFetchedId.current !== libraryId) {
+          setLoading(true);
+          setStudents([]);
+        }
+
+        try {
+          const res = await apiClient.get(
+            `/owner/libraries/${libraryId}/students`,
+          );
+          if (isActive && res.data.success) {
+            setStudents(res.data.students);
+          }
+        } catch (error) {
+          console.log(error);
+        } finally {
+          if (isActive) {
+            setLoading(false);
+            lastFetchedId.current = libraryId; // Mark this library as successfully fetched
+          }
+        }
+      };
+
+      fetchStudents();
+
+      return () => {
+        isActive = false; // Cleanup to prevent memory leaks if the user navigates away mid-fetch
+      };
+    }, [libraryId]), // 📌 Dependency array listens to the global store
+  );
 
   const formatExpiry = (dateStr) => {
     if (!dateStr) return "N/A";
@@ -193,7 +219,7 @@ export default function OwnerStudentsListScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Header title="My Students" />
+      <Header title="My Students" showLibraryDropdown={true} />
 
       <FlatList
         data={filteredStudents}
@@ -204,7 +230,7 @@ export default function OwnerStudentsListScreen() {
         className="m-6 mt-0"
         ListHeaderComponent={
           <View className="mb-4">
-            <View className="flex-row items-center bg-white px-4 py-2 rounded-2xl border border-borderLight mb-4">
+            <View className="flex-row items-center bg-white px-4 py-2 rounded-2xl border border-borderLight mb-4 mt-2">
               <Ionicons name="search" size={20} color={COLORS.textLight} />
               <TextInput
                 className="flex-1 ml-2 text-base font-m text-textDark"
