@@ -32,13 +32,20 @@ export const useAuthStore = create(
 
       clearMpinResetFlag: () => set({ force_mpin_reset: false }),
 
-      logout: () =>
-        set({
-          jwt_token: null,
-          account_state: "UNKNOWN",
-          role: null,
-          userId: null,
-        }),
+      logout: async () => {
+        try {
+          set({
+            jwt_token: null,
+            account_state: "UNKNOWN",
+            role: null,
+            userId: null,
+          });
+          await AsyncStorage.removeItem("librowse-auth-storage");
+          await AsyncStorage.removeItem("librowse-library-storage");
+        } catch (error) {
+          console.error("Error clearing storage on logout:", error);
+        }
+      },
     }),
     {
       name: "librowse-auth-storage",
