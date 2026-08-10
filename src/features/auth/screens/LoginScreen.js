@@ -5,7 +5,7 @@ import Input from "@/components/ui/Input";
 import { ONBOARDING_ROUTE_MAP } from "@/constants/config";
 import { fetchCurrentUserStatus } from "@/features/auth/api";
 import { useAuthStore } from "@/store/authStore";
-import { useLibraryStore } from "@/store/libraryStore"; // 📌 1. Import new store
+import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import * as LocalAuthentication from "expo-local-authentication";
 import { router, useFocusEffect } from "expo-router";
@@ -45,14 +45,28 @@ export default function LoginScreen() {
     setMpinConfigured,
   } = useAuthStore();
 
-  // 📌 2. Extract methods from libraryStore
-  const { setActiveLibrary, clearLibrary } = useLibraryStore();
+  // 📌 1. Extract new setLibraries method
+  const { setActiveLibrary, clearLibrary, setLibraries } = useLibraryStore();
 
-  // 📌 3. Helper to hydrate library store from API login response
+  // 📌 2. THE FIX: Handle the new array payload
   const hydrateLibraryStore = (data) => {
+    // A. Store the full list of libraries (for your UI dropdown)
+    if (setLibraries && data.libraries) {
+      setLibraries(data.libraries);
+    }
+
+    // B. Hydrate the default/active library
     if (data.libraryId) {
-      // If the API explicitly returned an active library context
-      setActiveLibrary(data.libraryId, data.hasInventory, data.libraryStatus);
+      // Find the active library object from the array to extract its status
+      const activeLib = data.libraries?.find(
+        (lib) => lib.id === data.libraryId,
+      );
+
+      setActiveLibrary(
+        data.libraryId,
+        data.hasInventory || false, // Falls back to false safely for students
+        activeLib?.status || null, // Extracts status from the array object
+      );
     }
   };
 
@@ -79,7 +93,7 @@ export default function LoginScreen() {
           if (isUnauthorized) {
             console.log("Token expired. Wiping storage.");
             logout();
-            clearLibrary(); // 📌 Wipe library store too
+            clearLibrary();
           } else {
             console.log("Network error. Keeping token safe in wallet.", error);
           }
@@ -166,7 +180,7 @@ export default function LoginScreen() {
           style: "destructive",
           onPress: () => {
             triggerMpinReset();
-            clearLibrary(); // 📌 Wipe library store on reset
+            clearLibrary();
             setCachedRouteState(null);
             setStep(1);
           },

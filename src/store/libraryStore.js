@@ -21,6 +21,8 @@ export const useLibraryStore = create(
           libraryStatus: status || "UNVERIFIED",
         }),
 
+      setLibraries: (libsArray) => set({ libraries: libsArray }),
+
       clearLibrary: () =>
         set({
           libraries: [],
