@@ -13,7 +13,6 @@ import {
   Alert,
   AppState,
   Image,
-  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -33,20 +32,18 @@ export default function DashboardScreen() {
   const hideAlert = () =>
     setAlertConfig((prev) => ({ ...prev, visible: false }));
 
-  const [libraries, setLibraries] = useState([]);
   const [stats, setStats] = useState(null);
-
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
 
-  // 📌 THE FIX: Rely entirely on libraryStore for the active ID
-  const { libraryId, hasInventory, libraryStatus } = useLibraryStore();
+  // 📌 THE FIX: Extract `libraries` array directly from global store!
+  const { libraryId, hasInventory, libraryStatus, libraries } =
+    useLibraryStore();
   const lastFetchedId = useRef(null);
 
-  // Derive the active library object for the dropdown UI
+  // 📌 Derive the active library object instantly without API calls
   const selectedLibrary =
-    libraries.find((lib) => lib.id === libraryId) || libraries[0];
+    libraries?.find((lib) => lib.id === libraryId) || libraries?.[0];
 
   const isPending =
     selectedLibrary && libraryStatus === "PENDING_ADMIN_APPROVAL";
@@ -60,10 +57,9 @@ export default function DashboardScreen() {
       );
       if (response.data.success) {
         let currentStatus = response.data.libraryStatus;
-
-        // 📌 Derive hasInventory directly from the fetched metrics
         const currentHasInventory = response.data.metrics?.total_capacity > 0;
 
+        // Auto-submit for review if unverified but setup is complete
         if (currentStatus === "UNVERIFIED" && currentHasInventory) {
           const libRes = await apiClient.get(
             `/owner/library/${targetLibraryId}`,
@@ -88,7 +84,7 @@ export default function DashboardScreen() {
           }
         }
 
-        // 📌 THE FIX: Sync the newly fetched status AND inventory back to the global store!
+        // Sync fetched status and inventory back to global store
         useLibraryStore.setState({
           libraryStatus: currentStatus,
           hasInventory: currentHasInventory,
@@ -105,44 +101,7 @@ export default function DashboardScreen() {
     }
   };
 
-  // 1. Fetch library list (Runs on mount/focus)
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
-
-      const fetchLibraries = async () => {
-        try {
-          const response = await apiClient.get("/owner/my-libraries");
-          if (response.data.success && response.data.libraries.length > 0) {
-            if (isActive) {
-              setLibraries(response.data.libraries);
-              // Auto-select first library if none is currently active in store
-              if (!useLibraryStore.getState().libraryId) {
-                useLibraryStore.setState({
-                  libraryId: response.data.libraries[0].id,
-                });
-              }
-            }
-          } else {
-            if (isActive) {
-              setLibraries([]);
-              setLoading(false);
-            }
-          }
-        } catch (error) {
-          console.error("Failed to load libraries", error);
-          if (isActive) setLoading(false);
-        }
-      };
-
-      fetchLibraries();
-      return () => {
-        isActive = false;
-      };
-    }, []),
-  );
-
-  // 2. Fetch stats safely whenever libraryId changes! (Runs on focus & dropdown changes)
+  // 📌 Fetch stats safely whenever libraryId changes! (Runs on focus & dropdown changes)
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
@@ -161,6 +120,9 @@ export default function DashboardScreen() {
             lastFetchedId.current = libraryId;
             setLoading(false);
           }
+        } else if (!libraries || libraries.length === 0) {
+          // Failsafe if user has zero libraries
+          setLoading(false);
         }
       };
 
@@ -168,10 +130,10 @@ export default function DashboardScreen() {
       return () => {
         isActive = false;
       };
-    }, [libraryId]),
+    }, [libraryId, libraries]),
   );
 
-  // 3. App State listener for returning from background
+  // App State listener for returning from background
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextAppState) => {
       if (nextAppState === "active" && libraryId) {
@@ -340,26 +302,7 @@ export default function DashboardScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Header
-        title="Dashboard"
-        enableBack={false}
-        rightComponent={
-          libraries?.length > 1 && (
-            <TouchableOpacity
-              onPress={() => setModalVisible(true)}
-              className="flex-row items-center bg-white border border-borderLight rounded-full px-3 py-2 mt-1 max-w-[180px]"
-            >
-              <Text
-                className="text-textDark font-m-bold text-sm mr-1 flex-shrink"
-                numberOfLines={1}
-              >
-                {selectedLibrary?.name || "Select"}
-              </Text>
-              <Ionicons name="chevron-down" size={16} color={COLORS.textDark} />
-            </TouchableOpacity>
-          )
-        }
-      />
+      <Header title="Dashboard" enableBack={false} showLibraryDropdown={true} />
 
       <ScrollView
         className="px-6"
@@ -690,32 +633,6 @@ export default function DashboardScreen() {
         <View className="h-10" />
       </ScrollView>
 
-      {/* --- LIBRARY SELECTOR MODAL --- */}
-      <Modal visible={modalVisible} transparent animationType="fade">
-        <View className="flex-1 bg-black/50 justify-center items-center p-6">
-          <View className="bg-white w-full rounded-3xl p-6">
-            <Text className="text-xl font-m-bold text-textDark mb-4">
-              Select Library
-            </Text>
-            {libraries.map((lib, index) => {
-              const isLast = index === libraries.length - 1;
-              return (
-                <TouchableOpacity
-                  key={lib.id}
-                  className={`py-4 ${!isLast ? "border-b border-borderLight" : ""}`}
-                  onPress={() => {
-                    setModalVisible(false);
-                    useLibraryStore.setState({ libraryId: lib.id });
-                  }}
-                >
-                  <Text className="text-textDark font-m-med">{lib.name}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-      </Modal>
-
       <AlertModal
         visible={alertConfig.visible}
         type={alertConfig.type}
@@ -731,7 +648,7 @@ export default function DashboardScreen() {
   );
 }
 
-// 📌 Reusable Avatar Component added here
+// 📌 Reusable Avatar Component
 function Avatar({ src, name, size = 40 }) {
   if (src) {
     return (
