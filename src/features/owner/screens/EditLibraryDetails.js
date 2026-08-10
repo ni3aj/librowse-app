@@ -290,7 +290,7 @@ export default function EditLibraryDetailsScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Header title="Edit Library" />
+      <Header title="Edit Library" showLibraryDropdown={true} />
 
       <ScrollView
         className="flex-1 px-6"

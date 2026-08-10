@@ -255,7 +255,7 @@ export default function OwnerBillingScreen() {
   return (
     <View className="flex-1 bg-background">
       {/* 📌 Added dynamic Library Name to Header */}
-      <Header title={billingData?.libraryName || "Billing & Plans"} />
+      <Header title="Billing" showLibraryDropdown={true} />
 
       <ScrollView
         className="flex-1 px-6 pt-4"

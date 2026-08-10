@@ -477,6 +477,7 @@ export default function ActivitiesScreen() {
       >
         <Header
           title="Activities"
+          showLibraryDropdown={true}
           rightComponent={
             <TouchableOpacity
               onPress={syncNewActivities}

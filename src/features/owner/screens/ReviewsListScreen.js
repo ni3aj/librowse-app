@@ -211,7 +211,7 @@ export default function LibraryReviewsScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Header title="Library Reviews" />
+      <Header title="Reviews" showLibraryDropdown={true} />
 
       <FlatList
         data={reviews}

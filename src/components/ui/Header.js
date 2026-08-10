@@ -58,7 +58,7 @@ export default function Header({
             </TouchableOpacity>
           )}
           <Text
-            className="text-2xl font-m-extra text-textDark flex-1"
+            className="text-xl mb-1 font-m-extra text-textDark flex-1"
             numberOfLines={1}
           >
             {title}
@@ -71,7 +71,7 @@ export default function Header({
           {showLibraryDropdown && libraries?.length > 1 && (
             <TouchableOpacity
               onPress={() => setModalVisible(true)}
-              className="flex-row items-center bg-white border border-borderLight rounded-full px-3 py-2 mr-2 max-w-[140px]"
+              className="flex-row items-center bg-white border border-borderLight rounded-full px-3 py-2 mr-0 max-w-[140px]"
             >
               <Text
                 className="text-textDark font-m-bold text-sm mr-1 flex-shrink"
