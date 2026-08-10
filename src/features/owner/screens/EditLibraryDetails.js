@@ -3,17 +3,17 @@ import Button from "@/components/ui/Button";
 import Header from "@/components/ui/Header";
 import Input from "@/components/ui/Input";
 import { COLORS } from "@/constants/theme";
-// 📌 Removed authStore, we only need libraryStore now!
 import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react"; // 📌 Added useRef
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
   RefreshControl,
   ScrollView,
+  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -21,9 +21,8 @@ import {
 import Toast from "react-native-toast-message";
 
 export default function EditLibraryDetailsScreen() {
-  // 📌 Pull everything cleanly from your new libraryStore
-  const { libraryId, hasInventory, libraryStatus, setLibraryStatus } =
-    useLibraryStore();
+  // 📌 Removed `libraryStatus` from here to avoid stale global state issues
+  const { libraryId, hasInventory, setLibraryStatus } = useLibraryStore();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -33,17 +32,18 @@ export default function EditLibraryDetailsScreen() {
 
   const [availableAmenities, setAvailableAmenities] = useState([]);
 
+  // 📌 Added `status` to track the REAL status from the database
   const [formData, setFormData] = useState({
     name: "",
     city: "",
     address: "",
     amenities: [],
     photos: [],
+    is_marketplace_visible: false,
+    status: "UNVERIFIED",
   });
 
   const [localPhotos, setLocalPhotos] = useState([]);
-
-  // 📌 Keep track of the currently loaded library ID to handle stale data
   const loadedLibIdRef = useRef(null);
 
   useEffect(() => {
@@ -76,6 +76,8 @@ export default function EditLibraryDetailsScreen() {
               ? JSON.parse(lib.amenities)
               : lib.amenities || [],
           photos: lib.photos || [],
+          is_marketplace_visible: lib.is_marketplace_visible ?? false,
+          status: lib.status || "UNVERIFIED", // 📌 Save the true database status here
         });
       }
     } catch (error) {
@@ -88,13 +90,11 @@ export default function EditLibraryDetailsScreen() {
     }
   };
 
-  // 📌 THE FIX: Safe useFocusEffect tracking libraryId changes
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
 
       const init = async () => {
-        // Only show the loading spinner & wipe stale data if switching to a NEW library
         if (loadedLibIdRef.current !== libraryId) {
           setLoading(true);
           setFormData({
@@ -103,6 +103,8 @@ export default function EditLibraryDetailsScreen() {
             address: "",
             amenities: [],
             photos: [],
+            is_marketplace_visible: false,
+            status: "UNVERIFIED",
           });
         }
 
@@ -111,8 +113,8 @@ export default function EditLibraryDetailsScreen() {
         }
 
         if (isActive) {
-          loadedLibIdRef.current = libraryId; // Store the ID we just loaded
-          setLocalPhotos([]); // WIPE the local photos array clean on entry!
+          loadedLibIdRef.current = libraryId;
+          setLocalPhotos([]);
           setLoading(false);
         }
       };
@@ -120,9 +122,9 @@ export default function EditLibraryDetailsScreen() {
       init();
 
       return () => {
-        isActive = false; // Cleanup to prevent memory leaks if component unmounts mid-fetch
+        isActive = false;
       };
-    }, [libraryId]), // Re-run automatically if libraryId changes!
+    }, [libraryId]),
   );
 
   const handleRefresh = async () => {
@@ -234,12 +236,15 @@ export default function EditLibraryDetailsScreen() {
 
       setSaveStatusText("Saving Details...");
 
-      // 📌 Beautifully simplified logic using the hooks! No more AsyncStorage!
+      // 📌 THE FIX: Base the upgrade check strictly on the database's actual status (formData.status)
       const isUpgrading =
-        libraryStatus === "UNVERIFIED" &&
+        formData.status === "UNVERIFIED" &&
         finalPhotoUrls.length > 0 &&
         hasInventory;
-      const newStatus = isUpgrading ? "PENDING_ADMIN_APPROVAL" : libraryStatus;
+
+      const newStatus = isUpgrading
+        ? "PENDING_ADMIN_APPROVAL"
+        : formData.status;
 
       const payload = {
         ...formData,
@@ -250,9 +255,8 @@ export default function EditLibraryDetailsScreen() {
       const res = await apiClient.put(`/owner/library/${libraryId}`, payload);
 
       if (res.data.success) {
-        // Update the global store if the status upgraded
         if (isUpgrading) {
-          setLibraryStatus(newStatus);
+          setLibraryStatus(newStatus); // Safely update the global store only if we upgraded
         }
 
         Toast.show({
@@ -301,6 +305,27 @@ export default function EditLibraryDetailsScreen() {
           />
         }
       >
+        <View className="flex-row items-center justify-between bg-surface p-4 rounded-2xl border border-borderLight mb-6 mt-4">
+          <View className="flex-1 pr-4">
+            <Text className="text-base font-m-bold text-textDark">
+              Show in Marketplace
+            </Text>
+            <Text className="text-sm font-m text-textLight mt-1 leading-5">
+              Turn this off if you want to temporarily hide your library from
+              new students.
+            </Text>
+          </View>
+          <Switch
+            trackColor={{ false: COLORS.borderLight, true: COLORS.brand }}
+            thumbColor="#FFFFFF"
+            ios_backgroundColor={COLORS.borderLight}
+            onValueChange={(val) =>
+              setFormData({ ...formData, is_marketplace_visible: val })
+            }
+            value={formData.is_marketplace_visible}
+          />
+        </View>
+
         <Text className="text-lg font-m-bold text-textDark mb-4">
           Basic Information
         </Text>

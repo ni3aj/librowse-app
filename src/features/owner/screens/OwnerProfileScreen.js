@@ -173,6 +173,30 @@ export default function OwnerProfileScreen() {
     );
   };
 
+  // 📌 THE FIX: Sync store properly before navigating to target screens
+  const handleNavigateToLibrary = (route, lib) => {
+    useLibraryStore.setState({
+      libraryId: lib.id,
+      libraryStatus: lib.status,
+    });
+    router.push(route);
+  };
+
+  const handleNavigateToBilling = () => {
+    // Determine the current library or fallback to the first one to ensure context
+    const currentStoreId = useLibraryStore.getState().libraryId;
+    const activeLib =
+      libraries.find((l) => l.id === currentStoreId) || libraries[0];
+
+    if (activeLib) {
+      useLibraryStore.setState({
+        libraryId: activeLib.id,
+        libraryStatus: activeLib.status,
+      });
+    }
+    router.push("/billing");
+  };
+
   if (loading || !owner) {
     return (
       <View className="flex-1 bg-background justify-center items-center">
@@ -304,10 +328,9 @@ export default function OwnerProfileScreen() {
                   <View className="flex-row space-x-3 mt-2">
                     <TouchableOpacity
                       className="flex-1 bg-background py-2.5 rounded-xl border border-borderLight items-center mr-1"
-                      onPress={() => {
-                        useLibraryStore.setState({ libraryId: lib.id });
-                        router.push(`/edit-library`);
-                      }}
+                      onPress={() =>
+                        handleNavigateToLibrary(`/edit-library`, lib)
+                      }
                     >
                       <Text className="text-textDark font-m-bold text-xs">
                         Edit Details
@@ -315,10 +338,9 @@ export default function OwnerProfileScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity
                       className="flex-1 bg-background py-2.5 px-2 rounded-xl border border-borderLight items-center mr-1"
-                      onPress={() => {
-                        useLibraryStore.setState({ libraryId: lib.id });
-                        router.push("/manage-seats");
-                      }}
+                      onPress={() =>
+                        handleNavigateToLibrary("/manage-seats", lib)
+                      }
                     >
                       <Text className="text-textDark font-m-bold text-xs">
                         Manage Seats
@@ -326,10 +348,7 @@ export default function OwnerProfileScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity
                       className="flex-1 bg-background py-2.5 rounded-xl border border-borderLight items-center"
-                      onPress={() => {
-                        useLibraryStore.setState({ libraryId: lib.id });
-                        router.push(`/reviews`);
-                      }}
+                      onPress={() => handleNavigateToLibrary(`/reviews`, lib)}
                     >
                       <Text className="text-textDark font-m-bold text-xs">
                         Reviews
@@ -350,7 +369,7 @@ export default function OwnerProfileScreen() {
             {libraries?.length > 0 && (
               <TouchableOpacity
                 className="bg-surface p-4 rounded-2xl border border-borderLight flex-row items-center justify-between mb-2"
-                onPress={() => router.push("/billing")}
+                onPress={handleNavigateToBilling}
               >
                 <View className="flex-row items-center">
                   <View className="w-10 h-10 rounded-full bg-brand/10 items-center justify-center mr-3">
