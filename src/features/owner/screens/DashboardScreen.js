@@ -4,6 +4,7 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
+import { useAuthStore } from "@/store/authStore";
 import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
@@ -36,7 +37,10 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // 📌 THE FIX: Extract `libraries` array directly from global store!
+  const { userName } = useAuthStore();
+  const firstName = userName ? userName.split(" ")[0] : "Owner";
+
+  // 📌 Extract `libraries` array directly from global store
   const { libraryId, hasInventory, libraryStatus, libraries } =
     useLibraryStore();
   const lastFetchedId = useRef(null);
@@ -101,7 +105,7 @@ export default function DashboardScreen() {
     }
   };
 
-  // 📌 Fetch stats safely whenever libraryId changes! (Runs on focus & dropdown changes)
+  // 📌 Fetch stats safely whenever libraryId changes
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
@@ -302,7 +306,11 @@ export default function DashboardScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Header title="Dashboard" enableBack={false} showLibraryDropdown={true} />
+      <Header
+        title={`Hi, ${firstName} 👋`}
+        enableBack={false}
+        showLibraryDropdown={true}
+      />
 
       <ScrollView
         className="px-6"
@@ -316,41 +324,6 @@ export default function DashboardScreen() {
           />
         }
       >
-        {isUnverified && hasInventory && (
-          <View className="bg-surface border border-borderLight p-4 rounded-2xl mb-6 flex-row items-start">
-            <View className="flex-1">
-              <Text className="text-textDark font-m-bold text-base mb-2">
-                <Text className="text-l mr-3">🛑</Text> Setup Incomplete
-              </Text>
-              <Text className="text-textDark text-sm font-m leading-5 mb-3">
-                Your library is currently Unverified. Students cannot book seats
-                until you upload library photos and submit your profile.
-              </Text>
-              <Button
-                title="Upload Photos"
-                variant="primary"
-                onPress={() => router.push("/edit-library")}
-                className="py-2"
-              />
-            </View>
-          </View>
-        )}
-
-        {isPending && (
-          <View className="bg-orange-50 border border-orange-200 p-4 rounded-2xl mb-6 flex-row items-start">
-            <View className="flex-1">
-              <Text className="text-orange-900 font-m-bold text-base mb-2">
-                <Text className="text-l">⚠️</Text> Library Under Review
-              </Text>
-              <Text className="text-orange-800 text-sm font-m leading-5">
-                Your library is currently being verified. You can set up your
-                seat category in the Seats tab below, but student requests and
-                payments are temporarily disabled.
-              </Text>
-            </View>
-          </View>
-        )}
-
         {loading ? (
           <ActivityIndicator
             className="mt-20"
@@ -359,6 +332,43 @@ export default function DashboardScreen() {
           />
         ) : stats ? (
           <>
+            {/* 📌 THE FIX: Moved the Warning Cards inside the loaded stats block! */}
+            {isUnverified && hasInventory && (
+              <View className="bg-surface border border-borderLight p-4 rounded-2xl mb-6 flex-row items-start">
+                <View className="flex-1">
+                  <Text className="text-textDark font-m-bold text-base mb-2">
+                    <Text className="text-l mr-3">🛑</Text> Setup Incomplete
+                  </Text>
+                  <Text className="text-textDark text-sm font-m leading-5 mb-3">
+                    Your library is currently Unverified. Students cannot book
+                    seats until you upload library photos and submit your
+                    profile.
+                  </Text>
+                  <Button
+                    title="Upload Photos"
+                    variant="primary"
+                    onPress={() => router.push("/edit-library")}
+                    className="py-2"
+                  />
+                </View>
+              </View>
+            )}
+
+            {isPending && (
+              <View className="bg-orange-50 border border-orange-200 p-4 rounded-2xl mb-6 flex-row items-start">
+                <View className="flex-1">
+                  <Text className="text-orange-900 font-m-bold text-base mb-2">
+                    <Text className="text-l">⚠️</Text> Library Under Review
+                  </Text>
+                  <Text className="text-orange-800 text-sm font-m leading-5">
+                    Your library is currently being verified. You can set up
+                    your seat category in the Seats tab below, but student
+                    requests and payments are temporarily disabled.
+                  </Text>
+                </View>
+              </View>
+            )}
+
             {!hasInventory && (
               <View className="bg-surface p-6 rounded-3xl border border-borderLight mb-6 items-center mt-4">
                 <View className="bg-background h-16 w-16 rounded-full items-center justify-center mb-4">

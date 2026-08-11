@@ -92,7 +92,7 @@ export default function Header({
       <Modal visible={modalVisible} transparent animationType="fade">
         <View className="flex-1 bg-black/50 justify-center items-center p-6">
           <View className="bg-white w-full rounded-3xl p-6 shadow-lg shadow-black/20">
-            <Text className="text-xl font-m-bold text-textDark mb-4">
+            <Text className="text-xl font-m-bold text-textDark mb-2">
               Select Library
             </Text>
             
@@ -119,7 +119,7 @@ export default function Header({
 
             {/* Added a cancel button for better UX */}
             <TouchableOpacity
-              className="mt-6 items-center py-3 bg-gray-100 rounded-xl"
+              className="mt-2 items-center py-3 bg-gray-100 rounded-xl"
               onPress={() => setModalVisible(false)}
             >
               <Text className="text-textDark font-m-bold">Cancel</Text>

@@ -11,6 +11,7 @@ export const useAuthStore = create(
       force_mpin_reset: false,
       role: null,
       userId: null,
+      userName: null,
 
       loginSuccess: (data) =>
         set({
@@ -18,6 +19,7 @@ export const useAuthStore = create(
           account_state: data.account_state || "UNKNOWN",
           role: data.user?.role || null,
           userId: data.user?.id || null,
+          userName: data.user?.name || null,
         }),
 
       setMpinConfigured: (status) => set({ mpin_configured: status }),
@@ -39,6 +41,7 @@ export const useAuthStore = create(
             account_state: "UNKNOWN",
             role: null,
             userId: null,
+            userName: null,
           });
           await AsyncStorage.removeItem("librowse-auth-storage");
           await AsyncStorage.removeItem("librowse-library-storage");
