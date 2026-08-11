@@ -9,6 +9,7 @@ import {
   getLastSyncTime,
   getLocalActivities,
   initDB,
+  resetDatabaseSchema,
   saveActivitiesToLocal,
 } from "@/utils/db";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +19,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Switch,
@@ -258,15 +260,20 @@ export default function ActivitiesScreen() {
                   library_id: libraryId,
                 }));
                 if (!dbFailed) {
-                  await clearLocalActivities(libraryId);
                   try {
+                    await clearLocalActivities(libraryId);
                     await saveActivitiesToLocal(serverMsgs);
                   } catch (e) {
-                    console.log("Could not save to local DB after clearing", e);
+                    await resetDatabaseSchema();
+                    await saveActivitiesToLocal(serverMsgs);
                   }
                 }
                 setActivities(serverMsgs);
-                Toast.show({ type: "success", text1: "Chat cache rebuilt!" });
+                Toast.show({
+                  type: "success",
+                  text1: "Success",
+                  text2: "Chat cache rebuilt.",
+                });
               }
             } catch (error) {
               Toast.show({
@@ -433,13 +440,20 @@ export default function ActivitiesScreen() {
             onPress={() => router.push(`/user/${item.sender_id}`)}
             className="flex-row items-center mr-2"
           >
-            {!isMyMessage && (
-              <View className="w-7 h-7 bg-brand/10 rounded-full items-center justify-center mr-2 border border-brand/20">
-                <Text className="text-brand font-m-bold text-xs uppercase">
-                  {item.sender_name?.charAt(0) || "U"}
-                </Text>
-              </View>
-            )}
+            {!isMyMessage &&
+              (item.sender_photo ? (
+                <Image
+                  source={{ uri: item.sender_photo }}
+                  style={{ width: 28, height: 28, borderRadius: 14 }}
+                  className="mr-2"
+                />
+              ) : (
+                <View className="w-7 h-7 bg-brand/10 rounded-full items-center justify-center mr-2 border border-brand/20">
+                  <Text className="text-brand font-m-bold text-xs uppercase">
+                    {item.sender_name?.charAt(0) || "U"}
+                  </Text>
+                </View>
+              ))}
             <Text
               className="text-textDark font-m-bold text-sm"
               numberOfLines={1}
