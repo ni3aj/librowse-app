@@ -4,5 +4,5 @@ export const ONBOARDING_ROUTE_MAP = {
   REQUIRES_MPIN: "/auth/setup-mpin",
   REQUIRES_LIBRARY: "/create-library-wizard",
   ACTIVE_OWNER: "/(owner)/dashboard",
-  ACTIVE_STUDENT: "/(student)/libraries-listing",
+  ACTIVE_STUDENT: "/(student)/home",
 };

@@ -18,20 +18,20 @@ export default function StudentLayout() {
       }}
     >
       <Tabs.Screen
-        name="libraries-listing" // Matches home.js
+        name="home"
         options={{
-          title: "Browse",
+          title: "Home",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="compass" size={size} color={color} />
+            <Ionicons name="home" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="bookings" // Changed from "bookings" to match your folder "booking"
+        name="libraries-listing"
         options={{
-          title: "Bookings",
+          title: "Browse",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar" size={size} color={color} />
+            <Ionicons name="compass" size={size} color={color} />
           ),
         }}
       />
