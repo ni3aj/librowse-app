@@ -142,9 +142,9 @@ export default function HomeScreen() {
   return (
     <View className="flex-1 bg-background">
       <Header
-        title="Dashboard"
+        title={`Hi, ${user?.first_name || "Student"} 👋`}
         enableBack={false}
-        showLibraryDropdown={false}
+        showLibraryDropdown={true}
       />
 
       <ScrollView
@@ -158,48 +158,11 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* 📌 SECTION 1: Welcome & Profile */}
-        <View className="flex-row items-center justify-between mb-8 mt-2">
-          <View className="flex-1 pr-4">
-            <Text className="text-2xl font-m-extra text-textDark">
-              Hi, {user?.first_name || "Student"} 👋
-            </Text>
-
-            {!user?.is_kyc_verified ? (
-              <TouchableOpacity
-                onPress={() => router.push("/profile")}
-                className="bg-orange-100 px-3 py-1.5 rounded-full flex-row items-center border border-orange-200 self-start mt-2"
-              >
-                <Ionicons name="warning" size={12} color="#EA580C" />
-                <Text className="text-[10px] font-m-bold text-orange-600 ml-1.5 uppercase tracking-wider">
-                  Complete KYC
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <Text className="text-sm font-m text-textLight mt-1">
-                Ready to focus today?
-              </Text>
-            )}
-          </View>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => router.push("/profile")}
-            className="shadow-sm shadow-black/5"
-          >
-            <Avatar
-              src={user?.profile_photo}
-              name={user?.first_name}
-              size={54}
-            />
-          </TouchableOpacity>
-        </View>
-
         {/* 📌 SECTION 6: Empty State (Discovery) */}
         {!primary_booking ? (
           <View className="items-center justify-center mb-10">
             <View className="bg-surface p-8 rounded-[32px] w-full items-center border border-borderLight shadow-sm shadow-black/5">
-              <View className="w-20 h-20 bg-brand/10 rounded-full items-center justify-center mb-6">
+              <View className="w-20 h-20 bg-white rounded-full items-center justify-center mb-6">
                 <Text className="text-4xl">📚</Text>
               </View>
               <Text className="text-2xl font-m-extra text-textDark text-center mb-3">
@@ -207,12 +170,12 @@ export default function HomeScreen() {
               </Text>
               <Text className="text-textLight font-m text-center leading-6 mb-8 px-2">
                 You don't have any active bookings right now. Explore top-rated
-                study rooms near you and start focusing!
+                libraries near you and start focusing!
               </Text>
               <Button
                 title="Explore Libraries"
                 variant="primary"
-                onPress={() => router.push("/explore")}
+                onPress={() => router.push("/libraries-listing")}
                 className="w-full py-4"
               />
             </View>
