@@ -28,6 +28,10 @@ export default function OwnerBillingScreen() {
 
   const [loading, setLoading] = useState(true);
   const [processingPayment, setProcessingPayment] = useState(false);
+
+  // 📌 THE FIX: Track exactly which tier card is currently loading
+  const [loadingTierId, setLoadingTierId] = useState(null);
+
   const [billingData, setBillingData] = useState(null);
 
   const [alertConfig, setAlertConfig] = useState({
@@ -54,7 +58,6 @@ export default function OwnerBillingScreen() {
   const loadBillingData = async () => {
     try {
       setLoading(true);
-      // 📌 Pass libraryId to the API
       const response = await fetchBillingStatusApi(libraryId);
       if (response.success) {
         setBillingData(response.data);
@@ -112,7 +115,7 @@ export default function OwnerBillingScreen() {
         razorpay_order_id: data.razorpay_order_id,
         razorpay_payment_id: data.razorpay_payment_id,
         razorpay_signature: data.razorpay_signature,
-        library_id: libraryId, // 📌 Pass context if your backend needs it
+        library_id: libraryId,
       });
 
       if (verifyResponse.success) {
@@ -132,7 +135,6 @@ export default function OwnerBillingScreen() {
         throw new Error(verifyResponse.error || "Verification failed");
       }
     } catch (error) {
-      // If user closes the modal, error.code will be available. Otherwise it's a real error.
       const isCancelled =
         error.code === 0 || error.code === "BAD_REQUEST_ERROR";
 
@@ -158,14 +160,12 @@ export default function OwnerBillingScreen() {
   const handlePayNow = async () => {
     try {
       setProcessingPayment(true);
-      // 📌 Pass libraryId to tell the backend WHICH library to create an order for
       const orderResponse = await createRazorpayOrderApi(libraryId);
 
       if (!orderResponse.success) {
         throw new Error(orderResponse.error);
       }
 
-      // Pass data to our master Razorpay handler
       await processRazorpayPayment(
         orderResponse.order_id,
         orderResponse.amount,
@@ -190,9 +190,11 @@ export default function OwnerBillingScreen() {
    */
   const handleUpgradeClick = async (tier) => {
     setProcessingPayment(true);
+    setLoadingTierId(tier.id); // 📌 Trigger card-specific loader
 
     if (!libraryId) {
       setProcessingPayment(false);
+      setLoadingTierId(null);
       return Toast.show({
         type: "error",
         text1: "Error",
@@ -200,11 +202,10 @@ export default function OwnerBillingScreen() {
       });
     }
 
-    // 2. Call the clean API helper using the global libraryId
     const response = await calculateUpgradeDiscountApi(libraryId, tier.id);
     setProcessingPayment(false);
+    setLoadingTierId(null); // 📌 Turn off loader
 
-    // 3. Handle Success UI & Calculate Math
     if (response.success) {
       const { amount, discount_applied, original_price, order_id } =
         response.data;
@@ -213,25 +214,21 @@ export default function OwnerBillingScreen() {
         visible: true,
         type: "info",
         title: `Upgrade to ${tier.name}`,
-        message: `Plan Price: ₹${original_price}\nUnused Days Discount: ₹${discount_applied}\n\nAmount Due Today: ₹${amount}`,
+        message: `Plan Price: ₹${original_price}\nUnused Days Discount for Current Plan: ₹${discount_applied}\n\nFinal Amount to Pay: ₹${amount}`,
         primaryButtonText: `Pay ₹${amount}`,
         secondaryButtonText: "Cancel",
         onPrimaryPress: () => {
           hideAlert();
-
-          // Trigger the master Razorpay handler with our new discounted order!
           setTimeout(() => {
             processRazorpayPayment(
               order_id,
               amount * 100,
               `Upgrade to ${tier.name}`,
             );
-          }, 400); // Tiny delay to let modal close first
+          }, 400);
         },
       });
-    }
-    // 4. Handle Error UI
-    else {
+    } else {
       setAlertConfig({
         visible: true,
         type: "error",
@@ -254,7 +251,6 @@ export default function OwnerBillingScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      {/* 📌 Added dynamic Library Name to Header */}
       <Header title="Billing" showLibraryDropdown={true} />
 
       <ScrollView
@@ -320,7 +316,7 @@ export default function OwnerBillingScreen() {
                   className={`bg-brandAccent py-3.5 rounded-xl items-center ${processingPayment ? "opacity-50" : ""}`}
                 >
                   <Text className="text-white font-m-bold text-base">
-                    {processingPayment
+                    {processingPayment && !loadingTierId
                       ? "Processing..."
                       : `Pay Now to Unlock (₹${billingData?.currentTier?.price})`}
                   </Text>
@@ -334,7 +330,7 @@ export default function OwnerBillingScreen() {
                   className={`bg-brand py-3.5 rounded-xl items-center ${processingPayment ? "opacity-50" : ""}`}
                 >
                   <Text className="text-white font-m-bold text-base">
-                    {processingPayment
+                    {processingPayment && !loadingTierId
                       ? "Processing..."
                       : `Renew in Advance (₹${billingData?.currentTier?.price})`}
                   </Text>
@@ -367,7 +363,11 @@ export default function OwnerBillingScreen() {
                   key={index}
                   onPress={() => handleUpgradeClick(tier)}
                   disabled={processingPayment}
-                  className={`bg-white border border-borderLight rounded-2xl p-5 mb-4 flex-row justify-between items-center ${processingPayment ? "opacity-50" : ""}`}
+                  className={`bg-white border border-borderLight rounded-2xl p-5 mb-4 flex-row justify-between items-center ${
+                    processingPayment && loadingTierId !== tier.id
+                      ? "opacity-50"
+                      : ""
+                  }`}
                 >
                   <View className="flex-1">
                     <Text className="text-lg font-m-bold text-brand">
@@ -377,13 +377,21 @@ export default function OwnerBillingScreen() {
                       Up to {tier.maxStudents} Students
                     </Text>
                   </View>
-                  <View className="items-end">
-                    <Text className="text-lg font-m-bold text-textDark">
-                      ₹{tier.price}
-                    </Text>
-                    <Text className="text-xs font-m-regular text-textLight">
-                      / month
-                    </Text>
+
+                  {/* 📌 THE FIX: Render loader or price conditionally */}
+                  <View className="items-end justify-center min-w-[60px]">
+                    {loadingTierId === tier.id ? (
+                      <ActivityIndicator size="small" color={COLORS.brand} />
+                    ) : (
+                      <>
+                        <Text className="text-lg font-m-bold text-textDark">
+                          ₹{tier.price}
+                        </Text>
+                        <Text className="text-xs font-m-regular text-textLight">
+                          / month
+                        </Text>
+                      </>
+                    )}
                   </View>
                 </TouchableOpacity>
               ))}
@@ -439,7 +447,6 @@ export default function OwnerBillingScreen() {
         )}
       </ScrollView>
 
-      {/* 📌 REUSABLE DYNAMIC MODAL */}
       <AlertModal
         visible={alertConfig.visible}
         type={alertConfig.type}
