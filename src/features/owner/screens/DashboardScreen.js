@@ -40,18 +40,16 @@ export default function DashboardScreen() {
   const { userName } = useAuthStore();
   const firstName = userName ? userName.split(" ")[0] : "Owner";
 
-  // 📌 Extract `libraries` array directly from global store
+  // 📌 Extract global store values
   const { libraryId, hasInventory, libraryStatus, libraries } =
     useLibraryStore();
   const lastFetchedId = useRef(null);
 
-  // 📌 Derive the active library object instantly without API calls
-  const selectedLibrary =
-    libraries?.find((lib) => lib.id === libraryId) || libraries?.[0];
-
-  const isPending =
-    selectedLibrary && libraryStatus === "PENDING_ADMIN_APPROVAL";
-  const isUnverified = selectedLibrary && libraryStatus === "UNVERIFIED";
+  // 📌 THE FIX: Rely strictly on `libraryStatus` from the store!
+  // We removed `selectedLibrary` from these checks because the libraries array might be empty
+  // immediately after a new user creates their first library.
+  const isPending = libraryStatus === "PENDING_ADMIN_APPROVAL";
+  const isUnverified = libraryStatus === "UNVERIFIED";
   const isLocked = isPending || isUnverified;
 
   const fetchDashboardStats = async (targetLibraryId) => {
@@ -332,7 +330,6 @@ export default function DashboardScreen() {
           />
         ) : stats ? (
           <>
-            {/* 📌 THE FIX: Moved the Warning Cards inside the loaded stats block! */}
             {isUnverified && hasInventory && (
               <View className="bg-surface border border-borderLight p-4 rounded-2xl mb-6 flex-row items-start">
                 <View className="flex-1">
