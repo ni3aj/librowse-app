@@ -58,7 +58,7 @@ export default function Header({
             </TouchableOpacity>
           )}
           <Text
-            className="text-xl mb-1 font-m-extra text-textDark flex-1"
+            className="text-xl font-m-extra text-textDark flex-1"
             numberOfLines={1}
           >
             {title}

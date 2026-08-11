@@ -491,6 +491,7 @@ export default function ActivitiesScreen() {
       >
         <Header
           title="Activities"
+          enableBack={false}
           showLibraryDropdown={true}
           rightComponent={
             <TouchableOpacity
