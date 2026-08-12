@@ -8,19 +8,19 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
-    ActivityIndicator,
-    Image,
-    Linking,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import Toast from "react-native-toast-message";
 
-// 📌 Reusable Avatar Component
 function Avatar({ src, name, size = 50 }) {
   if (src) {
     return (
@@ -84,16 +84,50 @@ export default function HomeScreen() {
       android: "geo:0,0?q=",
     });
     const latLng = `${lat},${lng}`;
-    const label = name;
     const url = Platform.select({
-      ios: `${scheme}${label}@${latLng}`,
-      android: `${scheme}${latLng}(${label})`,
+      ios: `${scheme}${name}@${latLng}`,
+      android: `${scheme}${latLng}(${name})`,
     });
     Linking.openURL(url).catch(() => {
       Linking.openURL(
         `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
       );
     });
+  };
+
+  // Offline Payment Nudge Flow
+  const handleNotifyPayment = (enrollmentId) => {
+    Alert.alert(
+      "Confirm Offline Payment",
+      "Please pay the library owner directly via Cash or UPI first. Have you completed the payment?",
+      [
+        { text: "Not Yet", style: "cancel" },
+        {
+          text: "Yes, I've Paid",
+          onPress: async () => {
+            try {
+              const res = await apiClient.post(
+                `/student/enrollments/${enrollmentId}/notify-payment`,
+              );
+              if (res.data.success) {
+                Toast.show({
+                  type: "success",
+                  text1: "Owner Notified 🔔",
+                  text2: "Waiting for their confirmation.",
+                });
+                fetchDashboard(); // Refresh to update the UI to Pending state
+              }
+            } catch (error) {
+              Toast.show({
+                type: "error",
+                text1: "Error",
+                text2: error.response?.data?.error || "Failed to notify owner.",
+              });
+            }
+          },
+        },
+      ],
+    );
   };
 
   if (loading) {
@@ -104,7 +138,6 @@ export default function HomeScreen() {
     );
   }
 
-  // 📌 Extracting the newly categorized lists from your updated backend
   const {
     user,
     primary_booking,
@@ -115,16 +148,13 @@ export default function HomeScreen() {
     needs_review,
   } = dashboardData || {};
 
-  // Calculate total secondary bookings for the accordion header
   const totalSecondaryBookings =
     future_enrollments.length +
     rejected_enrollments.length +
     history_bookings.length;
 
-  // Safely Calculate Progress Bar for Active Seats
   const getProgressWidth = () => {
     if (!primary_booking?.start_date || !primary_booking?.end_date) return "0%";
-
     const start = new Date(primary_booking.start_date).getTime();
     const end = new Date(primary_booking.end_date).getTime();
     const now = new Date().getTime();
@@ -133,9 +163,7 @@ export default function HomeScreen() {
     if (now >= end) return "100%";
 
     const progress = ((now - start) / (end - start)) * 100;
-
     if (isNaN(progress) || !isFinite(progress)) return "0%";
-
     return `${Math.max(0, Math.min(100, progress))}%`;
   };
 
@@ -158,7 +186,7 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* 📌 SECTION 6: Empty State (Discovery) */}
+        {/* Empty State */}
         {!primary_booking ? (
           <View className="items-center justify-center mb-10">
             <View className="bg-surface p-8 rounded-[32px] w-full items-center border border-borderLight shadow-sm shadow-black/5">
@@ -182,32 +210,51 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
-            {/* 📌 SECTION 2: Immediate Action Alerts */}
-            {primary_booking.status === "PAYMENT_PENDING" && (
-              <View className="bg-brandAccent/10 border border-brandAccent/30 p-4 rounded-2xl mb-6 flex-row items-center">
-                <View className="flex-1 pr-3">
+            {/* Payment Workflows */}
+            {primary_booking.status === "PAYMENT_PENDING" &&
+              !primary_booking.payment_claimed_at && (
+                <View className="bg-brandAccent/10 border border-brandAccent/30 p-4 rounded-2xl mb-6">
                   <Text className="text-brandAccent font-m-bold text-base mb-1">
                     Payment Required
                   </Text>
-                  <Text className="text-textDark font-m text-sm leading-5">
+                  <Text className="text-textDark font-m text-sm leading-5 mb-4">
                     Your request at{" "}
                     <Text className="font-m-bold">
                       {primary_booking.library_name}
                     </Text>{" "}
-                    was approved! Pay ₹{primary_booking.price} to secure your
-                    seat.
+                    was approved! Please pay ₹{primary_booking.price} directly
+                    to the library via Cash or UPI.
                   </Text>
+                  <Button
+                    title="I Have Paid (Notify Owner)"
+                    variant="primary"
+                    onPress={() =>
+                      handleNotifyPayment(primary_booking.enrollment_id)
+                    }
+                  />
                 </View>
-                <TouchableOpacity
-                  onPress={() =>
-                    router.push(`/checkout/${primary_booking.enrollment_id}`)
-                  }
-                  className="bg-brandAccent px-4 py-2.5 rounded-xl"
-                >
-                  <Text className="text-white font-m-bold">Pay Now</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+              )}
+
+            {primary_booking.status === "PAYMENT_PENDING" &&
+              primary_booking.payment_claimed_at && (
+                <View className="bg-yellow-50 border border-yellow-200 p-4 rounded-2xl mb-6 flex-row items-center">
+                  <Ionicons
+                    name="time"
+                    size={24}
+                    color="#CA8A04"
+                    className="mr-2"
+                  />
+                  <View className="flex-1 ml-2">
+                    <Text className="text-yellow-800 font-m-bold text-base mb-1">
+                      Verification Pending
+                    </Text>
+                    <Text className="text-yellow-700 font-m text-xs leading-4">
+                      You notified the owner. Your seat will activate once they
+                      verify and confirm your payment.
+                    </Text>
+                  </View>
+                </View>
+              )}
 
             {primary_booking.status === "ACTIVE" &&
               primary_booking.days_remaining <= 5 && (
@@ -233,7 +280,7 @@ export default function HomeScreen() {
                 </View>
               )}
 
-            {/* 📌 SECTION 3: The "Active Desk" Card */}
+            {/* Active Desk Card */}
             <Text className="text-sm font-m-bold text-textLight uppercase tracking-wider mb-3 ml-1">
               Current Booking
             </Text>
@@ -324,7 +371,7 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            {/* 📌 SECTION 7: Rate Experience Prompt */}
+            {/* Rate Experience */}
             {needs_review && (
               <TouchableOpacity
                 onPress={() =>
@@ -347,7 +394,7 @@ export default function HomeScreen() {
               </TouchableOpacity>
             )}
 
-            {/* 📌 SECTION 4: Latest Announcements */}
+            {/* Notice Board */}
             {latest_announcements && latest_announcements.length > 0 && (
               <View>
                 <Text className="text-sm font-m-bold text-textLight uppercase tracking-wider mb-3 ml-1">
@@ -392,7 +439,7 @@ export default function HomeScreen() {
           </>
         )}
 
-        {/* 📌 SECTION 5: All Other Secondary Enrollments (Collapsible) */}
+        {/* Other Enrollments */}
         {totalSecondaryBookings > 0 && (
           <View className="mb-4">
             <TouchableOpacity
@@ -411,7 +458,6 @@ export default function HomeScreen() {
 
             {isHistoryExpanded && (
               <View>
-                {/* UPCOMING BOOKINGS */}
                 {future_enrollments.length > 0 && (
                   <View className="mb-2">
                     <Text className="text-xs font-m-bold text-textLight mb-2 px-1 ml-1">
@@ -440,14 +486,15 @@ export default function HomeScreen() {
                           <Chip label={booking.shift} />
                           <Chip label={booking.amenity} />
                           <Chip label={booking.reservation} />
-                          <Chip label={booking.assigned_seat} />
+                          {booking.assigned_seat && (
+                            <Chip label={booking.assigned_seat} />
+                          )}
                         </View>
                       </View>
                     ))}
                   </View>
                 )}
 
-                {/* REJECTED BOOKINGS */}
                 {rejected_enrollments.length > 0 && (
                   <View className="mb-4">
                     <Text className="text-xs font-m-bold text-textLight mb-2 px-1 ml-1">
@@ -481,7 +528,6 @@ export default function HomeScreen() {
                   </View>
                 )}
 
-                {/* PAST / EXPIRED BOOKINGS */}
                 {history_bookings.length > 0 && (
                   <View className="mb-4">
                     <Text className="text-xs font-m-bold text-textLight mb-2 px-1">
@@ -519,7 +565,6 @@ export default function HomeScreen() {
             )}
           </View>
         )}
-
         <View className="h-8" />
       </ScrollView>
     </View>

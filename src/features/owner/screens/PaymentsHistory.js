@@ -112,11 +112,19 @@ export default function PaymentsHistory() {
         `/owner/requests/${enrollmentId}/mark-paid`,
       );
       if (response.data.success) {
-        Toast.show({ type: "success", text1: "Payment Marked as Paid!" });
+        Toast.show({
+          type: "success",
+          text1: "Success",
+          text2: "Payment Marked as Paid!",
+        });
         fetchData();
       }
     } catch (error) {
-      Toast.show({ type: "error", text1: "Failed to mark paid" });
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to mark paid",
+      });
     }
   };
 

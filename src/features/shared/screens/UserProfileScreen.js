@@ -359,7 +359,7 @@ export default function UserProfileScreen() {
               if (response.data.success) {
                 Toast.show({
                   type: "success",
-                  text1: "Success!",
+                  text1: "Success",
                   text2: "Seat is now Active.",
                 });
                 fetchUserProfile();
@@ -379,7 +379,7 @@ export default function UserProfileScreen() {
 
   const handleSendReminder = async () => {
     if (user?.phone) {
-      const message = `Hi ${user.full_name}, your study room subscription expired on ${formatCleanDate(enrollment?.end_date)}. Please let us know if you'd like to renew your seat!`;
+      const message = `Hi ${user.full_name}, your library subscription expired on ${formatCleanDate(enrollment?.end_date)}. Please let us know if you'd like to renew your seat!`;
       Linking.openURL(
         `whatsapp://send?phone=91${user.phone}&text=${encodeURIComponent(message)}`,
       );
