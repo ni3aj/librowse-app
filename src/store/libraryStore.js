@@ -30,6 +30,10 @@ export const useLibraryStore = create(
           hasInventory: false,
           libraryStatus: "UNVERIFIED",
         }),
+
+      hasActiveBooking: false,
+
+      setHasActiveBooking: (status) => set({ hasActiveBooking: status }),
     }),
     {
       name: "librowse-library-storage",

@@ -3,6 +3,7 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
+import { useLibraryStore } from "@/store/libraryStore";
 import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
@@ -20,6 +21,7 @@ import {
   View,
 } from "react-native";
 import Toast from "react-native-toast-message";
+import { studentApi } from "../api"; // 📌 Added studentApi import
 
 function Avatar({ src, name, size = 50 }) {
   if (src) {
@@ -48,12 +50,22 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false); // 📌 Added cancelling state
+  const { setHasActiveBooking } = useLibraryStore();
 
   const fetchDashboard = async () => {
     try {
       const response = await apiClient.get("/student/dashboard");
       if (response.data.success) {
         setDashboardData(response.data.data);
+        const isActive =
+          response.data.data.primary_booking?.status === "ACTIVE" ||
+          (response.data.data.future_enrollments || []).some(
+            (b) => b.status === "ACTIVE",
+          );
+        if (setHasActiveBooking) {
+          setHasActiveBooking(isActive);
+        }
       }
     } catch (error) {
       Toast.show({
@@ -95,7 +107,6 @@ export default function HomeScreen() {
     });
   };
 
-  // Offline Payment Nudge Flow
   const handleNotifyPayment = (enrollmentId) => {
     Alert.alert(
       "Confirm Offline Payment",
@@ -115,7 +126,7 @@ export default function HomeScreen() {
                   text1: "Owner Notified 🔔",
                   text2: "Waiting for their confirmation.",
                 });
-                fetchDashboard(); // Refresh to update the UI to Pending state
+                fetchDashboard();
               }
             } catch (error) {
               Toast.show({
@@ -123,6 +134,45 @@ export default function HomeScreen() {
                 text1: "Error",
                 text2: error.response?.data?.error || "Failed to notify owner.",
               });
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  // 📌 Added handleCancel logic directly to dashboard
+  const handleCancel = () => {
+    Alert.alert(
+      "Cancel Request",
+      "Are you sure you want to cancel your seat request?",
+      [
+        { text: "No", style: "cancel" },
+        {
+          text: "Yes, Cancel",
+          style: "destructive",
+          onPress: async () => {
+            setIsCancelling(true);
+            try {
+              const response = await studentApi.cancelEnrollment(
+                primary_booking.enrollment_id,
+              );
+              if (response.data.success) {
+                Toast.show({
+                  type: "success",
+                  text1: "Cancelled",
+                  text2: "Your request has been cancelled.",
+                });
+                fetchDashboard(); // Instantly clears the card
+              }
+            } catch (error) {
+              Toast.show({
+                type: "error",
+                text1: "Error",
+                text2: error.response?.data?.error || "Failed to cancel.",
+              });
+            } finally {
+              setIsCancelling(false);
             }
           },
         },
@@ -186,14 +236,13 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* Empty State */}
         {!primary_booking ? (
           <View className="items-center justify-center mb-10">
             <View className="bg-surface p-8 rounded-[32px] w-full items-center border border-borderLight shadow-sm shadow-black/5">
               <View className="w-20 h-20 bg-white rounded-full items-center justify-center mb-6">
                 <Text className="text-4xl">📚</Text>
               </View>
-              <Text className="text-2xl font-m-extra text-textDark text-center mb-3">
+              <Text className="text-xl font-m-extra text-textDark text-center mb-3">
                 Find Your Perfect Desk
               </Text>
               <Text className="text-textLight font-m text-center leading-6 mb-8 px-2">
@@ -210,127 +259,187 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
-            {/* Payment Workflows */}
-            {primary_booking.status === "PAYMENT_PENDING" &&
-              !primary_booking.payment_claimed_at && (
-                <View className="bg-brandAccent/10 border border-brandAccent/30 p-4 rounded-2xl mb-6">
-                  <Text className="text-brandAccent font-m-bold text-base mb-1">
-                    Payment Required
-                  </Text>
-                  <Text className="text-textDark font-m text-sm leading-5 mb-4">
-                    Your request at{" "}
-                    <Text className="font-m-bold">
-                      {primary_booking.library_name}
-                    </Text>{" "}
-                    was approved! Please pay ₹{primary_booking.price} directly
-                    to the library via Cash or UPI.
-                  </Text>
-                  <Button
-                    title="I Have Paid (Notify Owner)"
-                    variant="primary"
-                    onPress={() =>
-                      handleNotifyPayment(primary_booking.enrollment_id)
-                    }
-                  />
-                </View>
-              )}
-
-            {primary_booking.status === "PAYMENT_PENDING" &&
-              primary_booking.payment_claimed_at && (
-                <View className="bg-yellow-50 border border-yellow-200 p-4 rounded-2xl mb-6 flex-row items-center">
-                  <Ionicons
-                    name="time"
-                    size={24}
-                    color="#CA8A04"
-                    className="mr-2"
-                  />
-                  <View className="flex-1 ml-2">
-                    <Text className="text-yellow-800 font-m-bold text-base mb-1">
-                      Verification Pending
-                    </Text>
-                    <Text className="text-yellow-700 font-m text-xs leading-4">
-                      You notified the owner. Your seat will activate once they
-                      verify and confirm your payment.
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-            {primary_booking.status === "ACTIVE" &&
-              primary_booking.days_remaining <= 5 && (
-                <View className="bg-orange-50 border border-orange-200 p-4 rounded-2xl mb-6 flex-row items-center">
-                  <View className="flex-1 pr-3">
-                    <Text className="text-orange-600 font-m-bold text-base mb-1">
-                      Expiring Soon!
-                    </Text>
-                    <Text className="text-orange-800 font-m text-sm leading-5">
-                      Your seat expires in exactly{" "}
-                      {primary_booking.days_remaining} days. Renew now to keep
-                      your desk.
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() =>
-                      router.push(`/renew/${primary_booking.enrollment_id}`)
-                    }
-                    className="bg-orange-500 px-4 py-2.5 rounded-xl"
-                  >
-                    <Text className="text-white font-m-bold">Renew</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-            {/* Active Desk Card */}
             <Text className="text-sm font-m-bold text-textLight uppercase tracking-wider mb-3 ml-1">
               Current Booking
             </Text>
-            <View className="bg-surface border border-borderLight rounded-3xl p-5 mb-6 shadow-sm shadow-black/5 overflow-hidden">
-              <View className="flex-row justify-between items-start mb-4">
-                <View className="flex-1 pr-4">
-                  <Text className="text-xl font-m-extra text-textDark leading-7 mb-1">
-                    {primary_booking.library_name}
+            <View className="bg-surface border border-borderLight rounded-3xl mb-6 shadow-sm shadow-black/5 overflow-hidden">
+              {/* --- DYNAMIC CARD HEADERS --- */}
+              {primary_booking.status === "PENDING" && (
+                <View className="bg-blue-50 px-5 py-3 border-b border-blue-100 flex-row items-center">
+                  <Ionicons
+                    name="time"
+                    size={18}
+                    color="#2563EB"
+                    className="mr-2"
+                  />
+                  <Text className="text-blue-800 font-m-bold text-sm">
+                    Approval Pending
                   </Text>
-                  <View className="flex-row flex-wrap gap-2 mt-1">
-                    <Chip label={primary_booking.shift} />
-                    <Chip label={primary_booking.amenity} />
-                    <Chip label={primary_booking.reservation} />
+                </View>
+              )}
+
+              {primary_booking.status === "PAYMENT_PENDING" &&
+                !primary_booking.payment_claimed_at && (
+                  <View className="bg-brandAccent/10 px-5 py-3 border-b border-brandAccent/20 flex-row items-center">
+                    <Ionicons
+                      name="alert-circle"
+                      size={18}
+                      color={COLORS.brandAccent}
+                      className="mr-2"
+                    />
+                    <Text className="text-brandAccent font-m-bold text-sm">
+                      Action Required: Payment Pending
+                    </Text>
                   </View>
+                )}
+
+              {primary_booking.status === "PAYMENT_PENDING" &&
+                primary_booking.payment_claimed_at && (
+                  <View className="bg-yellow-50 px-5 py-3 border-b border-yellow-200 flex-row items-center">
+                    <Ionicons
+                      name="shield-checkmark"
+                      size={18}
+                      color="#CA8A04"
+                      className="mr-2"
+                    />
+                    <Text className="text-yellow-800 font-m-bold text-sm">
+                      Payment Verification Pending
+                    </Text>
+                  </View>
+                )}
+
+              {primary_booking.status === "ACTIVE" &&
+                primary_booking.days_remaining > 5 && (
+                  <View className="bg-emerald-50 px-5 py-3 border-b border-emerald-100 flex-row items-center">
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={18}
+                      color="#059669"
+                      className="mr-2"
+                    />
+                    <Text className="text-emerald-800 font-m-bold text-sm">
+                      Seat Active
+                    </Text>
+                  </View>
+                )}
+
+              {primary_booking.status === "ACTIVE" &&
+                primary_booking.days_remaining <= 5 && (
+                  <View className="bg-orange-50 px-5 py-3 border-b border-orange-200 flex-row items-center">
+                    <Ionicons
+                      name="warning"
+                      size={18}
+                      color="#EA580C"
+                      className="mr-2"
+                    />
+                    <Text className="text-orange-800 font-m-bold text-sm">
+                      Expiring in {primary_booking.days_remaining} days!
+                    </Text>
+                  </View>
+                )}
+
+              {/* --- CARD BODY --- */}
+              <View className="p-5">
+                <View className="flex-row justify-between items-start mb-4">
+                  <View className="flex-1 pr-4">
+                    <Text className="text-xl font-m-extra text-textDark leading-7 mb-1">
+                      {primary_booking.library_name}
+                    </Text>
+                    <View className="flex-row flex-wrap gap-2 mt-1">
+                      <Chip label={primary_booking.shift} />
+                      <Chip label={primary_booking.amenity} />
+                      <Chip label={primary_booking.reservation} />
+                    </View>
+                  </View>
+
+                  {primary_booking.assigned_seat && (
+                    <View className="bg-brand/10 border border-brand/20 w-14 h-14 rounded-2xl items-center justify-center">
+                      <Text className="text-[10px] font-m-bold text-brand uppercase mb-0.5">
+                        Seat
+                      </Text>
+                      <Text className="text-lg font-m-extra text-brand leading-5">
+                        {primary_booking.assigned_seat}
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
-                {primary_booking.assigned_seat && (
-                  <View className="bg-brand/10 border border-brand/20 w-14 h-14 rounded-2xl items-center justify-center">
-                    <Text className="text-[10px] font-m-bold text-brand uppercase mb-0.5">
-                      Seat
+                {/* --- DYNAMIC CARD MESSAGES & BUTTONS --- */}
+                {primary_booking.status === "PENDING" && (
+                  <View className="mt-1 bg-gray-50 p-3 rounded-xl border border-borderLight">
+                    <Text className="text-textLight font-m text-sm leading-5">
+                      Your request has been sent! Waiting for the library owner
+                      to approve it before you can pay.
                     </Text>
-                    <Text className="text-lg font-m-extra text-brand leading-5">
-                      {primary_booking.assigned_seat}
-                    </Text>
+                  </View>
+                )}
+
+                {primary_booking.status === "PAYMENT_PENDING" &&
+                  !primary_booking.payment_claimed_at && (
+                    <View className="mt-2">
+                      <Text className="text-textDark font-m text-sm leading-5 mb-4">
+                        Your seat is approved! Please pay{" "}
+                        <Text className="font-m-bold text-brand">
+                          ₹{primary_booking.price}
+                        </Text>{" "}
+                        directly to the library via Cash or UPI.
+                      </Text>
+                      <Button
+                        title="I Have Paid (Notify Owner)"
+                        variant="primary"
+                        className="py-3.5"
+                        onPress={() =>
+                          handleNotifyPayment(primary_booking.enrollment_id)
+                        }
+                      />
+                    </View>
+                  )}
+
+                {primary_booking.status === "PAYMENT_PENDING" &&
+                  primary_booking.payment_claimed_at && (
+                    <View className="mt-1 bg-gray-50 p-3 rounded-xl border border-borderLight">
+                      <Text className="text-textLight font-m text-sm leading-5">
+                        You notified the owner. Your seat will activate
+                        automatically once they confirm receipt of your payment.
+                      </Text>
+                    </View>
+                  )}
+
+                {primary_booking.status === "ACTIVE" && (
+                  <View className="mt-2">
+                    <View className="flex-row justify-between items-end mb-2">
+                      <Text className="text-xs font-m text-textLight">
+                        Started {formatCleanDate(primary_booking.start_date)}
+                      </Text>
+                      <Text className="text-xs font-m-bold text-brand">
+                        {primary_booking.days_remaining > 0
+                          ? `${primary_booking.days_remaining} Days Left`
+                          : "Starts Today"}
+                      </Text>
+                    </View>
+                    <View className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden border border-borderLight">
+                      <View
+                        className="h-full bg-brand rounded-full"
+                        style={{ width: getProgressWidth() }}
+                      />
+                    </View>
+
+                    {primary_booking.days_remaining <= 5 && (
+                      <Button
+                        title="Renew Seat"
+                        variant="primary"
+                        className="mt-5 py-3.5"
+                        onPress={() =>
+                          router.push(`/renew/${primary_booking.enrollment_id}`)
+                        }
+                      />
+                    )}
                   </View>
                 )}
               </View>
 
-              {primary_booking.status === "ACTIVE" && (
-                <View className="mb-6 mt-2">
-                  <View className="flex-row justify-between items-end mb-2">
-                    <Text className="text-xs font-m text-textLight">
-                      Started {formatCleanDate(primary_booking.start_date)}
-                    </Text>
-                    <Text className="text-xs font-m-bold text-brand">
-                      {primary_booking.days_remaining > 0
-                        ? `${primary_booking.days_remaining} Days Left`
-                        : "Starts Today"}
-                    </Text>
-                  </View>
-                  <View className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden border border-borderLight">
-                    <View
-                      className="h-full bg-brand rounded-full"
-                      style={{ width: getProgressWidth() }}
-                    />
-                  </View>
-                </View>
-              )}
-
-              <View className="flex-row border-t border-borderLight pt-4 mt-2">
+              {/* --- CARD FOOTER (ALWAYS VISIBLE) --- */}
+              <View className="flex-row border-t border-borderLight bg-gray-50/50">
                 <TouchableOpacity
                   onPress={() =>
                     openMaps(
@@ -339,35 +448,66 @@ export default function HomeScreen() {
                       primary_booking.library_name,
                     )
                   }
-                  className="flex-1 flex-row items-center justify-center py-2 border-r border-borderLight"
+                  className="flex-1 flex-row items-center justify-center py-3.5 border-r border-borderLight"
                 >
                   <Ionicons
                     name="navigate-outline"
                     size={18}
                     color={COLORS.textDark}
                   />
-                  <Text className="font-m-bold text-textDark ml-2">
-                    Directions
+                  <Text className="text-sm font-m-bold text-textDark ml-2">
+                    Locate
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() =>
-                    router.push({
-                      pathname: "/activities",
-                      params: { libraryId: primary_booking.library_id },
-                    })
-                  }
-                  className="flex-1 flex-row items-center justify-center py-2"
-                >
-                  <Ionicons
-                    name="chatbubbles-outline"
-                    size={18}
-                    color={COLORS.textDark}
-                  />
-                  <Text className="font-m-bold text-textDark ml-2">
-                    Community
-                  </Text>
-                </TouchableOpacity>
+
+                {primary_booking.status === "ACTIVE" && (
+                  <TouchableOpacity
+                    onPress={() =>
+                      router.push({
+                        pathname: "/activities",
+                        params: { libraryId: primary_booking.library_id },
+                      })
+                    }
+                    className={`flex-1 flex-row items-center justify-center py-3.5 ${
+                      primary_booking.status === "PENDING"
+                        ? "border-r border-borderLight"
+                        : ""
+                    }`}
+                  >
+                    <Ionicons
+                      name="chatbubbles-outline"
+                      size={18}
+                      color={COLORS.textDark}
+                    />
+                    <Text className="text-sm font-m-bold text-textDark ml-2">
+                      Chat
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* 📌 Added Cancel Button when Status is PENDING */}
+                {primary_booking.status === "PENDING" && (
+                  <TouchableOpacity
+                    onPress={handleCancel}
+                    disabled={isCancelling}
+                    className="flex-1 flex-row items-center justify-center py-3.5"
+                  >
+                    {isCancelling ? (
+                      <ActivityIndicator size="small" color="#DC2626" />
+                    ) : (
+                      <>
+                        <Ionicons
+                          name="close-circle-outline"
+                          size={18}
+                          color="#DC2626"
+                        />
+                        <Text className="text-sm font-m-bold text-red-600 ml-1">
+                          Cancel
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
 
@@ -441,7 +581,7 @@ export default function HomeScreen() {
 
         {/* Other Enrollments */}
         {totalSecondaryBookings > 0 && (
-          <View className="mb-4">
+          <View className="mb-4 mt-6">
             <TouchableOpacity
               onPress={() => setIsHistoryExpanded(!isHistoryExpanded)}
               className="flex-row justify-between items-center py-4 px-2"

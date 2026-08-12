@@ -75,16 +75,20 @@ export default function LoginScreen() {
       const checkSession = async () => {
         if (isNavigating.current || isBiometricPromptOpen.current) return;
 
+        // 📌 THE FIX 1: Read the token directly from the store's memory.
+        // This prevents React from tracking it as a changing dependency.
+        const currentToken = useAuthStore.getState().jwt_token;
+
+        if (!currentToken) {
+          setIsChecking(false);
+          return;
+        }
+
         setIsChecking(true);
 
         const compatible = await LocalAuthentication.hasHardwareAsync();
         const enrolled = await LocalAuthentication.isEnrolledAsync();
         setBiometricSupported(compatible && enrolled);
-
-        if (!jwt_token) {
-          setIsChecking(false);
-          return;
-        }
 
         const { success, data, error, isUnauthorized } =
           await fetchCurrentUserStatus();
@@ -105,19 +109,21 @@ export default function LoginScreen() {
         setCachedRouteState(currentState);
 
         if (currentState.startsWith("ACTIVE")) {
+          // This updates the token in the store, but because our dependency
+          // array is empty, it will NO LONGER trigger a second fetch! 🎉
           loginSuccess(data);
-          hydrateLibraryStore(data); // 📌 Hydrate
+          hydrateLibraryStore(data);
           setMpinConfigured(true);
 
           if (compatible && enrolled) {
             handleBiometricLogin(currentState);
           } else {
-            setStep(3);
+            setStep(3); // Drops user cleanly to MPIN step
           }
         } else {
           isNavigating.current = true;
           loginSuccess(data);
-          hydrateLibraryStore(data); // 📌 Hydrate
+          hydrateLibraryStore(data);
 
           const nextRoute = ONBOARDING_ROUTE_MAP[currentState];
           if (!nextRoute) {
@@ -136,7 +142,10 @@ export default function LoginScreen() {
       };
 
       checkSession();
-    }, [jwt_token]),
+
+      // 📌 THE FIX 2: Empty dependency array so it only fires on screen Focus,
+      // never when the token updates mid-screen.
+    }, []),
   );
 
   const handleBiometricLogin = async (targetState) => {

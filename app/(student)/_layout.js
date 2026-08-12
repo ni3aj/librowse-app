@@ -1,8 +1,16 @@
 import { COLORS } from "@/constants/theme";
+import { useAuthStore } from "@/store/authStore";
+import { useLibraryStore } from "@/store/libraryStore"; // 📌 1. Import library store
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 
 export default function StudentLayout() {
+  // Extract user info for the Profile icon
+  const { userName } = useAuthStore();
+
+  // 📌 2. Read the global boolean that tells us if they have an active booking
+  const { hasActiveBooking } = useLibraryStore();
+
   return (
     <Tabs
       screenOptions={{
@@ -35,15 +43,20 @@ export default function StudentLayout() {
           ),
         }}
       />
+
+      {/* 📌 3. ACTIVITIES TAB */}
       <Tabs.Screen
         name="activities"
         options={{
           title: "Activities",
+          // 👇 The Magic: This hides the tab completely if false!
+          href: hasActiveBooking ? "/activities" : null,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="grid" size={size} color={color} />
           ),
         }}
       />
+
       <Tabs.Screen
         name="profile" // Matches profile.js
         options={{

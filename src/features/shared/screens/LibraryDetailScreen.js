@@ -52,10 +52,15 @@ export default function LibraryDetailScreen() {
 
   const [isEnquiring, setIsEnquiring] = useState(false);
 
+  // Modals state
   const [isChangeModalVisible, setIsChangeModalVisible] = useState(false);
   const [selectedFutureSeat, setSelectedFutureSeat] = useState(null);
   const [isChangingPlan, setIsChangingPlan] = useState(false);
   const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
+
+  // Payment Modal state
+  const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
+  const [selectedPaymentMode, setSelectedPaymentMode] = useState("OFFLINE");
 
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -122,6 +127,7 @@ export default function LibraryDetailScreen() {
       setIsChangeModalVisible(false);
       setIsReviewModalVisible(false);
       setIsImageViewerVisible(false);
+      setIsPaymentModalVisible(false);
 
       const init = async () => {
         if (!library) setLoading(true);
@@ -240,7 +246,7 @@ export default function LibraryDetailScreen() {
         });
         Toast.show({
           type: "success",
-          text1: "Request Sent! 🎉",
+          text1: "Request Sent",
           text2: "Waiting for the library owner to accept.",
         });
         await loadLibraryData();
@@ -364,6 +370,31 @@ export default function LibraryDetailScreen() {
       });
     } finally {
       setIsChangingPlan(false);
+    }
+  };
+
+  // 📌 Offline Payment Nudge Flow
+  const handleNotifyPayment = async () => {
+    try {
+      const res = await apiClient.post(
+        `/student/enrollments/${myEnrollment.id}/notify-payment`,
+      );
+      if (res.data.success) {
+        setIsPaymentModalVisible(false);
+        Toast.show({
+          type: "success",
+          text1: "Owner Notified 🔔",
+          text2: "Waiting for their confirmation.",
+        });
+        // Redirect to home dashboard
+        router.push("/home");
+      }
+    } catch (error) {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error.response?.data?.error || "Failed to notify owner.",
+      });
     }
   };
 
@@ -851,13 +882,7 @@ export default function LibraryDetailScreen() {
               title={`Pay ₹${selectedSeat?.price}`}
               variant="primary"
               className="py-3 px-8"
-              onPress={() =>
-                Toast.show({
-                  type: "info",
-                  text1: "Coming Soon",
-                  text2: "Payment gateway will open here.",
-                })
-              }
+              onPress={() => setIsPaymentModalVisible(true)}
             />
           </View>
         ) : myEnrollment?.status === "ACTIVE" ? (
@@ -921,7 +946,120 @@ export default function LibraryDetailScreen() {
         )}
       </View>
 
-      {/* --- MODALS --- */}
+      {/* --- PAYMENT MODAL --- */}
+      <Modal
+        visible={isPaymentModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsPaymentModalVisible(false)}
+      >
+        <View className="flex-1 justify-end bg-black/50">
+          <View className="bg-background rounded-t-3xl p-6 pb-10 shadow-lg">
+            <View className="flex-row justify-between items-center mb-6">
+              <Text className="text-xl font-m-bold text-textDark">
+                Complete Payment
+              </Text>
+              <TouchableOpacity
+                onPress={() => setIsPaymentModalVisible(false)}
+                className="bg-surface p-2 rounded-full border border-borderLight"
+              >
+                <Ionicons name="close" size={20} color={COLORS.textDark} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Payment Mode Selector */}
+            <View className="flex-row bg-surface p-1 rounded-xl mb-6 border border-borderLight">
+              <TouchableOpacity
+                onPress={() => setSelectedPaymentMode("ONLINE")}
+                className={`flex-1 py-2.5 rounded-lg items-center ${selectedPaymentMode === "ONLINE" ? "bg-white shadow-sm" : ""}`}
+              >
+                <Text
+                  className={`font-m-bold ${selectedPaymentMode === "ONLINE" ? "text-brand" : "text-textLight"}`}
+                >
+                  Pay Online
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setSelectedPaymentMode("OFFLINE")}
+                className={`flex-1 py-2.5 rounded-lg items-center ${selectedPaymentMode === "OFFLINE" ? "bg-white shadow-sm" : ""}`}
+              >
+                <Text
+                  className={`font-m-bold ${selectedPaymentMode === "OFFLINE" ? "text-brand" : "text-textLight"}`}
+                >
+                  Pay Offline
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {selectedPaymentMode === "ONLINE" ? (
+              <View className="items-center py-4">
+                <View className="w-16 h-16 bg-brand/10 rounded-full items-center justify-center mb-4">
+                  <Ionicons
+                    name="rocket-outline"
+                    size={32}
+                    color={COLORS.brand}
+                  />
+                </View>
+                <Text className="text-lg font-m-bold text-textDark text-center mb-2">
+                  Coming Very Soon!
+                </Text>
+                <Text className="text-sm font-m text-textLight text-center leading-5 px-4">
+                  We are a growing startup and are currently setting up secure
+                  online payments. Please use the offline method to secure your
+                  seat today!
+                </Text>
+                <Button
+                  title="Switch to Offline Payment"
+                  variant="primary"
+                  onPress={() => setSelectedPaymentMode("OFFLINE")}
+                  className="w-full mt-6 py-4"
+                />
+              </View>
+            ) : (
+              <View>
+                <Text className="text-sm font-m text-textLight mb-4 leading-5 text-center">
+                  Please pay{" "}
+                  <Text className="font-m-bold text-textDark">
+                    ₹{selectedSeat?.price}
+                  </Text>{" "}
+                  directly to the library owner via Cash or UPI at the
+                  reception.
+                </Text>
+
+                <View className="bg-brand/5 border border-brand/20 p-4 rounded-2xl mb-6 items-center">
+                  <Text className="text-xs font-m-bold text-brand uppercase tracking-widest mb-1">
+                    Library UPI ID / Phone
+                  </Text>
+                  <Text className="text-lg font-m-extra text-textDark">
+                    {library?.owner_phone || "Ask at Reception"}
+                  </Text>
+                </View>
+
+                <Button
+                  title="I Have Paid (Notify Owner)"
+                  variant="primary"
+                  onPress={() => {
+                    Alert.alert(
+                      "Confirm Payment",
+                      "Have you completed the payment directly to the library owner?",
+                      [
+                        { text: "Not Yet", style: "cancel" },
+                        {
+                          text: "Yes, I've Paid",
+                          onPress: handleNotifyPayment,
+                        },
+                      ],
+                    );
+                  }}
+                  className="w-full py-4"
+                />
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* --- OTHER MODALS --- */}
       <WriteReviewModal
         visible={isReviewModalVisible}
         onClose={() => setIsReviewModalVisible(false)}
