@@ -34,6 +34,11 @@ const STATUS_CONFIG = {
     bg: "bg-amber-400",
     dot: "bg-amber-300",
   },
+  PAYMENT_CLAIMED: {
+    label: "Verification Needed",
+    bg: "bg-yellow-500",
+    dot: "bg-yellow-300",
+  },
   PENDING: {
     label: "Pending Approval",
     bg: "bg-orange-500",
@@ -111,8 +116,12 @@ function EnrollmentCard({
   isOwner = false,
   children,
 }) {
-  const headerBg = "bg-background";
-  const borderCl = "border-borderLight";
+  const isClaimed =
+    enrollment.status === "PAYMENT_PENDING" && !!enrollment.payment_claimed_at;
+  const displayStatus = isClaimed ? "PAYMENT_CLAIMED" : enrollment.status;
+  const headerBg = isClaimed ? "bg-yellow-50" : "bg-background";
+  const borderCl = isClaimed ? "border-yellow-200" : "border-borderLight";
+  const cardBg = isClaimed ? "bg-yellow-50/20" : "bg-white";
 
   let titleCl = "text-emerald-600";
   let title = "Current Plan";
@@ -123,11 +132,13 @@ function EnrollmentCard({
   } else if (isFuture) {
     titleCl = "text-red-500";
     title = "Upcoming Plan";
+  } else if (isClaimed) {
+    titleCl = "text-yellow-700";
   }
 
   return (
     <View
-      className={`rounded-2xl overflow-hidden bg-white border mb-4 ${borderCl}`}
+      className={`rounded-2xl overflow-hidden border mb-4 ${cardBg} ${borderCl}`}
     >
       <View
         className={`flex-row items-center justify-between px-4 py-3 border-b ${headerBg} ${borderCl}`}
@@ -135,7 +146,7 @@ function EnrollmentCard({
         <View className="flex-row items-center gap-2">
           <Text className={`text-s font-m-bold ${titleCl}`}>{title}</Text>
         </View>
-        <StatusBadge status={enrollment.status} />
+        <StatusBadge status={displayStatus} />
       </View>
 
       <View className="px-4 py-4 pb-2">
@@ -247,7 +258,7 @@ export default function UserProfileScreen() {
   const [user, setUser] = useState(null);
   const [enrollment, setEnrollment] = useState(null);
   const [futureEnrollment, setFutureEnrollment] = useState(null);
-  const [rejectedEnrollments, setRejectedEnrollments] = useState([]); // 📌 Added state for rejected
+  const [rejectedEnrollments, setRejectedEnrollments] = useState([]);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -265,7 +276,7 @@ export default function UserProfileScreen() {
         setUser(response.data.user);
         setEnrollment(response.data.enrollment);
         setFutureEnrollment(response.data.future_enrollment);
-        setRejectedEnrollments(response.data.rejected_enrollments || []); // 📌 Populate rejected list
+        setRejectedEnrollments(response.data.rejected_enrollments || []);
         setPayments(response.data.payments || []);
       }
     } catch (error) {
@@ -350,7 +361,7 @@ export default function UserProfileScreen() {
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Mark as Paid",
+          text: "Yes, Activate Seat",
           onPress: async () => {
             try {
               const response = await apiClient.patch(
@@ -421,13 +432,45 @@ export default function UserProfileScreen() {
     }
 
     if (plan.status === "PAYMENT_PENDING") {
+      const hasClaimedPayment = !!plan.payment_claimed_at;
+
       return (
-        <TouchableOpacity
-          onPress={() => handleMarkPaid(plan.enrollment_id)}
-          className="w-full bg-[#2563EB] py-3.5 rounded-xl items-center "
-        >
-          <Text className="text-white font-m-bold">Mark as Paid Offline</Text>
-        </TouchableOpacity>
+        <View className="pt-1">
+          {hasClaimedPayment ? (
+            <View className="bg-yellow-100 border border-yellow-300 py-2.5 px-3 rounded-xl flex-row items-center mb-3">
+              <Ionicons
+                name="shield-checkmark"
+                size={18}
+                color="#A16207"
+                className="mr-2"
+              />
+              <Text className="font-m-bold text-yellow-800 ml-2 text-sm flex-1">
+                Student claims they paid. Confirm to activate their account.
+              </Text>
+            </View>
+          ) : (
+            <View className="bg-brandAccent/10 border border-brandAccent/20 py-2.5 px-3 rounded-xl flex-row items-center mb-3">
+              <Ionicons
+                name="time-outline"
+                size={18}
+                color={COLORS.brandAccent}
+                className="mr-2"
+              />
+              <Text className="font-m-bold text-brandAccent ml-2 text-sm flex-1">
+                Waiting for Student to Pay
+              </Text>
+            </View>
+          )}
+
+          <TouchableOpacity
+            onPress={() => handleMarkPaid(plan.enrollment_id)}
+            className="w-full bg-[#2563EB] py-3.5 rounded-xl items-center "
+          >
+            <Text className="text-white font-m-bold">
+              {hasClaimedPayment ? "Confirm Received" : "Mark as Paid Offline"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       );
     }
 
@@ -614,7 +657,6 @@ export default function UserProfileScreen() {
               </>
             )}
 
-            {/* 📌 New: Render Rejected Enrollments */}
             {rejectedEnrollments.length > 0 && (
               <>
                 <SectionLabel

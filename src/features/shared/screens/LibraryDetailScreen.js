@@ -667,7 +667,7 @@ export default function LibraryDetailScreen() {
                     </Text>
                   </View>
 
-                  <View className="bg-surface rounded-3xl p-5 border border-borderLight opacity-90 shadow-sm">
+                  <View className="bg-surface rounded-3xl p-5 border border-borderLight opacity-90">
                     <View className="flex-row justify-between items-start mb-4">
                       <View>
                         <Text className="text-xs font-m-bold text-textLight uppercase tracking-wider mb-1">
@@ -805,7 +805,7 @@ export default function LibraryDetailScreen() {
                             className="items-center justify-center mb-2"
                           >
                             <View
-                              className={`w-18 h-16 rounded-lg items-center justify-center border-2 z-10 shadow-sm
+                              className={`w-18 h-16 rounded-lg items-center justify-center border-2 z-10 
                             ${
                               isOccupied
                                 ? "bg-gray-200 border-gray-300 opacity-60"
@@ -954,7 +954,7 @@ export default function LibraryDetailScreen() {
         onRequestClose={() => setIsPaymentModalVisible(false)}
       >
         <View className="flex-1 justify-end bg-black/50">
-          <View className="bg-background rounded-t-3xl p-6 pb-10 shadow-lg">
+          <View className="bg-background rounded-t-3xl p-6 pb-20">
             <View className="flex-row justify-between items-center mb-6">
               <Text className="text-xl font-m-bold text-textDark">
                 Complete Payment
@@ -971,7 +971,7 @@ export default function LibraryDetailScreen() {
             <View className="flex-row bg-surface p-1 rounded-xl mb-6 border border-borderLight">
               <TouchableOpacity
                 onPress={() => setSelectedPaymentMode("ONLINE")}
-                className={`flex-1 py-2.5 rounded-lg items-center ${selectedPaymentMode === "ONLINE" ? "bg-white shadow-sm" : ""}`}
+                className={`flex-1 py-2.5 rounded-lg items-center ${selectedPaymentMode === "ONLINE" ? "bg-white" : ""}`}
               >
                 <Text
                   className={`font-m-bold ${selectedPaymentMode === "ONLINE" ? "text-brand" : "text-textLight"}`}
@@ -981,7 +981,7 @@ export default function LibraryDetailScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setSelectedPaymentMode("OFFLINE")}
-                className={`flex-1 py-2.5 rounded-lg items-center ${selectedPaymentMode === "OFFLINE" ? "bg-white shadow-sm" : ""}`}
+                className={`flex-1 py-2.5 rounded-lg items-center ${selectedPaymentMode === "OFFLINE" ? "bg-white" : ""}`}
               >
                 <Text
                   className={`font-m-bold ${selectedPaymentMode === "OFFLINE" ? "text-brand" : "text-textLight"}`}
@@ -1130,7 +1130,7 @@ export default function LibraryDetailScreen() {
         onRequestClose={() => setIsChangeModalVisible(false)}
       >
         <View className="flex-1 justify-end bg-black/50">
-          <View className="bg-background rounded-t-3xl p-6 pb-10 shadow-lg">
+          <View className="bg-background rounded-t-3xl p-6 pb-10">
             <View className="flex-row justify-between items-center mb-2">
               <Text className="text-xl font-m-bold text-textDark">
                 Change Seat for Next Month

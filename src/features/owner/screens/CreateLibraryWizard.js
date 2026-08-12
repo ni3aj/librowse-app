@@ -1,13 +1,14 @@
-import apiClient from "@/api/client"; // 📌 1. Imported apiClient
+import apiClient from "@/api/client";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { COLORS } from "@/constants/theme";
 import { createLibraryProfile } from "@/features/owner/api";
+import { useAuthStore } from "@/store/authStore"; // 📌 Imported useAuthStore
 import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { router } from "expo-router";
-import { useEffect, useState } from "react"; // 📌 2. Imported useEffect
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -20,11 +21,12 @@ import MapView, { Marker } from "react-native-maps";
 import Toast from "react-native-toast-message";
 
 export default function CreateLibraryWizard() {
+  const { userPhone } = useAuthStore(); // 📌 Fetch logged-in user
+
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
 
-  // 📌 3. State for fetched amenities
   const [availableAmenities, setAvailableAmenities] = useState([]);
 
   // Map Modal State
@@ -34,16 +36,15 @@ export default function CreateLibraryWizard() {
   const [name, setName] = useState("");
   const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
+  const [upiId, setUpiId] = useState(userPhone || ""); // 📌 Default to user's phone
 
   // Geolocation State
   const [coords, setCoords] = useState({ latitude: null, longitude: null });
   const [selectedAmenities, setSelectedAmenities] = useState([]);
 
-  // 📌 4. Fetch Amenities on Mount
   useEffect(() => {
     const fetchAmenities = async () => {
       try {
-        // Adjust this endpoint to match where you put the route in Fastify
         const response = await apiClient.get("/shared/amenities");
         if (response.data.success) {
           setAvailableAmenities(response.data.amenities);
@@ -55,7 +56,6 @@ export default function CreateLibraryWizard() {
     fetchAmenities();
   }, []);
 
-  // 📌 5. Toggle by ID instead of string name
   const toggleAmenity = (amenityId) => {
     setSelectedAmenities((prev) =>
       prev.includes(amenityId)
@@ -104,7 +104,7 @@ export default function CreateLibraryWizard() {
   };
 
   const handleNextStep = () => {
-    if (!name.trim() || !city.trim() || !address.trim()) {
+    if (!name.trim() || !city.trim() || !address.trim() || !upiId.trim()) {
       return Toast.show({
         type: "info",
         text1: "Missing Info",
@@ -131,7 +131,8 @@ export default function CreateLibraryWizard() {
       address: address.trim(),
       latitude: coords.latitude,
       longitude: coords.longitude,
-      amenities: selectedAmenities, // Array of IDs like ["AC", "WIFI"]
+      amenities: selectedAmenities,
+      upi_id: upiId.trim(),
     });
 
     setLoading(false);
@@ -188,6 +189,20 @@ export default function CreateLibraryWizard() {
               value={address}
               onChangeText={setAddress}
             />
+
+            {/* 📌 New UPI/Phone Input */}
+            <View>
+              <Input
+                label="Payment UPI ID or Phone Number"
+                placeholder="e.g. 9876543210@ybl or 9876543210"
+                value={upiId}
+                onChangeText={setUpiId}
+              />
+              <Text className="text-[11px] text-textLight mt-1 px-1 leading-4">
+                Students will see this when they choose "Pay Offline". You can
+                use your phone number or a specific business UPI ID.
+              </Text>
+            </View>
 
             {/* Location Fetcher UI */}
             <View className="mt-4 p-4 rounded-2xl border border-borderLight bg-surface">
@@ -252,7 +267,6 @@ export default function CreateLibraryWizard() {
         {step === 2 && (
           <View>
             <View className="flex-row flex-wrap justify-between">
-              {/* 📌 6. Render dynamically from fetched data */}
               {availableAmenities.map((amenity) => {
                 const isSelected = selectedAmenities.includes(amenity.id);
                 return (

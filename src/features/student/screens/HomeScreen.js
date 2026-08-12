@@ -21,7 +21,7 @@ import {
   View,
 } from "react-native";
 import Toast from "react-native-toast-message";
-import { studentApi } from "../api"; // 📌 Added studentApi import
+import { studentApi } from "../../shared/api";
 
 function Avatar({ src, name, size = 50 }) {
   if (src) {
@@ -226,7 +226,7 @@ export default function HomeScreen() {
       />
 
       <ScrollView
-        className="flex-1 px-6 pt-4"
+        className="flex-1 px-6"
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -265,15 +265,18 @@ export default function HomeScreen() {
             <View className="bg-surface border border-borderLight rounded-3xl mb-6 shadow-sm shadow-black/5 overflow-hidden">
               {/* --- DYNAMIC CARD HEADERS --- */}
               {primary_booking.status === "PENDING" && (
-                <View className="bg-blue-50 px-5 py-3 border-b border-blue-100 flex-row items-center">
+                <View className="bg-blue-50 px-5 py-3 border-b border-blue-100 flex-row distance-between items-center">
                   <Ionicons
                     name="time"
                     size={18}
                     color="#2563EB"
                     className="mr-2"
                   />
-                  <Text className="text-blue-800 font-m-bold text-sm">
+                  <Text className="flex-1 text-blue-800 font-m-bold text-sm">
                     Approval Pending
+                  </Text>
+                  <Text className="text-textLight font-m-semi text-xs">
+                    Since {formatCleanDate(primary_booking.updated_at)}
                   </Text>
                 </View>
               )}
@@ -287,8 +290,11 @@ export default function HomeScreen() {
                       color={COLORS.brandAccent}
                       className="mr-2"
                     />
-                    <Text className="text-brandAccent font-m-bold text-sm">
-                      Action Required: Payment Pending
+                    <Text className="flex-1 text-brandAccent font-m-bold text-sm">
+                      Payment Pending
+                    </Text>
+                    <Text className="text-textLight font-m-semi text-xs">
+                      Since {formatCleanDate(primary_booking.updated_at)}
                     </Text>
                   </View>
                 )}
@@ -581,10 +587,10 @@ export default function HomeScreen() {
 
         {/* Other Enrollments */}
         {totalSecondaryBookings > 0 && (
-          <View className="mb-4 mt-6">
+          <View className="mb-4">
             <TouchableOpacity
               onPress={() => setIsHistoryExpanded(!isHistoryExpanded)}
-              className="flex-row justify-between items-center py-4 px-2"
+              className="flex-row justify-between items-center py-4 px-1"
             >
               <Text className="text-sm font-m-bold text-textLight uppercase tracking-wider">
                 Other Bookings ({totalSecondaryBookings})
@@ -691,11 +697,32 @@ export default function HomeScreen() {
                               : booking.status}
                           </Text>
                         </View>
+                        <Text
+                          className="text-[12px] text-xs text-textLight"
+                          numberOfLines={1}
+                        >
+                          {booking.amenity} / {booking.shift} /{" "}
+                          {booking.reservation}{" "}
+                          {booking.assigned_seat &&
+                            `(${booking.assigned_seat})`}
+                        </Text>
                         <Text className="text-xs font-m text-textLight mt-1">
-                          Ended{" "}
-                          {booking.end_date
-                            ? formatCleanDate(booking.end_date)
-                            : "N/A"}
+                          {booking.status === "EXPIRED" && (
+                            <>
+                              Ended{" "}
+                              {booking.end_date
+                                ? formatCleanDate(booking.end_date)
+                                : "N/A"}
+                            </>
+                          )}
+                          {booking.status === "CANCELLED" && (
+                            <>
+                              Cancelled on{" "}
+                              {booking.updated_at
+                                ? formatCleanDate(booking.updated_at)
+                                : "N/A"}
+                            </>
+                          )}
                         </Text>
                       </View>
                     ))}

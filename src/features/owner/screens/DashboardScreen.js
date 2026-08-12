@@ -40,14 +40,10 @@ export default function DashboardScreen() {
   const { userName } = useAuthStore();
   const firstName = userName ? userName.split(" ")[0] : "Owner";
 
-  // 📌 Extract global store values
   const { libraryId, hasInventory, libraryStatus, libraries } =
     useLibraryStore();
   const lastFetchedId = useRef(null);
 
-  // 📌 THE FIX: Rely strictly on `libraryStatus` from the store!
-  // We removed `selectedLibrary` from these checks because the libraries array might be empty
-  // immediately after a new user creates their first library.
   const isPending = libraryStatus === "PENDING_ADMIN_APPROVAL";
   const isUnverified = libraryStatus === "UNVERIFIED";
   const isLocked = isPending || isUnverified;
@@ -103,14 +99,12 @@ export default function DashboardScreen() {
     }
   };
 
-  // 📌 Fetch stats safely whenever libraryId changes
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
 
       const loadStats = async () => {
         if (libraryId) {
-          // If we switched libraries, show loading & wipe old stats so UI resets cleanly
           if (lastFetchedId.current !== libraryId) {
             setLoading(true);
             setStats(null);
@@ -123,7 +117,6 @@ export default function DashboardScreen() {
             setLoading(false);
           }
         } else if (!libraries || libraries.length === 0) {
-          // Failsafe if user has zero libraries
           setLoading(false);
         }
       };
@@ -135,7 +128,6 @@ export default function DashboardScreen() {
     }, [libraryId, libraries]),
   );
 
-  // App State listener for returning from background
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextAppState) => {
       if (nextAppState === "active" && libraryId) {
@@ -156,9 +148,9 @@ export default function DashboardScreen() {
     setAlertConfig({
       visible: true,
       type: "warning",
-      title: "Confirm Offline Payment",
+      title: "Confirm Payment",
       message: `Did ${studentName} pay you directly? This will instantly activate their seat and log the revenue.`,
-      primaryButtonText: "Mark as Paid",
+      primaryButtonText: "Yes, Activate Seat",
       secondaryButtonText: "Cancel",
       onPrimaryPress: async () => {
         try {
@@ -460,6 +452,7 @@ export default function DashboardScreen() {
                   pointerEvents={isLocked ? "none" : "auto"}
                   className={isLocked ? "opacity-50" : ""}
                 >
+                  {/* --- PENDING NEW REQUESTS --- */}
                   {stats.pendingRequests.length > 0 && (
                     <View className="flex-row justify-between">
                       <Text className="text-lg font-m-bold px-1 text-textDark mb-4">
@@ -531,6 +524,7 @@ export default function DashboardScreen() {
                     </Pressable>
                   ))}
 
+                  {/* --- AWAITING PAYMENT --- */}
                   {stats.awaitingPayment.length > 0 && (
                     <View className="flex-row items-center justify-between">
                       <Text className="text-lg font-m-bold px-1 text-textDark mb-4 mt-6">
@@ -552,69 +546,95 @@ export default function DashboardScreen() {
                       </Text>
                     </View>
                   )}
-                  {stats.awaitingPayment.map((req) => (
-                    <View
-                      key={req.id}
-                      className="bg-white p-4 rounded-2xl mb-3 border border-borderLight active:opacity-70"
-                    >
-                      <View className="flex-row items-center mb-2">
-                        <Avatar
-                          src={req.student_photo}
-                          name={req.student_name}
-                          size={40}
-                        />
-                        <View className="flex-1">
-                          <Text className="font-m-bold text-textDark text-lg">
-                            {req.student_name}
-                          </Text>
+                  {stats.awaitingPayment.map((req) => {
+                    const hasStudentClaimed = !!req.payment_claimed_at;
+
+                    return (
+                      <View
+                        key={req.id}
+                        className={`p-4 rounded-2xl mb-3 border active:opacity-70 ${
+                          hasStudentClaimed
+                            ? "bg-yellow-50/30 border-yellow-200" // Slight highlight for claimed payments
+                            : "bg-white border-borderLight"
+                        }`}
+                      >
+                        <View className="flex-row items-center mb-2">
+                          <Avatar
+                            src={req.student_photo}
+                            name={req.student_name}
+                            size={40}
+                          />
+                          <View className="flex-1">
+                            <Text className="font-m-bold text-textDark text-lg">
+                              {req.student_name}
+                            </Text>
+                          </View>
                         </View>
-                      </View>
 
-                      <View className="flex-row flex-wrap gap-1 mt-1">
-                        <Chip label={req.shift} />
-                        <Chip label={req.amenity} />
-                        <Chip label={req.reservation} />
-                      </View>
-                      <Text className="text-sm font-m text-textLight mt-1">
-                        Approved {req.start_date}
-                      </Text>
-
-                      <View className="mt-3 bg-brandAccent/10 py-2 px-3 rounded-lg flex-row items-center mb-3">
-                        <Ionicons
-                          name="time-outline"
-                          size={16}
-                          color={COLORS.brandAccent}
-                          className="mr-2"
-                        />
-                        <Text className="font-m-bold text-brandAccent ml-2 text-sm flex-1">
-                          Waiting for Student to Pay
+                        <View className="flex-row flex-wrap gap-1 mt-1">
+                          <Chip label={req.shift} />
+                          <Chip label={req.amenity} />
+                          <Chip label={req.reservation} />
+                        </View>
+                        <Text className="text-sm font-m text-textLight mt-1">
+                          Approved {req.start_date}
                         </Text>
-                      </View>
 
-                      <View className="flex-row mt-1">
-                        <View className="flex-1 mr-2">
-                          <Button
-                            title="View Profile"
-                            variant="outline"
-                            className="py-1 w-full"
-                            onPress={() =>
-                              router.push(`/user/${req.student_id}`)
-                            }
-                          />
-                        </View>
-                        <View className="flex-1 ml-2">
-                          <Button
-                            title="Mark as Paid"
-                            variant="primary"
-                            className="py-2 w-full"
-                            onPress={() =>
-                              handleMarkAsPaid(req.id, req.student_name)
-                            }
-                          />
+                        {/* 📌 THE NEW DYNAMIC BANNER */}
+                        {hasStudentClaimed ? (
+                          <View className="mt-3 bg-yellow-100 border border-yellow-300 py-2 px-3 rounded-lg flex-row items-center mb-3">
+                            <Ionicons
+                              name="shield-checkmark"
+                              size={16}
+                              color="#A16207"
+                              className="mr-2"
+                            />
+                            <Text className="font-m-bold text-yellow-800 ml-2 text-sm flex-1">
+                              Student claims they paid. Confirm to activate
+                              their account.
+                            </Text>
+                          </View>
+                        ) : (
+                          <View className="mt-3 bg-brandAccent/10 py-2 px-3 rounded-lg flex-row items-center mb-3">
+                            <Ionicons
+                              name="time-outline"
+                              size={16}
+                              color={COLORS.brandAccent}
+                              className="mr-2"
+                            />
+                            <Text className="font-m-bold text-brandAccent ml-2 text-sm flex-1">
+                              Waiting for Student to Pay
+                            </Text>
+                          </View>
+                        )}
+
+                        <View className="flex-row mt-1">
+                          <View className="flex-1 mr-2">
+                            <Button
+                              title="View Profile"
+                              variant="outline"
+                              className="py-1 w-full"
+                              onPress={() =>
+                                router.push(`/user/${req.student_id}`)
+                              }
+                            />
+                          </View>
+                          <View className="flex-1 ml-2">
+                            <Button
+                              title={
+                                hasStudentClaimed ? "Confirm" : "Mark as Paid"
+                              }
+                              variant="primary"
+                              className="py-2 w-full"
+                              onPress={() =>
+                                handleMarkAsPaid(req.id, req.student_name)
+                              }
+                            />
+                          </View>
                         </View>
                       </View>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
               </>
             )}
@@ -655,7 +675,6 @@ export default function DashboardScreen() {
   );
 }
 
-// 📌 Reusable Avatar Component
 function Avatar({ src, name, size = 40 }) {
   if (src) {
     return (

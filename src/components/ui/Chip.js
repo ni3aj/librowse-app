@@ -70,7 +70,7 @@ export default function Chip({ label }) {
 
   return (
     <View
-      className={`flex-row items-center rounded-full px-2 py-2 mb-1 ${theme.container}`}
+      className={`flex-row items-center rounded-full px-4 py-1 mb-1 ${theme.container}`}
     >
       <Ionicons
         name={config.icon}
@@ -78,9 +78,7 @@ export default function Chip({ label }) {
         color={theme.hex}
         style={{ marginRight: 4 }}
       />
-      <Text
-        className={`text-[9px] font-m-bold uppercase tracking-wider mt-0.5 ${theme.text}`}
-      >
+      <Text className={`text-[8px] font-m-bold uppercase mt-0.5 ${theme.text}`}>
         {config.display}
       </Text>
     </View>

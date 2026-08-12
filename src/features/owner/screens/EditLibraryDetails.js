@@ -21,7 +21,6 @@ import {
 import Toast from "react-native-toast-message";
 
 export default function EditLibraryDetailsScreen() {
-  // 📌 Removed `libraryStatus` from here to avoid stale global state issues
   const { libraryId, hasInventory, setLibraryStatus } = useLibraryStore();
 
   const [loading, setLoading] = useState(true);
@@ -32,11 +31,11 @@ export default function EditLibraryDetailsScreen() {
 
   const [availableAmenities, setAvailableAmenities] = useState([]);
 
-  // 📌 Added `status` to track the REAL status from the database
   const [formData, setFormData] = useState({
     name: "",
     city: "",
     address: "",
+    upi_id: "", // 📌 Added upi_id to the state
     amenities: [],
     photos: [],
     is_marketplace_visible: false,
@@ -71,13 +70,14 @@ export default function EditLibraryDetailsScreen() {
           name: lib.name || "",
           city: lib.city || "",
           address: lib.address || "",
+          upi_id: lib.upi_id || "", // 📌 Safely load existing UPI ID
           amenities:
             typeof lib.amenities === "string"
               ? JSON.parse(lib.amenities)
               : lib.amenities || [],
           photos: lib.photos || [],
           is_marketplace_visible: lib.is_marketplace_visible ?? false,
-          status: lib.status || "UNVERIFIED", // 📌 Save the true database status here
+          status: lib.status || "UNVERIFIED",
         });
       }
     } catch (error) {
@@ -101,6 +101,7 @@ export default function EditLibraryDetailsScreen() {
             name: "",
             city: "",
             address: "",
+            upi_id: "", // 📌 Reset
             amenities: [],
             photos: [],
             is_marketplace_visible: false,
@@ -210,11 +211,16 @@ export default function EditLibraryDetailsScreen() {
   };
 
   const handleSave = async () => {
-    if (!formData.name || !formData.city || !formData.address) {
+    if (
+      !formData.name ||
+      !formData.city ||
+      !formData.address ||
+      !formData.upi_id
+    ) {
       Toast.show({
         type: "error",
         text1: "Validation Error",
-        text2: "Name, City, and Address are required.",
+        text2: "Name, City, Address, and UPI ID are required.",
       });
       return;
     }
@@ -236,7 +242,6 @@ export default function EditLibraryDetailsScreen() {
 
       setSaveStatusText("Saving Details...");
 
-      // 📌 THE FIX: Base the upgrade check strictly on the database's actual status (formData.status)
       const isUpgrading =
         formData.status === "UNVERIFIED" &&
         finalPhotoUrls.length > 0 &&
@@ -256,7 +261,7 @@ export default function EditLibraryDetailsScreen() {
 
       if (res.data.success) {
         if (isUpgrading) {
-          setLibraryStatus(newStatus); // Safely update the global store only if we upgraded
+          setLibraryStatus(newStatus);
         }
 
         Toast.show({
@@ -349,7 +354,21 @@ export default function EditLibraryDetailsScreen() {
           multiline
         />
 
-        <Text className="text-lg font-m-bold text-textDark mb-4 mt-4">
+        {/* 📌 New UPI ID Input for Editing */}
+        <View className="mt-2 mb-4">
+          <Input
+            label="Payment UPI ID or Phone Number"
+            placeholder="e.g. 9876543210@ybl or 9876543210"
+            value={formData.upi_id}
+            onChangeText={(text) => setFormData({ ...formData, upi_id: text })}
+          />
+          <Text className="text-[11px] text-textLight mt-1 px-1 leading-4">
+            Students will see this when they choose "Pay Offline". You can use
+            your phone number or a specific business UPI ID.
+          </Text>
+        </View>
+
+        <Text className="text-lg font-m-bold text-textDark mb-4 mt-2">
           Amenities
         </Text>
         <View className="flex-row flex-wrap justify-between mb-6">

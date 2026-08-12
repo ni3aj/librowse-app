@@ -1,7 +1,7 @@
 import Header from "@/components/ui/Header";
-import { useLibraryStore } from "@/store/libraryStore"; // 📌 1. Imported the store
+import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useFocusEffect } from "expo-router"; // 📌 2. Imported useFocusEffect
+import { router, useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -49,7 +49,6 @@ const FILTER_OPTIONS = [
 ];
 
 export default function OwnerStudentsListScreen() {
-  // 📌 3. Extract libraryId from the global store instead of URL params
   const { libraryId } = useLibraryStore();
   const lastFetchedId = useRef(null);
 
@@ -59,7 +58,6 @@ export default function OwnerStudentsListScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
 
-  // 📌 4. Use useFocusEffect to react to dropdown changes and screen focus
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
@@ -67,7 +65,6 @@ export default function OwnerStudentsListScreen() {
       const fetchStudents = async () => {
         if (!libraryId) return;
 
-        // If the library was changed via dropdown, show the spinner and clear old data
         if (lastFetchedId.current !== libraryId) {
           setLoading(true);
           setStudents([]);
@@ -85,7 +82,7 @@ export default function OwnerStudentsListScreen() {
         } finally {
           if (isActive) {
             setLoading(false);
-            lastFetchedId.current = libraryId; // Mark this library as successfully fetched
+            lastFetchedId.current = libraryId;
           }
         }
       };
@@ -93,9 +90,9 @@ export default function OwnerStudentsListScreen() {
       fetchStudents();
 
       return () => {
-        isActive = false; // Cleanup to prevent memory leaks if the user navigates away mid-fetch
+        isActive = false;
       };
-    }, [libraryId]), // 📌 Dependency array listens to the global store
+    }, [libraryId]),
   );
 
   const formatExpiry = (dateStr) => {
@@ -127,10 +124,13 @@ export default function OwnerStudentsListScreen() {
 
   const renderStudent = ({ item }) => {
     const isActive = item.status === "ACTIVE";
-    const isPending =
-      item.status === "PENDING" || item.status === "PAYMENT_PENDING";
+    const isPending = item.status === "PENDING";
+    const isPaymentPending = item.status === "PAYMENT_PENDING";
     const isRejected = item.status === "REJECTED";
     const isExpired = item.status === "EXPIRED";
+
+    // 📌 The new flag check
+    const hasClaimedPayment = !!item.payment_claimed_at;
 
     let statusColor = "bg-gray-400";
     let textColor = "text-gray-500";
@@ -140,13 +140,19 @@ export default function OwnerStudentsListScreen() {
       statusColor = "bg-green-500";
       textColor = "text-green-600";
       statusText = `Valid till ${formatExpiry(item.end_date)}`;
-    } else if (item.status === "PAYMENT_PENDING") {
-      statusColor = "bg-brandAccent";
-      textColor = "text-brandAccent";
-      statusText = "Payment Pending";
-    } else if (item.status === "PENDING") {
-      statusColor = "bg-brandAccent";
-      textColor = "text-brandAccent";
+    } else if (isPaymentPending) {
+      if (hasClaimedPayment) {
+        statusColor = "bg-yellow-500";
+        textColor = "text-yellow-700";
+        statusText = "Payment Claimed";
+      } else {
+        statusColor = "bg-brandAccent";
+        textColor = "text-brandAccent";
+        statusText = "Awaiting Payment";
+      }
+    } else if (isPending) {
+      statusColor = "bg-blue-500";
+      textColor = "text-blue-600";
       statusText = "Pending Request";
     } else if (isRejected) {
       statusColor = "bg-red-500";
@@ -161,7 +167,11 @@ export default function OwnerStudentsListScreen() {
     return (
       <TouchableOpacity
         onPress={() => router.push(`/user/${item.user_id}`)}
-        className="bg-white p-4 rounded-2xl mb-3 border border-borderLight flex-row items-center"
+        className={`bg-white p-4 rounded-2xl mb-3 border flex-row items-center ${
+          hasClaimedPayment && isPaymentPending
+            ? "border-yellow-300 bg-yellow-50/20"
+            : "border-borderLight"
+        }`}
       >
         <Avatar src={item.profile_photo} name={item.full_name} />
 
