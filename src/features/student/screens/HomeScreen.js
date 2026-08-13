@@ -348,9 +348,15 @@ export default function HomeScreen() {
               <View className="p-5">
                 <View className="flex-row justify-between items-start mb-4">
                   <View className="flex-1 pr-4">
-                    <Text className="text-xl font-m-extra text-textDark leading-7 mb-1">
-                      {primary_booking.library_name}
-                    </Text>
+                    <TouchableOpacity
+                      onPress={() =>
+                        router.push(`/library/${primary_booking.library_id}`)
+                      }
+                    >
+                      <Text className="text-xl font-m-extra text-textDark leading-7 mb-1">
+                        {primary_booking.library_name}
+                      </Text>
+                    </TouchableOpacity>
                     <View className="flex-row flex-wrap gap-2 mt-1">
                       <Chip label={primary_booking.shift} />
                       <Chip label={primary_booking.amenity} />
@@ -521,9 +527,9 @@ export default function HomeScreen() {
             {needs_review && (
               <TouchableOpacity
                 onPress={() =>
-                  router.push(`/review/${primary_booking.library_id}`)
+                  router.push(`/library/${primary_booking.library_id}`)
                 }
-                className="bg-[#FDF4FF] border border-[#F5D0FE] p-4 rounded-2xl mb-6 flex-row items-center"
+                className="bg-[#FDF4FF] border border-[#F5D0FE] p-4 rounded-2xl flex-row items-center"
               >
                 <View className="bg-[#FAE8FF] p-2.5 rounded-full mr-3">
                   <Ionicons name="star" size={20} color="#D946EF" />
@@ -543,7 +549,7 @@ export default function HomeScreen() {
             {/* Notice Board */}
             {latest_announcements && latest_announcements.length > 0 && (
               <View>
-                <Text className="text-sm font-m-bold text-textLight uppercase tracking-wider mb-3 ml-1">
+                <Text className="text-sm font-m-bold text-textLight uppercase tracking-wider mb-3 ml-1 mt-6">
                   Notice Board
                 </Text>
                 {latest_announcements.map((announcement, index) => (

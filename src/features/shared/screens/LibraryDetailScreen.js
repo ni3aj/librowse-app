@@ -1130,7 +1130,7 @@ export default function LibraryDetailScreen() {
         onRequestClose={() => setIsChangeModalVisible(false)}
       >
         <View className="flex-1 justify-end bg-black/50">
-          <View className="bg-background rounded-t-3xl p-6 pb-10">
+          <View className="bg-background rounded-t-3xl p-6 pb-20">
             <View className="flex-row justify-between items-center mb-2">
               <Text className="text-xl font-m-bold text-textDark">
                 Change Seat for Next Month
