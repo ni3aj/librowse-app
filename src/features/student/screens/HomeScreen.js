@@ -45,12 +45,32 @@ function Avatar({ src, name, size = 50 }) {
   );
 }
 
+// 📌 Helper to format "08:00:00" to "8:00 AM"
+const formatTime = (timeStr) => {
+  if (!timeStr) return "";
+  try {
+    const [hourString, minute] = timeStr.split(":");
+    const hour = parseInt(hourString, 10);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const formattedHour = hour % 12 || 12;
+    return `${formattedHour}:${minute} ${ampm}`;
+  } catch (e) {
+    return timeStr;
+  }
+};
+
+// 📌 Helper to format "700.00" to "₹700/mo"
+const formatPrice = (priceStr) => {
+  if (!priceStr) return "";
+  return `₹${parseFloat(priceStr).toLocaleString("en-IN")}`;
+};
+
 export default function HomeScreen() {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false); // 📌 Added cancelling state
+  const [isCancelling, setIsCancelling] = useState(false);
   const { setHasActiveBooking } = useLibraryStore();
 
   const fetchDashboard = async () => {
@@ -141,7 +161,6 @@ export default function HomeScreen() {
     );
   };
 
-  // 📌 Added handleCancel logic directly to dashboard
   const handleCancel = () => {
     Alert.alert(
       "Cancel Request",
@@ -163,7 +182,7 @@ export default function HomeScreen() {
                   text1: "Cancelled",
                   text2: "Your request has been cancelled.",
                 });
-                fetchDashboard(); // Instantly clears the card
+                fetchDashboard();
               }
             } catch (error) {
               Toast.show({
@@ -308,8 +327,11 @@ export default function HomeScreen() {
                       color="#CA8A04"
                       className="mr-2"
                     />
-                    <Text className="text-yellow-800 font-m-bold text-sm">
+                    <Text className="flex-1 text-yellow-800 font-m-bold text-sm">
                       Payment Verification Pending
+                    </Text>
+                    <Text className="text-base font-m-bold text-sm text-dark">
+                      {formatPrice(primary_booking.price)}
                     </Text>
                   </View>
                 )}
@@ -323,8 +345,11 @@ export default function HomeScreen() {
                       color="#059669"
                       className="mr-2"
                     />
-                    <Text className="text-emerald-800 font-m-bold text-sm">
+                    <Text className="flex-1 text-emerald-800 font-m-bold text-sm">
                       Seat Active
+                    </Text>
+                    <Text className="text-base font-m-bold text-sm text-dark">
+                      {formatPrice(primary_booking.price)}
                     </Text>
                   </View>
                 )}
@@ -353,14 +378,25 @@ export default function HomeScreen() {
                         router.push(`/library/${primary_booking.library_id}`)
                       }
                     >
-                      <Text className="text-xl font-m-extra text-textDark leading-7 mb-1">
+                      <Text className="text-xl font-m-extra text-textDark leading-6 mb-0.5">
                         {primary_booking.library_name}
                       </Text>
                     </TouchableOpacity>
-                    <View className="flex-row flex-wrap gap-2 mt-1">
-                      <Chip label={primary_booking.shift} />
-                      <Chip label={primary_booking.amenity} />
-                      <Chip label={primary_booking.reservation} />
+
+                    <View className="flex-row flex-wrap gap-1 mt-1">
+                      <Chip label={primary_booking.shift?.replace("_", " ")} />
+                      <Chip
+                        label={primary_booking.amenity?.replace("_", " ")}
+                      />
+                      <Chip
+                        label={primary_booking.reservation?.replace("_", " ")}
+                      />
+                      {primary_booking.start_time &&
+                        primary_booking.end_time && (
+                          <Chip
+                            label={`${formatTime(primary_booking.start_time)} - ${formatTime(primary_booking.end_time)}`}
+                          />
+                        )}
                     </View>
                   </View>
 
@@ -392,7 +428,7 @@ export default function HomeScreen() {
                       <Text className="text-textDark font-m text-sm leading-5 mb-4">
                         Your seat is approved! Please pay{" "}
                         <Text className="font-m-bold text-brand">
-                          ₹{primary_booking.price}
+                          ₹{parseInt(primary_booking.price)}
                         </Text>{" "}
                         directly to the library via Cash or UPI.
                       </Text>
@@ -418,7 +454,7 @@ export default function HomeScreen() {
                   )}
 
                 {primary_booking.status === "ACTIVE" && (
-                  <View className="mt-2">
+                  <View>
                     <View className="flex-row justify-between items-end mb-2">
                       <Text className="text-xs font-m text-textLight">
                         Started {formatCleanDate(primary_booking.start_date)}
@@ -497,7 +533,6 @@ export default function HomeScreen() {
                   </TouchableOpacity>
                 )}
 
-                {/* 📌 Added Cancel Button when Status is PENDING */}
                 {primary_booking.status === "PENDING" && (
                   <TouchableOpacity
                     onPress={handleCancel}
@@ -612,13 +647,13 @@ export default function HomeScreen() {
               <View>
                 {future_enrollments.length > 0 && (
                   <View className="mb-2">
-                    <Text className="text-xs font-m-bold text-textLight mb-2 px-1 ml-1">
-                      Upcoming
+                    <Text className="text-xs font-m-bold text-textLight mb-2 px-1">
+                      Future Enrollment
                     </Text>
                     {future_enrollments.map((booking, index) => (
                       <View
                         key={`future-${index}`}
-                        className="bg-white border border-borderLight rounded-2xl px-4 pt-4 pb-2 mb-3"
+                        className="bg-white border border-borderLight rounded-2xl px-4 pt-4 pb-3 mb-3"
                       >
                         <View className="flex-row justify-between items-center mb-1">
                           <Text
@@ -630,16 +665,30 @@ export default function HomeScreen() {
                           <Text className="text-[10px] font-m-bold uppercase px-2 py-0.5 rounded border text-blue-600 bg-blue-50 border-blue-200">
                             UPCOMING
                           </Text>
+                          <Text className="text-[10px] ml-1 font-m-bold uppercase px-2 py-0.5 rounded border text-textDark bg-surface border-borderLight">
+                            {formatPrice(booking.price)}
+                          </Text>
                         </View>
-                        <Text className="text-xs font-m text-textLight mt-1">
-                          Starts {formatCleanDate(booking.start_date)}
-                        </Text>
-                        <View className="flex-row flex-wrap gap-2 mt-2">
-                          <Chip label={booking.shift} />
-                          <Chip label={booking.amenity} />
-                          <Chip label={booking.reservation} />
+
+                        <View className="flex-row justify-between items-center mb-3">
+                          <Text className="text-xs font-m text-textLight">
+                            Starts {formatCleanDate(booking.start_date)}
+                          </Text>
+                        </View>
+
+                        <View className="flex-row flex-wrap gap-1 mt-1">
+                          <Chip label={booking.shift?.replace("_", " ")} />
+                          <Chip label={booking.amenity?.replace("_", " ")} />
+                          <Chip
+                            label={booking.reservation?.replace("_", " ")}
+                          />
                           {booking.assigned_seat && (
                             <Chip label={booking.assigned_seat} />
+                          )}
+                          {booking.start_time && booking.end_time && (
+                            <Chip
+                              label={`${formatTime(booking.start_time)} - ${formatTime(booking.end_time)}`}
+                            />
                           )}
                         </View>
                       </View>
@@ -649,34 +698,76 @@ export default function HomeScreen() {
 
                 {rejected_enrollments.length > 0 && (
                   <View className="mb-4">
-                    <Text className="text-xs font-m-bold text-textLight mb-2 px-1 ml-1">
-                      Rejected Requests
+                    <Text className="text-xs font-m-bold text-textLight mb-2 px-1">
+                      {rejected_enrollments.some((b) => {
+                        const start = new Date(b.start_date);
+                        start.setHours(0, 0, 0, 0);
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        return start > today;
+                      })
+                        ? "Rejected Future Requests"
+                        : "Rejected Requests"}
                     </Text>
-                    {rejected_enrollments.map((booking, index) => (
-                      <View
-                        key={`rejected-${index}`}
-                        className="bg-white border border-red-100 rounded-2xl p-4 mb-3 opacity-80"
-                      >
-                        <View className="flex-row justify-between items-center mb-1">
-                          <Text
-                            className="font-m-bold text-textDark text-base flex-1"
-                            numberOfLines={1}
-                          >
-                            {booking.library_name}
-                          </Text>
-                          <Text className="text-[10px] font-m-bold uppercase px-2 py-0.5 rounded border text-red-600 bg-red-50 border-red-200">
-                            REJECTED
-                          </Text>
+                    {rejected_enrollments.map((booking, index) => {
+                      const startDate = new Date(booking.start_date);
+                      startDate.setHours(0, 0, 0, 0);
+                      const todayDate = new Date();
+                      todayDate.setHours(0, 0, 0, 0);
+                      const isFuture = startDate > todayDate;
+
+                      return (
+                        <View
+                          key={`rejected-${index}`}
+                          className="bg-white border border-red-100 rounded-2xl p-4 mb-3 opacity-80"
+                        >
+                          <View className="flex-row justify-between items-center mb-1">
+                            <Text
+                              className="font-m-bold text-textDark text-base flex-1"
+                              numberOfLines={1}
+                            >
+                              {booking.library_name}
+                            </Text>
+                            <Text className="text-[10px] font-m-bold uppercase px-2 py-0.5 rounded border text-red-600 bg-red-50 border-red-200">
+                              REJECTED
+                            </Text>
+                          </View>
+
+                          <View className="flex-row justify-between items-center mb-4">
+                            <Text className="text-xs font-m text-textLight flex-1">
+                              Was going to start on{" "}
+                              {formatCleanDate(booking.start_date)}
+                            </Text>
+                          </View>
+
+                          <View className="flex-row flex-wrap gap-2 mb-3">
+                            <Chip label={booking.shift?.replace("_", " ")} />
+                            <Chip label={booking.amenity?.replace("_", " ")} />
+                            <Chip
+                              label={booking.reservation?.replace("_", " ")}
+                            />
+                            {booking.assigned_seat && (
+                              <Chip label={booking.assigned_seat} />
+                            )}
+                            {booking.start_time && booking.end_time && (
+                              <Chip
+                                label={`${formatTime(booking.start_time)} - ${formatTime(booking.end_time)}`}
+                              />
+                            )}
+                          </View>
+
+                          <View className="flex-row pt-2 border-t border-red-50">
+                            <Text className="flex-1 text-xs font-m text-red-600 mt-1">
+                              Rejected on{" "}
+                              {formatCleanDate(booking.updated_at, true)}
+                            </Text>
+                            <Text className="text-sm font-m-bold text-textDark">
+                              {formatPrice(booking.price)}
+                            </Text>
+                          </View>
                         </View>
-                        <Text className="text-xs font-m text-textLight mt-1">
-                          {booking.shift.replace("_", " ")} •{" "}
-                          {booking.amenity.replace("_", " ")} •{" "}
-                          {booking.reservation.replace("_", " ")}{" "}
-                          {booking.assigned_seat &&
-                            `(${booking.assigned_seat})`}
-                        </Text>
-                      </View>
-                    ))}
+                      );
+                    })}
                   </View>
                 )}
 
@@ -703,15 +794,20 @@ export default function HomeScreen() {
                               : booking.status}
                           </Text>
                         </View>
-                        <Text
-                          className="text-[12px] text-xs text-textLight"
-                          numberOfLines={1}
-                        >
-                          {booking.amenity} / {booking.shift} /{" "}
-                          {booking.reservation}{" "}
-                          {booking.assigned_seat &&
-                            `(${booking.assigned_seat})`}
-                        </Text>
+
+                        <View className="flex-row justify-between items-center mt-1">
+                          <Text
+                            className="text-[12px] font-m text-textLight flex-1 pr-2"
+                            numberOfLines={1}
+                          >
+                            {booking.amenity?.replace("_", " ")} /{" "}
+                            {booking.shift?.replace("_", " ")} /{" "}
+                            {booking.reservation?.replace("_", " ")}
+                            {booking.assigned_seat &&
+                              ` (${booking.assigned_seat})`}
+                          </Text>
+                        </View>
+
                         <Text className="text-xs font-m text-textLight mt-1">
                           {booking.status === "EXPIRED" && (
                             <>
@@ -725,7 +821,7 @@ export default function HomeScreen() {
                             <>
                               Cancelled on{" "}
                               {booking.updated_at
-                                ? formatCleanDate(booking.updated_at)
+                                ? formatCleanDate(booking.updated_at, true)
                                 : "N/A"}
                             </>
                           )}
