@@ -3,6 +3,7 @@ import { useAuthStore } from "@/store/authStore";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
+import { router } from "expo-router"; // 📌 1. Imported router for navigation
 import { useEffect } from "react";
 
 Notifications.setNotificationHandler({
@@ -16,6 +17,7 @@ Notifications.setNotificationHandler({
 export const usePushNotifications = () => {
   const { userId } = useAuthStore();
 
+  // --- EFFECT 1: Register and Save Token ---
   useEffect(() => {
     const registerForPushNotificationsAsync = async () => {
       if (!Device.isDevice) return;
@@ -58,4 +60,26 @@ export const usePushNotifications = () => {
 
     registerForPushNotificationsAsync();
   }, [userId]);
+
+  // --- EFFECT 2: Handle Notification Taps (Navigation) ---
+  useEffect(() => {
+    // This listener fires whenever a user TAPS a notification (Background, KILLED, or Foreground)
+    const responseListener =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data;
+
+        // 📌 2. If the payload contains a "screen", navigate to it!
+        if (data && data.screen) {
+          // A slight 300ms delay ensures Expo Router has fully mounted before trying to push
+          setTimeout(() => {
+            router.push(data.screen);
+          }, 300);
+        }
+      });
+
+    // Cleanup the listener when the hook unmounts to prevent memory leaks
+    return () => {
+      Notifications.removeNotificationSubscription(responseListener);
+    };
+  }, []);
 };
