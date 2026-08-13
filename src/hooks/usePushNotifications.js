@@ -79,7 +79,9 @@ export const usePushNotifications = () => {
 
     // Cleanup the listener when the hook unmounts to prevent memory leaks
     return () => {
-      Notifications.removeNotificationSubscription(responseListener);
+      if (responseListener) {
+        responseListener.remove();
+      }
     };
   }, []);
 };
