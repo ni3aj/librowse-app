@@ -46,6 +46,7 @@ const FILTER_OPTIONS = [
   { label: "Awaiting Payment", value: "PAYMENT_PENDING" },
   { label: "Expired", value: "EXPIRED" },
   { label: "Rejected", value: "REJECTED" },
+  { label: "Cancelled", value: "CANCELLED" }, // 📌 Added CANCELLED to filters
 ];
 
 export default function OwnerStudentsListScreen() {
@@ -128,8 +129,9 @@ export default function OwnerStudentsListScreen() {
     const isPaymentPending = item.status === "PAYMENT_PENDING";
     const isRejected = item.status === "REJECTED";
     const isExpired = item.status === "EXPIRED";
+    const isCancelled = item.status === "CANCELLED"; // 📌 Added flag
 
-    // 📌 The new flag check
+    // The new flag check
     const hasClaimedPayment = !!item.payment_claimed_at;
 
     let statusColor = "bg-gray-400";
@@ -162,6 +164,11 @@ export default function OwnerStudentsListScreen() {
       statusColor = "bg-gray-400";
       textColor = "text-gray-500";
       statusText = `Expired on ${formatExpiry(item.end_date)}`;
+    } else if (isCancelled) {
+      // 📌 Added rendering styles for Cancelled
+      statusColor = "bg-gray-400";
+      textColor = "text-gray-500";
+      statusText = "Cancelled";
     }
 
     return (

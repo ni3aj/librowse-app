@@ -6,6 +6,7 @@ import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
 import { useAuthStore } from "@/store/authStore";
 import { useLibraryStore } from "@/store/libraryStore";
+import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -527,11 +528,11 @@ export default function DashboardScreen() {
                   {/* --- AWAITING PAYMENT --- */}
                   {stats.awaitingPayment.length > 0 && (
                     <View className="flex-row items-center justify-between">
-                      <Text className="text-lg font-m-bold px-1 text-textDark mb-4 mt-6">
+                      <Text className="text-lg font-m-bold px-1 text-textDark mb-4 mt-2">
                         Awaiting Payment
                       </Text>
                       <Text
-                        className="text-sm font-m-bold px-1 text-textDark mb-4 mt-6"
+                        className="text-sm font-m-bold px-1 text-textDark mb-4 mt-2"
                         onPress={
                           isLocked
                             ? handleLockedClick
@@ -575,12 +576,14 @@ export default function DashboardScreen() {
                           <Chip label={req.shift} />
                           <Chip label={req.amenity} />
                           <Chip label={req.reservation} />
+                          {req.assigned_seat && (
+                            <Chip label={req.assigned_seat} type="SEAT" />
+                          )}
                         </View>
                         <Text className="text-sm font-m text-textLight mt-1">
-                          Approved {req.start_date}
+                          Approved on {formatCleanDate(req.start_date)}
                         </Text>
 
-                        {/* 📌 THE NEW DYNAMIC BANNER */}
                         {hasStudentClaimed ? (
                           <View className="mt-3 bg-yellow-100 border border-yellow-300 py-2 px-3 rounded-lg flex-row items-center mb-3">
                             <Ionicons

@@ -1,4 +1,5 @@
 import apiClient from "@/api/client";
+import PaymentModal from "@/components/student/PaymentModal";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import Header from "@/components/ui/Header";
@@ -47,7 +48,6 @@ function Avatar({ src, name, size = 50 }) {
   );
 }
 
-// 📌 Helper to format "08:00:00" to "8:00 AM"
 const formatTime = (timeStr) => {
   if (!timeStr) return "";
   try {
@@ -61,7 +61,6 @@ const formatTime = (timeStr) => {
   }
 };
 
-// 📌 Helper to format "700.00" to "₹700/mo"
 const formatPrice = (priceStr) => {
   if (!priceStr) return "";
   return `₹${parseFloat(priceStr).toLocaleString("en-IN")}`;
@@ -73,15 +72,25 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
-  const { setHasActiveBooking } = useLibraryStore();
+
+  const { libraryId, setHasActiveBooking } = useLibraryStore();
 
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [receiptEmail, setReceiptEmail] = useState("");
   const [isSendingReceipt, setIsSendingReceipt] = useState(false);
+  const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
 
   const fetchDashboard = async () => {
+    if (!libraryId) {
+      setLoading(false);
+      setRefreshing(false);
+      setDashboardData(null);
+      return;
+    }
+
     try {
-      const response = await apiClient.get("/student/dashboard");
+      const response = await apiClient.get(`/student/dashboard/${libraryId}`);
+
       if (response.data.success) {
         setDashboardData(response.data.data);
         const isActive =
@@ -108,7 +117,7 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchDashboard();
-    }, []),
+    }, [libraryId]),
   );
 
   const onRefresh = () => {
@@ -131,40 +140,6 @@ export default function HomeScreen() {
         `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
       );
     });
-  };
-
-  const handleNotifyPayment = (enrollmentId) => {
-    Alert.alert(
-      "Confirm Offline Payment",
-      "Please pay the library owner directly via Cash or UPI first. Have you completed the payment?",
-      [
-        { text: "Not Yet", style: "cancel" },
-        {
-          text: "Yes, I've Paid",
-          onPress: async () => {
-            try {
-              const res = await apiClient.post(
-                `/student/enrollments/${enrollmentId}/notify-payment`,
-              );
-              if (res.data.success) {
-                Toast.show({
-                  type: "success",
-                  text1: "Owner Notified 🔔",
-                  text2: "Waiting for their confirmation.",
-                });
-                fetchDashboard();
-              }
-            } catch (error) {
-              Toast.show({
-                type: "error",
-                text1: "Error",
-                text2: error.response?.data?.error || "Failed to notify owner.",
-              });
-            }
-          },
-        },
-      ],
-    );
   };
 
   const handleCancel = () => {
@@ -210,7 +185,6 @@ export default function HomeScreen() {
     setShowReceiptModal(true);
   };
 
-  // 📌 2. Trigger API to send PDF to Email
   const sendReceiptToEmail = async () => {
     if (!receiptEmail || !receiptEmail.includes("@")) {
       Toast.show({
@@ -329,7 +303,6 @@ export default function HomeScreen() {
               Current Booking
             </Text>
             <View className="bg-surface border border-borderLight rounded-3xl mb-6 shadow-sm shadow-black/5 overflow-hidden">
-              {/* --- DYNAMIC CARD HEADERS --- */}
               {primary_booking.status === "PENDING" && (
                 <View className="bg-blue-50 px-5 py-3 border-b border-blue-100 flex-row distance-between items-center">
                   <Ionicons
@@ -416,7 +389,6 @@ export default function HomeScreen() {
                   </View>
                 )}
 
-              {/* --- CARD BODY --- */}
               <View className="p-5">
                 <View className="flex-row justify-between items-start mb-4">
                   <View className="flex-1 pr-4">
@@ -455,7 +427,6 @@ export default function HomeScreen() {
                   )}
                 </View>
 
-                {/* --- DYNAMIC CARD MESSAGES & BUTTONS --- */}
                 {primary_booking.status === "PENDING" && (
                   <View className="mt-1 bg-gray-50 p-3 rounded-xl border border-borderLight">
                     <Text className="text-textLight font-m text-sm leading-5">
@@ -476,12 +447,10 @@ export default function HomeScreen() {
                         directly to the library via Cash or UPI.
                       </Text>
                       <Button
-                        title="I Have Paid (Notify Owner)"
+                        title="Complete Payment"
                         variant="primary"
                         className="py-3.5"
-                        onPress={() =>
-                          handleNotifyPayment(primary_booking.enrollment_id)
-                        }
+                        onPress={() => setIsPaymentModalVisible(true)}
                       />
                     </View>
                   )}
@@ -547,7 +516,6 @@ export default function HomeScreen() {
                 )}
               </View>
 
-              {/* --- CARD FOOTER (ALWAYS VISIBLE) --- */}
               <View className="flex-row border-t border-borderLight bg-gray-50/50">
                 <TouchableOpacity
                   onPress={() =>
@@ -619,7 +587,6 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            {/* Rate Experience */}
             {needs_review && (
               <TouchableOpacity
                 onPress={() =>
@@ -642,7 +609,6 @@ export default function HomeScreen() {
               </TouchableOpacity>
             )}
 
-            {/* Notice Board */}
             {latest_announcements && latest_announcements.length > 0 && (
               <View>
                 <Text className="text-sm font-m-bold text-textLight uppercase tracking-wider mb-3 ml-1 mt-6">
@@ -687,7 +653,6 @@ export default function HomeScreen() {
           </>
         )}
 
-        {/* Other Enrollments */}
         {totalSecondaryBookings > 0 && (
           <View className="mb-4">
             <TouchableOpacity
@@ -938,6 +903,14 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
+      <PaymentModal
+        visible={isPaymentModalVisible}
+        onClose={() => setIsPaymentModalVisible(false)}
+        price={primary_booking?.price}
+        ownerPhone={primary_booking?.owner_phone}
+        enrollmentId={primary_booking?.enrollment_id}
+        onSuccess={fetchDashboard}
+      />
     </View>
   );
 }
