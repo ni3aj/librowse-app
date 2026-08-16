@@ -15,7 +15,7 @@ const CHIP_MAPPING = {
   NIGHT: { display: "Night", icon: "moon-outline", variant: "purple" },
 };
 
-export default function Chip({ label }) {
+export default function Chip({ label, type }) {
   if (!label) return null;
 
   const styles = {
@@ -51,7 +51,7 @@ export default function Chip({ label }) {
   let config = CHIP_MAPPING[rawLabel];
 
   if (!config) {
-    if (rawLabel.includes("SEAT")) {
+    if (type === "SEAT") {
       config = {
         display: label.replace("_", " "),
         icon: "bed-outline",

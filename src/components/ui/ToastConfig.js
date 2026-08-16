@@ -31,7 +31,7 @@ const createToast =
   );
 
 export const toastConfig = {
-  success: createToast(BaseToast, "#566e1d"),
-  error: createToast(ErrorToast, "#ef233c"),
-  info: createToast(BaseToast, "#4361ee"),
+  success: createToast(BaseToast, "#28a745"),
+  error: createToast(ErrorToast, "#DC3545"),
+  info: createToast(BaseToast, "#3498db"),
 };

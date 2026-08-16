@@ -13,10 +13,12 @@ import {
   Alert,
   Image,
   Linking,
+  Modal,
   Platform,
   RefreshControl,
   ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -72,6 +74,10 @@ export default function HomeScreen() {
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const { setHasActiveBooking } = useLibraryStore();
+
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [receiptEmail, setReceiptEmail] = useState("");
+  const [isSendingReceipt, setIsSendingReceipt] = useState(false);
 
   const fetchDashboard = async () => {
     try {
@@ -199,6 +205,47 @@ export default function HomeScreen() {
     );
   };
 
+  const openReceiptModal = () => {
+    setReceiptEmail(user?.email || "");
+    setShowReceiptModal(true);
+  };
+
+  // 📌 2. Trigger API to send PDF to Email
+  const sendReceiptToEmail = async () => {
+    if (!receiptEmail || !receiptEmail.includes("@")) {
+      Toast.show({
+        type: "error",
+        text1: "Please enter a valid email address.",
+      });
+      return;
+    }
+
+    setIsSendingReceipt(true);
+    try {
+      const response = await apiClient.post(
+        `/student/enrollments/${primary_booking.enrollment_id}/receipt`,
+        { email: receiptEmail.trim() },
+      );
+
+      if (response.data.success) {
+        Toast.show({
+          type: "success",
+          text1: "Receipt Sent!",
+          text2: `A copy was securely emailed to ${receiptEmail}`,
+        });
+        setShowReceiptModal(false);
+      }
+    } catch (error) {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error.response?.data?.error || "Failed to send receipt.",
+      });
+    } finally {
+      setIsSendingReceipt(false);
+    }
+  };
+
   if (loading) {
     return (
       <View className="flex-1 bg-background justify-center items-center">
@@ -256,7 +303,7 @@ export default function HomeScreen() {
         }
       >
         {!primary_booking ? (
-          <View className="items-center justify-center mb-10">
+          <View className="items-center justify-center mb-4">
             <View className="bg-surface p-8 rounded-[32px] w-full items-center border border-borderLight shadow-sm shadow-black/5">
               <View className="w-20 h-20 bg-white rounded-full items-center justify-center mb-6">
                 <Text className="text-4xl">📚</Text>
@@ -384,13 +431,9 @@ export default function HomeScreen() {
                     </TouchableOpacity>
 
                     <View className="flex-row flex-wrap gap-1 mt-1">
-                      <Chip label={primary_booking.shift?.replace("_", " ")} />
-                      <Chip
-                        label={primary_booking.amenity?.replace("_", " ")}
-                      />
-                      <Chip
-                        label={primary_booking.reservation?.replace("_", " ")}
-                      />
+                      <Chip label={primary_booking.shift} />
+                      <Chip label={primary_booking.amenity} />
+                      <Chip label={primary_booking.reservation} />
                       {primary_booking.start_time &&
                         primary_booking.end_time && (
                           <Chip
@@ -472,16 +515,34 @@ export default function HomeScreen() {
                       />
                     </View>
 
-                    {primary_booking.days_remaining <= 5 && (
+                    <View className="flex-row gap-3 mt-5">
                       <Button
-                        title="Renew Seat"
-                        variant="primary"
-                        className="mt-5 py-3.5"
-                        onPress={() =>
-                          router.push(`/renew/${primary_booking.enrollment_id}`)
+                        title="Get Receipt"
+                        variant="outline"
+                        icon={
+                          <Ionicons
+                            name="mail-outline"
+                            size={18}
+                            color={COLORS.brand}
+                          />
                         }
+                        className="flex-1 py-3.5"
+                        onPress={openReceiptModal}
                       />
-                    )}
+
+                      {primary_booking.days_remaining <= 5 && (
+                        <Button
+                          title="Renew Seat"
+                          variant="primary"
+                          className="flex-1 py-3.5"
+                          onPress={() =>
+                            router.push(
+                              `/renew/${primary_booking.enrollment_id}`,
+                            )
+                          }
+                        />
+                      )}
+                    </View>
                   </View>
                 )}
               </View>
@@ -677,11 +738,9 @@ export default function HomeScreen() {
                         </View>
 
                         <View className="flex-row flex-wrap gap-1 mt-1">
-                          <Chip label={booking.shift?.replace("_", " ")} />
-                          <Chip label={booking.amenity?.replace("_", " ")} />
-                          <Chip
-                            label={booking.reservation?.replace("_", " ")}
-                          />
+                          <Chip label={booking.shift} />
+                          <Chip label={booking.amenity} />
+                          <Chip label={booking.reservation} />
                           {booking.assigned_seat && (
                             <Chip label={booking.assigned_seat} />
                           )}
@@ -741,11 +800,9 @@ export default function HomeScreen() {
                           </View>
 
                           <View className="flex-row flex-wrap gap-2 mb-3">
-                            <Chip label={booking.shift?.replace("_", " ")} />
-                            <Chip label={booking.amenity?.replace("_", " ")} />
-                            <Chip
-                              label={booking.reservation?.replace("_", " ")}
-                            />
+                            <Chip label={booking.shift} />
+                            <Chip label={booking.amenity} />
+                            <Chip label={booking.reservation} />
                             {booking.assigned_seat && (
                               <Chip label={booking.assigned_seat} />
                             )}
@@ -800,9 +857,8 @@ export default function HomeScreen() {
                             className="text-[12px] font-m text-textLight flex-1 pr-2"
                             numberOfLines={1}
                           >
-                            {booking.amenity?.replace("_", " ")} /{" "}
-                            {booking.shift?.replace("_", " ")} /{" "}
-                            {booking.reservation?.replace("_", " ")}
+                            {booking.amenity} / {booking.shift} /{" "}
+                            {booking.reservation}
                             {booking.assigned_seat &&
                               ` (${booking.assigned_seat})`}
                           </Text>
@@ -836,6 +892,52 @@ export default function HomeScreen() {
         )}
         <View className="h-8" />
       </ScrollView>
+
+      <Modal visible={showReceiptModal} transparent animationType="fade">
+        <View className="flex-1 bg-black/60 justify-center items-center px-6">
+          <View className="bg-white rounded-3xl p-6 w-full shadow-lg">
+            <View className="w-14 h-14 bg-brand/10 rounded-full items-center justify-center mb-4">
+              <Ionicons name="document-text" size={26} color={COLORS.brand} />
+            </View>
+
+            <Text className="text-xl font-m-bold text-textDark mb-2">
+              Request Official Receipt
+            </Text>
+            <Text className="text-textLight font-m text-sm mb-5 leading-5">
+              To prevent fraudulent editing, official receipts are generated
+              securely on our servers and emailed directly to you.
+            </Text>
+
+            <Text className="text-xs font-m-bold text-textDark mb-1.5 ml-1 uppercase tracking-wider">
+              Email Address
+            </Text>
+            <TextInput
+              value={receiptEmail}
+              onChangeText={setReceiptEmail}
+              placeholder="student@example.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              className="border border-borderLight rounded-xl px-4 py-3.5 mb-6 font-m text-textDark bg-surface focus:border-brand"
+            />
+
+            <View className="flex-row gap-3">
+              <Button
+                title="Cancel"
+                variant="outline"
+                className="flex-1 py-3"
+                onPress={() => setShowReceiptModal(false)}
+              />
+              <Button
+                title="Email Me"
+                variant="primary"
+                className="flex-1 py-3"
+                loading={isSendingReceipt}
+                onPress={sendReceiptToEmail}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

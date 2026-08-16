@@ -1,4 +1,5 @@
 import apiClient from "@/api/client";
+import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
@@ -150,20 +151,22 @@ function EnrollmentCard({
       </View>
 
       <View className="px-4 py-4 pb-2">
-        <View className="flex-row items-center gap-1.5 mb-3">
-          <Text className="text-xs">📅</Text>
-          <Text className="text-xs font-m-semi text-gray-500">
-            {formatCleanDate(enrollment.start_date)}
-            {enrollment.end_date &&
-              ` → ${formatCleanDate(enrollment.end_date)}`}
-          </Text>
-        </View>
+        {!["PENDING", "PAYMENT_PENDING"].includes(enrollment.status) && (
+          <View className="flex-row items-center gap-1.5 mb-3">
+            <Text className="text-xs">📅</Text>
+            <Text className="text-xs font-m-semi text-gray-500">
+              {formatCleanDate(enrollment.start_date)}
+              {enrollment.end_date &&
+                ` → ${formatCleanDate(enrollment.end_date)}`}
+            </Text>
+          </View>
+        )}
 
         <View className="flex-row flex-wrap mb-1 mt-2 gap-1">
           <Chip label={enrollment.shift} />
           <Chip label={enrollment.amenity} />
           <Chip label={enrollment.reservation} />
-          <Chip label={enrollment.assigned_seat} />
+          <Chip label={enrollment.assigned_seat} type="SEAT" />
         </View>
 
         <View className="h-px bg-gray-100 my-3" />
@@ -415,18 +418,18 @@ export default function UserProfileScreen() {
     if (plan.status === "PENDING") {
       return (
         <View className="flex-row space-x-3 pt-1">
-          <TouchableOpacity
+          <Button
+            title="Approve"
             onPress={() => handleApprove(plan.enrollment_id)}
-            className="flex-1 bg-[#C13383] py-3 rounded-xl items-center mr-2"
-          >
-            <Text className="text-white font-m-bold">Approve</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+            loading={loading}
+            variant="primary"
+          />
+          <Button
+            title="Deny"
             onPress={() => handleDeny(plan.enrollment_id)}
-            className="flex-1 bg-red-100 border border-red-200 py-3 rounded-xl items-center"
-          >
-            <Text className="text-red-700 font-m-bold">Deny</Text>
-          </TouchableOpacity>
+            loading={loading}
+            variant="outline"
+          />
         </View>
       );
     }
@@ -461,30 +464,26 @@ export default function UserProfileScreen() {
               </Text>
             </View>
           )}
-
-          <TouchableOpacity
+          <Button
+            title={
+              hasClaimedPayment ? "Confirm Received" : "Mark as Paid Offline"
+            }
             onPress={() => handleMarkPaid(plan.enrollment_id)}
-            className="w-full bg-[#2563EB] py-3.5 rounded-xl items-center "
-          >
-            <Text className="text-white font-m-bold">
-              {hasClaimedPayment ? "Confirm Received" : "Mark as Paid Offline"}
-            </Text>
-          </TouchableOpacity>
+            loading={loading}
+            variant="primary"
+          />
         </View>
       );
     }
 
     if (plan.status === "EXPIRED") {
       return (
-        <TouchableOpacity
+        <Button
+          title="Send Renewal Reminder"
           onPress={handleSendReminder}
-          className="w-full bg-red-500 py-3.5 rounded-xl flex-row justify-center items-center "
-        >
-          <Ionicons name="logo-whatsapp" size={18} color="white" />
-          <Text className="text-white font-m-bold ml-2">
-            Send Renewal Reminder
-          </Text>
-        </TouchableOpacity>
+          loading={loading}
+          variant="primary"
+        />
       );
     }
 
