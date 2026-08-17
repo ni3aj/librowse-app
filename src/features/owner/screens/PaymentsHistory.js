@@ -4,10 +4,11 @@ import { COLORS } from "@/constants/theme";
 import { useLibraryStore } from "@/store/libraryStore";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useFocusEffect } from "expo-router"; // 📌 Imported useFocusEffect
+import { useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   RefreshControl,
   ScrollView,
@@ -49,7 +50,6 @@ export default function PaymentsHistory() {
   const [pendingPayments, setPendingPayments] = useState([]);
   const [historyPayments, setHistoryPayments] = useState([]);
 
-  // 📌 Ref to track if we need to show the loading spinner again
   const loadedLibIdRef = useRef(null);
 
   const fetchData = async () => {
@@ -70,13 +70,11 @@ export default function PaymentsHistory() {
     }
   };
 
-  // 📌 THE FIX: Replaced useEffect with useFocusEffect
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
 
       const init = async () => {
-        // If we switched libraries, show the loading spinner and clear old data
         if (loadedLibIdRef.current !== libraryId) {
           setLoading(true);
           setPendingPayments([]);
@@ -106,26 +104,43 @@ export default function PaymentsHistory() {
     fetchData();
   };
 
-  const onMarkPaid = async (enrollmentId) => {
-    try {
-      const response = await apiClient.patch(
-        `/owner/requests/${enrollmentId}/mark-paid`,
-      );
-      if (response.data.success) {
-        Toast.show({
-          type: "success",
-          text1: "Success",
-          text2: "Payment Marked as Paid!",
-        });
-        fetchData();
-      }
-    } catch (error) {
-      Toast.show({
-        type: "error",
-        text1: "Error",
-        text2: "Failed to mark paid",
-      });
-    }
+  // 📌 THE FIX: Added Confirmation Alert & Smart Text for Renewals
+  const onMarkPaid = (enrollmentId, studentName, isRenewal) => {
+    Alert.alert(
+      "Confirm Payment",
+      isRenewal
+        ? `Did ${studentName.trim()} pay you for their renewal? This will instantly extend their seat by 30 days and log the revenue.`
+        : `Did ${studentName.trim()} pay you directly? This will instantly activate their seat and log the revenue.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Yes, Confirm",
+          onPress: async () => {
+            try {
+              const response = await apiClient.patch(
+                `/owner/requests/${enrollmentId}/mark-paid`,
+              );
+              if (response.data.success) {
+                Toast.show({
+                  type: "success",
+                  text1: "Success",
+                  text2: isRenewal
+                    ? "Seat renewed successfully!"
+                    : "Payment Marked as Paid!",
+                });
+                fetchData();
+              }
+            } catch (error) {
+              Toast.show({
+                type: "error",
+                text1: "Error",
+                text2: error.response?.data?.error || "Failed to mark paid",
+              });
+            }
+          },
+        },
+      ],
+    );
   };
 
   const totalPending = pendingPayments.reduce((s, p) => s + p.amount, 0);
@@ -224,58 +239,81 @@ export default function PaymentsHistory() {
                 </Text>
               </View>
             ) : (
-              pendingPayments.map((p) => (
-                <View
-                  key={p.id}
-                  className={`bg-white rounded-2xl p-4 mb-3 border ${
-                    p.overdue ? "border-red-200" : "border-borderLight"
-                  }`}
-                >
-                  <View className="flex-row items-center">
-                    <Av initials={p.name} src={p.avatar} size={42} />
-                    <View className="flex-1 ml-3 pr-2">
-                      <View className="flex-row items-center">
-                        <Text
-                          className="text-[14px] font-m-bold text-textDark flex-shrink"
-                          numberOfLines={1}
-                        >
-                          {p.name}
-                        </Text>
-                        {p.overdue && (
-                          <View className="bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full ml-2">
-                            <Text className="text-[9px] font-m-bold text-red-600 uppercase">
-                              Overdue
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text className="text-[12px] text-textLight mt-0.5">
-                        {p.plan} • Due {p.dueDate}
-                      </Text>
-                    </View>
-                    <View className="items-end">
-                      <Text className="text-[16px] font-m-extra text-textDark">
-                        ₹{p.amount.toLocaleString("en-IN")}
-                      </Text>
-                    </View>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => onMarkPaid(p.id)}
-                    activeOpacity={0.8}
-                    className="mt-4 w-full py-3 rounded-xl flex-row items-center justify-center bg-[#0F1E35]"
+              pendingPayments.map((p) => {
+                // 📌 Identify if it's a renewal
+                const isRenewal = p.status === "ACTIVE";
+
+                return (
+                  <View
+                    key={p.id}
+                    className={`bg-white rounded-2xl p-4 mb-3 border ${
+                      p.overdue
+                        ? "border-red-200 bg-red-50/30"
+                        : "border-borderLight"
+                    }`}
                   >
-                    <Ionicons
-                      name="checkbox-outline"
-                      size={16}
-                      color="white"
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text className="text-white text-[13px] font-m-bold">
-                      Mark as Paid (Offline)
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ))
+                    <View className="flex-row items-center">
+                      <Av initials={p.name} src={p.avatar} size={42} />
+                      <View className="flex-1 ml-3 pr-2">
+                        <View className="flex-row items-center">
+                          <Text
+                            className="text-[14px] font-m-bold text-textDark flex-shrink"
+                            numberOfLines={1}
+                          >
+                            {p.name}
+                          </Text>
+                          {/* 📌 RENEWAL BADGE */}
+                          {isRenewal && (
+                            <View className="bg-purple-100 px-2 py-0.5 rounded border border-purple-200 ml-2">
+                              <Text className="text-[9px] font-m-bold text-purple-700 uppercase tracking-widest">
+                                Renewal
+                              </Text>
+                            </View>
+                          )}
+                          {/* Only show overdue if it isn't an active renewal (optional tweak) */}
+                          {p.overdue && !isRenewal && (
+                            <View className="bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full ml-2">
+                              <Text className="text-[9px] font-m-bold text-red-600 uppercase">
+                                Overdue
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text className="text-[12px] text-textLight mt-0.5">
+                          {/* 📌 Dynamic Text based on renewal status */}
+                          {p.plan} •{" "}
+                          {isRenewal && p.end_date
+                            ? `Ends on ${p.end_date}`
+                            : `Due ${p.dueDate}`}
+                        </Text>
+                      </View>
+                      <View className="items-end">
+                        <Text className="text-[16px] font-m-extra text-textDark">
+                          ₹{p.amount.toLocaleString("en-IN")}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() => onMarkPaid(p.id, p.name, isRenewal)}
+                      activeOpacity={0.8}
+                      className="mt-4 w-full py-3 rounded-xl flex-row items-center justify-center bg-[#0F1E35]"
+                    >
+                      <Ionicons
+                        name="checkbox-outline"
+                        size={16}
+                        color="white"
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text className="text-white text-[13px] font-m-bold">
+                        {isRenewal
+                          ? "Confirm Renewal Payment"
+                          : "Mark as Paid (Offline)"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })
             )
           ) : historyPayments.length === 0 ? (
             <View className="py-16 items-center">
