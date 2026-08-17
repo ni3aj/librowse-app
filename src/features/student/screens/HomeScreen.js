@@ -257,6 +257,18 @@ export default function HomeScreen() {
     return `${Math.max(0, Math.min(100, progress))}%`;
   };
 
+  // 📌 Determine if there's a recent renewal claim (within the last 24 hours)
+  let hasRecentRenewalClaim = false;
+  if (
+    primary_booking?.status === "ACTIVE" &&
+    primary_booking?.payment_claimed_at
+  ) {
+    const hoursSinceClaim =
+      (new Date() - new Date(primary_booking.payment_claimed_at)) /
+      (1000 * 60 * 60);
+    hasRecentRenewalClaim = hoursSinceClaim < 24;
+  }
+
   return (
     <View className="flex-1 bg-background">
       <Header
@@ -303,6 +315,7 @@ export default function HomeScreen() {
               Current Booking
             </Text>
             <View className="bg-surface border border-borderLight rounded-3xl mb-6 shadow-sm shadow-black/5 overflow-hidden">
+              {/* --- DYNAMIC CARD HEADERS --- */}
               {primary_booking.status === "PENDING" && (
                 <View className="bg-blue-50 px-5 py-3 border-b border-blue-100 flex-row distance-between items-center">
                   <Ionicons
@@ -389,6 +402,7 @@ export default function HomeScreen() {
                   </View>
                 )}
 
+              {/* --- CARD BODY --- */}
               <View className="p-5">
                 <View className="flex-row justify-between items-start mb-4">
                   <View className="flex-1 pr-4">
@@ -427,6 +441,7 @@ export default function HomeScreen() {
                   )}
                 </View>
 
+                {/* --- DYNAMIC CARD MESSAGES & BUTTONS --- */}
                 {primary_booking.status === "PENDING" && (
                   <View className="mt-1 bg-gray-50 p-3 rounded-xl border border-borderLight">
                     <Text className="text-textLight font-m text-sm leading-5">
@@ -484,6 +499,16 @@ export default function HomeScreen() {
                       />
                     </View>
 
+                    {/* 📌 Display a clear message if they recently requested a renewal */}
+                    {hasRecentRenewalClaim && (
+                      <View className="mt-4 bg-purple-50 p-3 rounded-xl border border-purple-200">
+                        <Text className="text-purple-800 font-m text-sm leading-5">
+                          Renewal requested! Your seat will be extended by 30
+                          days once the owner confirms your payment.
+                        </Text>
+                      </View>
+                    )}
+
                     <View className="flex-row gap-3 mt-5">
                       <Button
                         title="Get Receipt"
@@ -501,8 +526,13 @@ export default function HomeScreen() {
 
                       {primary_booking.days_remaining <= 5 && (
                         <Button
-                          title="Renew Seat"
-                          variant="primary"
+                          title={
+                            hasRecentRenewalClaim ? "Pending" : "Renew Seat"
+                          }
+                          variant={
+                            hasRecentRenewalClaim ? "outline" : "primary"
+                          }
+                          disabled={hasRecentRenewalClaim}
                           className="flex-1 py-3.5"
                           onPress={() => setIsPaymentModalVisible(true)}
                         />
@@ -512,6 +542,7 @@ export default function HomeScreen() {
                 )}
               </View>
 
+              {/* --- CARD FOOTER (ALWAYS VISIBLE) --- */}
               <View className="flex-row border-t border-borderLight bg-gray-50/50">
                 <TouchableOpacity
                   onPress={() =>

@@ -44,6 +44,7 @@ export default function SetupProfileScreen() {
         jwt_token: token,
         role: role,
         account_state: "REQUIRES_MPIN",
+        userName: fullName.trim(),
       });
 
       router.replace(ONBOARDING_ROUTE_MAP.REQUIRES_MPIN);
@@ -97,10 +98,10 @@ export default function SetupProfileScreen() {
         I am a...
       </Text>
 
-      <View className="flex-row justify-between mb-4">
+      <View className="flex-row justify-between mb-8">
         <TouchableOpacity
           onPress={() => setRole("student")}
-          className={`flex-1 p-4 rounded-xl border-1 items-center mr-2 ${
+          className={`flex-1 p-4 rounded-xl border-2 items-center mr-2 ${
             role === "student"
               ? "border-[#6e3482] bg-[#f5ebfa]"
               : "border-gray-200 bg-white"
@@ -115,7 +116,7 @@ export default function SetupProfileScreen() {
 
         <TouchableOpacity
           onPress={() => setRole("owner")}
-          className={`flex-1 p-4 rounded-xl border-1 items-center ml-2 ${
+          className={`flex-1 p-4 rounded-xl border-2 items-center ml-2 ${
             role === "owner"
               ? "border-[#6e3482] bg-[#f5ebfa]"
               : "border-gray-200 bg-white"
