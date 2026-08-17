@@ -1,5 +1,4 @@
 import apiClient from "@/api/client";
-import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
@@ -12,7 +11,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Linking,
   ScrollView,
@@ -139,7 +137,6 @@ function EnrollmentCard({
   isRejected = false,
   isCancelled = false,
   isOwner = false,
-  children,
 }) {
   const isClaimed =
     enrollment.status === "PAYMENT_PENDING" && !!enrollment.payment_claimed_at;
@@ -177,7 +174,7 @@ function EnrollmentCard({
         <StatusBadge status={displayStatus} />
       </View>
 
-      <View className="px-4 py-4 pb-2">
+      <View className="px-4 py-4 pb-4">
         {!["PENDING", "PAYMENT_PENDING", "CANCELLED"].includes(
           enrollment.status,
         ) && (
@@ -200,7 +197,7 @@ function EnrollmentCard({
 
         <View className="h-px bg-gray-100 my-3" />
 
-        <View className="flex-row items-center justify-between pb-2">
+        <View className="flex-row items-center justify-between">
           <Text className={`text-3xl font-black text-textDark/80`}>
             {fmtCurrency(enrollment.price)}
           </Text>
@@ -216,13 +213,6 @@ function EnrollmentCard({
           )}
         </View>
       </View>
-
-      {children && (
-        <View className="px-4 pb-4">
-          <View className="h-px bg-gray-100 mb-3" />
-          {children}
-        </View>
-      )}
     </View>
   );
 }
@@ -341,102 +331,6 @@ export default function UserProfileScreen() {
     }
   };
 
-  const handleApprove = async (enrollment_id) => {
-    try {
-      const response = await apiClient.patch(
-        `/owner/requests/${enrollment_id}/approve`,
-      );
-      if (response.data.success) {
-        Toast.show({
-          type: "success",
-          text1: "Approved!",
-          text2: "Awaiting student payment.",
-        });
-        fetchUserProfile();
-      }
-    } catch (error) {
-      Toast.show({
-        type: "error",
-        text1: "Error",
-        text2: error.response?.data?.error || "Failed to approve.",
-      });
-    }
-  };
-
-  const handleDeny = async (enrollment_id) => {
-    Alert.alert(
-      "Deny Request",
-      "Are you sure you want to reject this student?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Reject",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const response = await apiClient.patch(
-                `/owner/requests/${enrollment_id}/reject`,
-              );
-              if (response.data.success) {
-                Toast.show({ type: "success", text1: "Rejected" });
-                fetchUserProfile();
-              }
-            } catch (error) {
-              Toast.show({
-                type: "error",
-                text1: "Error",
-                text2: error.response?.data?.error || "Failed to reject.",
-              });
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  const handleMarkPaid = async (enrollment_id) => {
-    Alert.alert(
-      "Confirm Payment",
-      `Did ${user.full_name} pay you directly offline?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Yes, Activate Seat",
-          onPress: async () => {
-            try {
-              const response = await apiClient.patch(
-                `/owner/requests/${enrollment_id}/mark-paid`,
-              );
-              if (response.data.success) {
-                Toast.show({
-                  type: "success",
-                  text1: "Success",
-                  text2: "Seat is now Active.",
-                });
-                fetchUserProfile();
-              }
-            } catch (error) {
-              Toast.show({
-                type: "error",
-                text1: "Error",
-                text2: error.response?.data?.error || "Failed to mark paid.",
-              });
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  const handleSendReminder = async () => {
-    if (user?.phone) {
-      const message = `Hi ${user.full_name}, your library subscription expired on ${formatCleanDate(enrollment?.end_date)}. Please let us know if you'd like to renew your seat!`;
-      Linking.openURL(
-        `whatsapp://send?phone=91${user.phone}&text=${encodeURIComponent(message)}`,
-      );
-    }
-  };
-
   if (loading) {
     return (
       <SafeAreaView className="flex-1 bg-[#F7F5FA] justify-center items-center">
@@ -448,84 +342,6 @@ export default function UserProfileScreen() {
   if (!user) return null;
 
   const isActive = enrollment?.status === "ACTIVE";
-
-  const renderActionButtons = (plan) => {
-    if (!plan || !isViewerOwner) return null;
-
-    if (plan.status === "PENDING") {
-      return (
-        <View className="flex-row space-x-3 pt-1">
-          <Button
-            title="Approve"
-            onPress={() => handleApprove(plan.enrollment_id)}
-            loading={loading}
-            variant="primary"
-          />
-          <Button
-            title="Deny"
-            onPress={() => handleDeny(plan.enrollment_id)}
-            loading={loading}
-            variant="outline"
-          />
-        </View>
-      );
-    }
-
-    if (plan.status === "PAYMENT_PENDING") {
-      const hasClaimedPayment = !!plan.payment_claimed_at;
-
-      return (
-        <View className="pt-1">
-          {hasClaimedPayment ? (
-            <View className="bg-yellow-100 border border-yellow-300 py-2.5 px-3 rounded-xl flex-row items-center mb-3">
-              <Ionicons
-                name="shield-checkmark"
-                size={18}
-                color="#A16207"
-                className="mr-2"
-              />
-              <Text className="font-m-bold text-yellow-800 ml-2 text-sm flex-1">
-                Student claims they paid. Confirm to activate their account.
-              </Text>
-            </View>
-          ) : (
-            <View className="bg-brandAccent/10 border border-brandAccent/20 py-2.5 px-3 rounded-xl flex-row items-center mb-3">
-              <Ionicons
-                name="time-outline"
-                size={18}
-                color={COLORS.brandAccent}
-                className="mr-2"
-              />
-              <Text className="font-m-bold text-brandAccent ml-2 text-sm flex-1">
-                Waiting for Student to Pay
-              </Text>
-            </View>
-          )}
-          <Button
-            title={
-              hasClaimedPayment ? "Confirm Received" : "Mark as Paid Offline"
-            }
-            onPress={() => handleMarkPaid(plan.enrollment_id)}
-            loading={loading}
-            variant="primary"
-          />
-        </View>
-      );
-    }
-
-    if (plan.status === "EXPIRED") {
-      return (
-        <Button
-          title="Send Renewal Reminder"
-          onPress={handleSendReminder}
-          loading={loading}
-          variant="primary"
-        />
-      );
-    }
-
-    return null;
-  };
 
   return (
     <View className="flex-1 bg-background">
@@ -675,9 +491,10 @@ export default function UserProfileScreen() {
             {enrollment && (
               <>
                 <SectionLabel title="Current Enrollment" />
-                <EnrollmentCard enrollment={enrollment} isOwner={isViewerOwner}>
-                  {renderActionButtons(enrollment)}
-                </EnrollmentCard>
+                <EnrollmentCard
+                  enrollment={enrollment}
+                  isOwner={isViewerOwner}
+                />
               </>
             )}
 
@@ -695,9 +512,7 @@ export default function UserProfileScreen() {
                     enrollment={futureEnrollment}
                     isFuture={true}
                     isOwner={isViewerOwner}
-                  >
-                    {renderActionButtons(futureEnrollment)}
-                  </EnrollmentCard>
+                  />
                 )}
               </>
             )}
