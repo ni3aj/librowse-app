@@ -1,4 +1,5 @@
 import apiClient from "@/api/client";
+import ActionCard from "@/components/ui/ActionCard"; // 📌 Imported ActionCard
 import AlertModal from "@/components/ui/AlertModal";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
@@ -37,6 +38,7 @@ export default function DashboardScreen() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [processingActionId, setProcessingActionId] = useState(null);
 
   const { userName } = useAuthStore();
   const firstName = userName ? userName.split(" ")[0] : "Owner";
@@ -58,7 +60,6 @@ export default function DashboardScreen() {
         let currentStatus = response.data.libraryStatus;
         const currentHasInventory = response.data.metrics?.total_capacity > 0;
 
-        // Auto-submit for review if unverified but setup is complete
         if (currentStatus === "UNVERIFIED" && currentHasInventory) {
           const libRes = await apiClient.get(
             `/owner/library/${targetLibraryId}`,
@@ -145,7 +146,6 @@ export default function DashboardScreen() {
     setRefreshing(false);
   };
 
-  // 📌 Updated to accept isRenewal to change popup text
   const handleMarkAsPaid = (enrollmentId, studentName, isRenewal) => {
     setAlertConfig({
       visible: true,
@@ -194,6 +194,7 @@ export default function DashboardScreen() {
   };
 
   const handleAcceptRequest = async (enrollmentId) => {
+    setProcessingActionId(enrollmentId);
     try {
       const response = await apiClient.patch(
         `/owner/requests/${enrollmentId}/approve`,
@@ -213,6 +214,8 @@ export default function DashboardScreen() {
         text1: "Error",
         text2: error.response?.data?.error || "Failed to approve student.",
       });
+    } finally {
+      setProcessingActionId(null);
     }
   };
 
@@ -226,6 +229,7 @@ export default function DashboardScreen() {
           text: "Yes, Reject",
           style: "destructive",
           onPress: async () => {
+            setProcessingActionId(enrollmentId);
             try {
               const response = await apiClient.patch(
                 `/owner/requests/${enrollmentId}/reject`,
@@ -239,6 +243,8 @@ export default function DashboardScreen() {
                 text1: "Error",
                 text2: error.response?.data?.error || "Failed to reject.",
               });
+            } finally {
+              setProcessingActionId(null);
             }
           },
         },
@@ -507,30 +513,43 @@ export default function DashboardScreen() {
                       <View className="flex-row items-center">
                         <TouchableOpacity
                           onPress={() => handleAcceptRequest(req.id)}
+                          disabled={processingActionId === req.id}
                           activeOpacity={0.7}
-                          className="w-10 h-10 rounded-3xl items-center justify-center"
+                          className={`w-10 h-10 rounded-3xl items-center justify-center ${
+                            processingActionId === req.id ? "opacity-50" : ""
+                          }`}
                           style={{ backgroundColor: "#D1FAE5" }}
                         >
-                          <Ionicons
-                            name="checkmark"
-                            size={20}
-                            color="#059669"
-                          />
+                          {processingActionId === req.id ? (
+                            <ActivityIndicator size="small" color="#059669" />
+                          ) : (
+                            <Ionicons
+                              name="checkmark"
+                              size={20}
+                              color="#059669"
+                            />
+                          )}
                         </TouchableOpacity>
 
                         <TouchableOpacity
                           onPress={() => handleDenyRequest(req.id)}
+                          disabled={processingActionId === req.id}
                           activeOpacity={0.7}
-                          className="w-10 h-10 rounded-3xl items-center justify-center ml-2"
+                          className={`w-10 h-10 rounded-3xl items-center justify-center ml-2 ${
+                            processingActionId === req.id ? "opacity-50" : ""
+                          }`}
                           style={{ backgroundColor: "#FEE2E2" }}
                         >
-                          <Ionicons name="close" size={20} color="#DC2626" />
+                          {processingActionId === req.id ? (
+                            <ActivityIndicator size="small" color="#DC2626" />
+                          ) : (
+                            <Ionicons name="close" size={20} color="#DC2626" />
+                          )}
                         </TouchableOpacity>
                       </View>
                     </Pressable>
                   ))}
 
-                  {/* --- AWAITING PAYMENT --- */}
                   {stats.awaitingPayment.length > 0 && (
                     <View className="flex-row items-center justify-between">
                       <Text className="text-lg font-m-bold px-1 text-textDark mb-4 mt-2">
@@ -554,97 +573,47 @@ export default function DashboardScreen() {
                   )}
                   {stats.awaitingPayment.map((req) => {
                     const hasStudentClaimed = !!req.payment_claimed_at;
-                    const isRenewal = req.status === "ACTIVE"; // 📌 Identify if it's a renewal
+                    const isRenewal = req.status === "ACTIVE";
 
                     return (
-                      <View
+                      <ActionCard
                         key={req.id}
-                        className={`p-4 rounded-2xl mb-3 border active:opacity-70 ${
-                          hasStudentClaimed
-                            ? "bg-yellow-50/30 border-yellow-200"
-                            : "bg-white border-borderLight"
-                        }`}
-                      >
-                        <View className="flex-row items-center mb-2">
-                          <Avatar
-                            src={req.student_photo}
-                            name={req.student_name}
-                            size={40}
-                          />
-                          <View className="flex-1 flex-row items-center">
-                            <Text className="font-m-bold text-textDark text-lg">
-                              {req.student_name}
+                        className="mb-3"
+                        header={{
+                          bg: hasStudentClaimed
+                            ? "bg-yellow-50"
+                            : "bg-brandAccent/10",
+                          border: hasStudentClaimed
+                            ? "border-yellow-200"
+                            : "border-brandAccent/20",
+                          avatarSrc: req.student_photo,
+                          avatarName: req.student_name,
+                          title: req.student_name,
+                          textColor: hasStudentClaimed
+                            ? "text-yellow-900"
+                            : "text-brandAccent",
+                          rightElement: (
+                            <Text className="text-[10px] font-m-bold text-textLight">
+                              {isRenewal
+                                ? `Ends ${formatCleanDate(req.end_date)}`
+                                : `Approved ${formatCleanDate(req.start_date)}`}
                             </Text>
-                            {/* 📌 Display Renewal Badge */}
-                            {isRenewal && (
-                              <View className="bg-purple-100 px-2 py-0.5 rounded border border-purple-200 ml-2">
-                                <Text className="text-[10px] font-m-bold text-purple-700 uppercase">
-                                  Renewal
-                                </Text>
-                              </View>
-                            )}
-                          </View>
-                        </View>
-
-                        <View className="flex-row flex-wrap gap-1 mt-1">
-                          <Chip label={req.shift} />
-                          <Chip label={req.amenity} />
-                          <Chip label={req.reservation} />
-                          {req.assigned_seat && (
-                            <Chip label={req.assigned_seat} type="SEAT" />
-                          )}
-                        </View>
-                        <Text className="text-sm font-m text-textLight mt-1">
-                          {isRenewal
-                            ? `Current plan ends on ${formatCleanDate(req.end_date)}`
-                            : `Approved on ${formatCleanDate(req.start_date)}`}
-                        </Text>
-
-                        {hasStudentClaimed ? (
-                          <View className="mt-3 bg-yellow-100 border border-yellow-300 py-2 px-3 rounded-lg flex-row items-center mb-3">
-                            <Ionicons
-                              name="shield-checkmark"
-                              size={16}
-                              color="#A16207"
-                              className="mr-2"
-                            />
-                            <Text className="font-m-bold text-yellow-800 ml-2 text-sm flex-1">
-                              Student claims they paid. Confirm to{" "}
-                              {isRenewal ? "renew" : "activate"} their seat.
-                            </Text>
-                          </View>
-                        ) : (
-                          <View className="mt-3 bg-brandAccent/10 py-2 px-3 rounded-lg flex-row items-center mb-3">
-                            <Ionicons
-                              name="time-outline"
-                              size={16}
-                              color={COLORS.brandAccent}
-                              className="mr-2"
-                            />
-                            <Text className="font-m-bold text-brandAccent ml-2 text-sm flex-1">
-                              Waiting for Student to Pay
-                            </Text>
-                          </View>
-                        )}
-
-                        <View className="flex-row mt-1">
-                          <View className="flex-1 mr-2">
-                            <Button
-                              title="View Profile"
-                              variant="outline"
-                              className="py-1 w-full"
+                          ),
+                        }}
+                        footer={
+                          <>
+                            <TouchableOpacity
                               onPress={() =>
                                 router.push(`/user/${req.student_id}`)
                               }
-                            />
-                          </View>
-                          <View className="flex-1 ml-2">
-                            <Button
-                              title={
-                                hasStudentClaimed ? "Confirm" : "Mark as Paid"
-                              }
-                              variant="primary"
-                              className="py-2 w-full"
+                              className="flex-1 flex-row items-center justify-center py-3.5 border-r border-borderLight"
+                            >
+                              <Text className="text-sm font-m-bold text-textDark">
+                                View Profile
+                              </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
                               onPress={() =>
                                 handleMarkAsPaid(
                                   req.id,
@@ -652,10 +621,40 @@ export default function DashboardScreen() {
                                   isRenewal,
                                 )
                               }
-                            />
+                              className="flex-1 flex-row items-center justify-center py-3.5 bg-brand"
+                            >
+                              <Text className="text-sm font-m-bold text-white">
+                                {hasStudentClaimed
+                                  ? "Confirm Received"
+                                  : "Mark as Paid"}
+                              </Text>
+                            </TouchableOpacity>
+                          </>
+                        }
+                      >
+                        <View>
+                          <View className="flex-row flex-wrap gap-1 mb-1">
+                            <Chip label={req.shift} />
+                            <Chip label={req.amenity} />
+                            <Chip label={req.reservation} />
                           </View>
+                          {req.assigned_seat && (
+                            <Text className="text-sm font-m text-textDark mt-1">
+                              Seat:{" "}
+                              <Text className="font-m-bold">
+                                {req.assigned_seat || "Unassigned"}
+                              </Text>
+                            </Text>
+                          )}
                         </View>
-                      </View>
+
+                        {hasStudentClaimed && (
+                          <Text className="text-sm font-m text-yellow-700 bg-yellow-50/50 p-2.5 rounded-lg border border-yellow-200 mt-2">
+                            Student claims they paid. Confirm to{" "}
+                            {isRenewal ? "renew" : "activate"} their seat.
+                          </Text>
+                        )}
+                      </ActionCard>
                     );
                   })}
                 </View>

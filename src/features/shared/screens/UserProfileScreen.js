@@ -34,7 +34,7 @@ const STATUS_CONFIG = {
     dot: "bg-amber-300",
   },
   PAYMENT_CLAIMED: {
-    label: "Verification Needed",
+    label: "Confirm Payment Pending",
     bg: "bg-yellow-500",
     dot: "bg-yellow-300",
   },
