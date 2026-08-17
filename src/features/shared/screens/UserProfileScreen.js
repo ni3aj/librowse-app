@@ -49,6 +49,7 @@ const STATUS_CONFIG = {
   FAILED: { label: "Failed", bg: "bg-red-500", dot: "bg-red-400" },
   EXPIRED: { label: "Expired", bg: "bg-red-500", dot: "bg-red-400" },
   REJECTED: { label: "Rejected", bg: "bg-gray-500", dot: "bg-gray-400" },
+  CANCELLED: { label: "Cancelled", bg: "bg-gray-500", dot: "bg-gray-400" },
 };
 
 function StatusBadge({ status }) {
@@ -114,6 +115,7 @@ function EnrollmentCard({
   enrollment,
   isFuture = false,
   isRejected = false,
+  isCancelled = false,
   isOwner = false,
   children,
 }) {
@@ -130,6 +132,9 @@ function EnrollmentCard({
   if (isRejected) {
     titleCl = "text-gray-600";
     title = "Rejected Request";
+  } else if (isCancelled) {
+    titleCl = "text-gray-600";
+    title = "Cancelled Request";
   } else if (isFuture) {
     titleCl = "text-red-500";
     title = "Upcoming Plan";
@@ -145,13 +150,15 @@ function EnrollmentCard({
         className={`flex-row items-center justify-between px-4 py-3 border-b ${headerBg} ${borderCl}`}
       >
         <View className="flex-row items-center gap-2">
-          <Text className={`text-s font-m-bold ${titleCl}`}>{title}</Text>
+          <Text className={`text-sm font-m-bold ${titleCl}`}>{title}</Text>
         </View>
         <StatusBadge status={displayStatus} />
       </View>
 
       <View className="px-4 py-4 pb-2">
-        {!["PENDING", "PAYMENT_PENDING"].includes(enrollment.status) && (
+        {!["PENDING", "PAYMENT_PENDING", "CANCELLED"].includes(
+          enrollment.status,
+        ) && (
           <View className="flex-row items-center gap-1.5 mb-3">
             <Text className="text-xs">📅</Text>
             <Text className="text-xs font-m-semi text-gray-500">
@@ -262,6 +269,7 @@ export default function UserProfileScreen() {
   const [enrollment, setEnrollment] = useState(null);
   const [futureEnrollment, setFutureEnrollment] = useState(null);
   const [rejectedEnrollments, setRejectedEnrollments] = useState([]);
+  const [cancelledEnrollments, setCancelledEnrollments] = useState([]);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -280,6 +288,7 @@ export default function UserProfileScreen() {
         setEnrollment(response.data.enrollment);
         setFutureEnrollment(response.data.future_enrollment);
         setRejectedEnrollments(response.data.rejected_enrollments || []);
+        setCancelledEnrollments(response.data.cancelled_enrollments || []);
         setPayments(response.data.payments || []);
       }
     } catch (error) {
@@ -667,6 +676,23 @@ export default function UserProfileScreen() {
                     key={`rej-${idx}`}
                     enrollment={rejEnrollment}
                     isRejected={true}
+                    isOwner={isViewerOwner}
+                  />
+                ))}
+              </>
+            )}
+
+            {cancelledEnrollments.length > 0 && (
+              <>
+                <SectionLabel
+                  title="Cancelled Requests"
+                  count={cancelledEnrollments.length}
+                />
+                {cancelledEnrollments.map((cancEnrollment, idx) => (
+                  <EnrollmentCard
+                    key={`canc-${idx}`}
+                    enrollment={cancEnrollment}
+                    isCancelled={true}
                     isOwner={isViewerOwner}
                   />
                 ))}

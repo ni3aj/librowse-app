@@ -197,7 +197,7 @@ export default function HomeScreen() {
     setIsSendingReceipt(true);
     try {
       const response = await apiClient.post(
-        `/student/enrollments/${primary_booking.enrollment_id}/receipt`,
+        `/student/receipts/enrollments/${primary_booking.enrollment_id}/receipt`,
         { email: receiptEmail.trim() },
       );
 

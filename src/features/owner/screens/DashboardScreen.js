@@ -150,8 +150,8 @@ export default function DashboardScreen() {
       visible: true,
       type: "warning",
       title: "Confirm Payment",
-      message: `Did ${studentName} pay you directly? This will instantly activate their seat and log the revenue.`,
-      primaryButtonText: "Yes, Activate Seat",
+      message: `Did ${studentName.trim()} pay you directly? This will instantly activate their seat and log the revenue.`,
+      primaryButtonText: "Confirm",
       secondaryButtonText: "Cancel",
       onPrimaryPress: async () => {
         try {
