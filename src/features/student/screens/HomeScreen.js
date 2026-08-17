@@ -504,11 +504,7 @@ export default function HomeScreen() {
                           title="Renew Seat"
                           variant="primary"
                           className="flex-1 py-3.5"
-                          onPress={() =>
-                            router.push(
-                              `/renew/${primary_booking.enrollment_id}`,
-                            )
-                          }
+                          onPress={() => setIsPaymentModalVisible(true)}
                         />
                       )}
                     </View>

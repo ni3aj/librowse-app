@@ -145,12 +145,15 @@ export default function DashboardScreen() {
     setRefreshing(false);
   };
 
-  const handleMarkAsPaid = (enrollmentId, studentName) => {
+  // 📌 Updated to accept isRenewal to change popup text
+  const handleMarkAsPaid = (enrollmentId, studentName, isRenewal) => {
     setAlertConfig({
       visible: true,
       type: "warning",
       title: "Confirm Payment",
-      message: `Did ${studentName.trim()} pay you directly? This will instantly activate their seat and log the revenue.`,
+      message: isRenewal
+        ? `Did ${studentName.trim()} pay you for their renewal? This will instantly extend their seat by 30 days and log the revenue.`
+        : `Did ${studentName.trim()} pay you directly? This will instantly activate their seat and log the revenue.`,
       primaryButtonText: "Confirm",
       secondaryButtonText: "Cancel",
       onPrimaryPress: async () => {
@@ -164,7 +167,9 @@ export default function DashboardScreen() {
               visible: true,
               type: "success",
               title: "Success!",
-              message: `${studentName}'s seat is now Active!`,
+              message: isRenewal
+                ? `${studentName}'s seat has been renewed!`
+                : `${studentName}'s seat is now Active!`,
               primaryButtonText: "Awesome",
               secondaryButtonText: null,
               onPrimaryPress: () => {
@@ -549,13 +554,14 @@ export default function DashboardScreen() {
                   )}
                   {stats.awaitingPayment.map((req) => {
                     const hasStudentClaimed = !!req.payment_claimed_at;
+                    const isRenewal = req.status === "ACTIVE"; // 📌 Identify if it's a renewal
 
                     return (
                       <View
                         key={req.id}
                         className={`p-4 rounded-2xl mb-3 border active:opacity-70 ${
                           hasStudentClaimed
-                            ? "bg-yellow-50/30 border-yellow-200" // Slight highlight for claimed payments
+                            ? "bg-yellow-50/30 border-yellow-200"
                             : "bg-white border-borderLight"
                         }`}
                       >
@@ -565,10 +571,18 @@ export default function DashboardScreen() {
                             name={req.student_name}
                             size={40}
                           />
-                          <View className="flex-1">
+                          <View className="flex-1 flex-row items-center">
                             <Text className="font-m-bold text-textDark text-lg">
                               {req.student_name}
                             </Text>
+                            {/* 📌 Display Renewal Badge */}
+                            {isRenewal && (
+                              <View className="bg-purple-100 px-2 py-0.5 rounded border border-purple-200 ml-2">
+                                <Text className="text-[10px] font-m-bold text-purple-700 uppercase">
+                                  Renewal
+                                </Text>
+                              </View>
+                            )}
                           </View>
                         </View>
 
@@ -581,7 +595,9 @@ export default function DashboardScreen() {
                           )}
                         </View>
                         <Text className="text-sm font-m text-textLight mt-1">
-                          Approved on {formatCleanDate(req.start_date)}
+                          {isRenewal
+                            ? `Current plan ends on ${formatCleanDate(req.end_date)}`
+                            : `Approved on ${formatCleanDate(req.start_date)}`}
                         </Text>
 
                         {hasStudentClaimed ? (
@@ -593,8 +609,8 @@ export default function DashboardScreen() {
                               className="mr-2"
                             />
                             <Text className="font-m-bold text-yellow-800 ml-2 text-sm flex-1">
-                              Student claims they paid. Confirm to activate
-                              their account.
+                              Student claims they paid. Confirm to{" "}
+                              {isRenewal ? "renew" : "activate"} their seat.
                             </Text>
                           </View>
                         ) : (
@@ -630,7 +646,11 @@ export default function DashboardScreen() {
                               variant="primary"
                               className="py-2 w-full"
                               onPress={() =>
-                                handleMarkAsPaid(req.id, req.student_name)
+                                handleMarkAsPaid(
+                                  req.id,
+                                  req.student_name,
+                                  isRenewal,
+                                )
                               }
                             />
                           </View>
