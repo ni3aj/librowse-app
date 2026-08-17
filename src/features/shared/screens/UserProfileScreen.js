@@ -70,13 +70,26 @@ function StatusBadge({ status }) {
   );
 }
 
-function SectionLabel({ title, count, rightElement }) {
+function SectionLabel({
+  title,
+  count,
+  rightElement,
+  isCollapsible,
+  isExpanded,
+  onPress,
+}) {
+  const Wrapper = isCollapsible ? TouchableOpacity : View;
+
   return (
-    <View className="flex-row items-center justify-between gap-2 mb-3 px-1">
-      <Text className="text-[12px] font-m-bold tracking-widest uppercase text-textDark">
-        {title}
-      </Text>
-      <View className="flex-2">
+    <Wrapper
+      onPress={isCollapsible ? onPress : undefined}
+      activeOpacity={0.7}
+      className="flex-row items-center justify-between mb-3 px-1"
+    >
+      <View className="flex-row items-center gap-2">
+        <Text className="text-[12px] font-m-bold tracking-widest uppercase text-textDark">
+          {title}
+        </Text>
         {count !== undefined && (
           <View className="bg-pink-100 rounded-full px-2.5 py-0.5">
             <Text className="text-[10px] font-m-semi text-pink-600">
@@ -85,8 +98,17 @@ function SectionLabel({ title, count, rightElement }) {
           </View>
         )}
       </View>
-      <View className="flex-1">{rightElement && rightElement}</View>
-    </View>
+      <View className="flex-row items-center gap-2">
+        {rightElement}
+        {isCollapsible && (
+          <Ionicons
+            name={isExpanded ? "chevron-up" : "chevron-down"}
+            size={18}
+            color={COLORS.textLight}
+          />
+        )}
+      </View>
+    </Wrapper>
   );
 }
 
@@ -211,7 +233,7 @@ function PaymentCard({ payment }) {
       <View className="px-4 py-4">
         <View className="flex-row items-start justify-between gap-3">
           <View className="flex-row items-center gap-3 flex-1 min-w-0">
-            <View className="w-11 h-11 rounded-2xl bg-pink-50 items-center justify-center shrink-0">
+            <View className="w-11 h-11 rounded-2xl bg-surface items-center justify-center shrink-0">
               <Text className="text-xl">💳</Text>
             </View>
             <View className="flex-1 min-w-0">
@@ -272,6 +294,12 @@ export default function UserProfileScreen() {
   const [cancelledEnrollments, setCancelledEnrollments] = useState([]);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // States to control collapsible sections
+  const [isFutureExpanded, setIsFutureExpanded] = useState(false);
+  const [isRejectedExpanded, setIsRejectedExpanded] = useState(false);
+  const [isCancelledExpanded, setIsCancelledExpanded] = useState(false);
+  const [isPaymentsExpanded, setIsPaymentsExpanded] = useState(false);
 
   useEffect(() => {
     fetchUserProfile();
@@ -643,6 +671,7 @@ export default function UserProfileScreen() {
 
         {canViewSensitiveData && (
           <>
+            {/* Current Enrollment (Always expanded) */}
             {enrollment && (
               <>
                 <SectionLabel title="Current Enrollment" />
@@ -652,72 +681,96 @@ export default function UserProfileScreen() {
               </>
             )}
 
+            {/* Upcoming Enrollment (Collapsible) */}
             {futureEnrollment && (
               <>
-                <SectionLabel title="Upcoming Enrollment" />
-                <EnrollmentCard
-                  enrollment={futureEnrollment}
-                  isFuture={true}
-                  isOwner={isViewerOwner}
-                >
-                  {renderActionButtons(futureEnrollment)}
-                </EnrollmentCard>
+                <SectionLabel
+                  title="Upcoming Enrollment"
+                  isCollapsible
+                  isExpanded={isFutureExpanded}
+                  onPress={() => setIsFutureExpanded(!isFutureExpanded)}
+                />
+                {isFutureExpanded && (
+                  <EnrollmentCard
+                    enrollment={futureEnrollment}
+                    isFuture={true}
+                    isOwner={isViewerOwner}
+                  >
+                    {renderActionButtons(futureEnrollment)}
+                  </EnrollmentCard>
+                )}
               </>
             )}
 
+            {/* Rejected Requests (Collapsible) */}
             {rejectedEnrollments.length > 0 && (
               <>
                 <SectionLabel
                   title="Rejected Requests"
                   count={rejectedEnrollments.length}
+                  isCollapsible
+                  isExpanded={isRejectedExpanded}
+                  onPress={() => setIsRejectedExpanded(!isRejectedExpanded)}
                 />
-                {rejectedEnrollments.map((rejEnrollment, idx) => (
-                  <EnrollmentCard
-                    key={`rej-${idx}`}
-                    enrollment={rejEnrollment}
-                    isRejected={true}
-                    isOwner={isViewerOwner}
-                  />
-                ))}
+                {isRejectedExpanded &&
+                  rejectedEnrollments.map((rejEnrollment, idx) => (
+                    <EnrollmentCard
+                      key={`rej-${idx}`}
+                      enrollment={rejEnrollment}
+                      isRejected={true}
+                      isOwner={isViewerOwner}
+                    />
+                  ))}
               </>
             )}
 
+            {/* Cancelled Requests (Collapsible) */}
             {cancelledEnrollments.length > 0 && (
               <>
                 <SectionLabel
                   title="Cancelled Requests"
                   count={cancelledEnrollments.length}
+                  isCollapsible
+                  isExpanded={isCancelledExpanded}
+                  onPress={() => setIsCancelledExpanded(!isCancelledExpanded)}
                 />
-                {cancelledEnrollments.map((cancEnrollment, idx) => (
-                  <EnrollmentCard
-                    key={`canc-${idx}`}
-                    enrollment={cancEnrollment}
-                    isCancelled={true}
-                    isOwner={isViewerOwner}
-                  />
-                ))}
+                {isCancelledExpanded &&
+                  cancelledEnrollments.map((cancEnrollment, idx) => (
+                    <EnrollmentCard
+                      key={`canc-${idx}`}
+                      enrollment={cancEnrollment}
+                      isCancelled={true}
+                      isOwner={isViewerOwner}
+                    />
+                  ))}
               </>
             )}
 
-            <SectionLabel title="Payment History" count={payments.length} />
-
-            {payments.length === 0 ? (
-              <View className="bg-white border border-borderLight p-6 rounded-2xl items-center mb-4">
-                <Ionicons
-                  name="receipt-outline"
-                  size={32}
-                  color="#9ca3af"
-                  className="mb-2"
-                />
-                <Text className="text-gray-400 font-medium mt-2 text-xs">
-                  No payment history yet.
-                </Text>
-              </View>
-            ) : (
-              payments.map((payment, i) => (
-                <PaymentCard key={i} payment={payment} />
-              ))
-            )}
+            <SectionLabel
+              title="Payment History"
+              count={payments.length}
+              isCollapsible
+              isExpanded={isPaymentsExpanded}
+              onPress={() => setIsPaymentsExpanded(!isPaymentsExpanded)}
+            />
+            {isPaymentsExpanded &&
+              (payments.length === 0 ? (
+                <View className="bg-white border border-borderLight p-6 rounded-2xl items-center mb-4">
+                  <Ionicons
+                    name="receipt-outline"
+                    size={32}
+                    color="#9ca3af"
+                    className="mb-2"
+                  />
+                  <Text className="text-gray-400 font-medium mt-2 text-xs">
+                    No payment history yet.
+                  </Text>
+                </View>
+              ) : (
+                payments.map((payment, i) => (
+                  <PaymentCard key={i} payment={payment} />
+                ))
+              ))}
           </>
         )}
       </ScrollView>

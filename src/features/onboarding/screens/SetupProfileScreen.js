@@ -2,7 +2,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { ONBOARDING_ROUTE_MAP } from "@/constants/config";
 import { completeUserProfile } from "@/features/onboarding/api";
-import { useAuthStore } from "@/store/authStore"; // 📌 1. Import Zustand
+import { useAuthStore } from "@/store/authStore";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
@@ -17,10 +17,9 @@ import Toast from "react-native-toast-message";
 
 export default function SetupProfileScreen() {
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState(null); // 'owner' or 'student'
+  const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // 📌 2. Extract logout from Zustand
   const { logout } = useAuthStore();
 
   const handleNext = async () => {
@@ -41,8 +40,6 @@ export default function SetupProfileScreen() {
     setLoading(false);
 
     if (success) {
-      // 📌 3. Update Zustand memory instead of manually touching AsyncStorage
-      // This ensures the whole app immediately knows about the new token and role.
       useAuthStore.setState({
         jwt_token: token,
         role: role,
@@ -65,8 +62,6 @@ export default function SetupProfileScreen() {
           text: "Yes, Start Over",
           style: "destructive",
           onPress: () => {
-            // 📌 4. Call Zustand's logout instead of AsyncStorage.clear()
-            // This instantly wipes both in-memory state AND disk storage.
             logout();
             router.replace("/");
           },
@@ -89,7 +84,7 @@ export default function SetupProfileScreen() {
         </Text>
       </View>
 
-      <View className="mb-8">
+      <View className="mb-4">
         <Input
           label="Full Name"
           placeholder="e.g. Rahul Sharma"
@@ -102,11 +97,10 @@ export default function SetupProfileScreen() {
         I am a...
       </Text>
 
-      {/* Role Selection Cards */}
-      <View className="flex-row justify-between mb-10">
+      <View className="flex-row justify-between mb-4">
         <TouchableOpacity
           onPress={() => setRole("student")}
-          className={`flex-1 p-4 rounded-xl border-2 items-center mr-2 ${
+          className={`flex-1 p-4 rounded-xl border-1 items-center mr-2 ${
             role === "student"
               ? "border-[#6e3482] bg-[#f5ebfa]"
               : "border-gray-200 bg-white"
@@ -121,7 +115,7 @@ export default function SetupProfileScreen() {
 
         <TouchableOpacity
           onPress={() => setRole("owner")}
-          className={`flex-1 p-4 rounded-xl border-2 items-center ml-2 ${
+          className={`flex-1 p-4 rounded-xl border-1 items-center ml-2 ${
             role === "owner"
               ? "border-[#6e3482] bg-[#f5ebfa]"
               : "border-gray-200 bg-white"
