@@ -71,7 +71,10 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
+
+  // States for cancelling requests
   const [isCancelling, setIsCancelling] = useState(false);
+  const [cancellingId, setCancellingId] = useState(null);
 
   const { libraryId, setHasActiveBooking } = useLibraryStore();
 
@@ -142,6 +145,7 @@ export default function HomeScreen() {
     });
   };
 
+  // 📌 Cancels the Primary Booking
   const handleCancel = () => {
     Alert.alert(
       "Cancel Request",
@@ -173,6 +177,43 @@ export default function HomeScreen() {
               });
             } finally {
               setIsCancelling(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  // 📌 Cancels Future Enrollments
+  const handleCancelFuturePlan = (enrollmentId) => {
+    Alert.alert(
+      "Cancel Upcoming Plan",
+      "Are you sure you want to cancel your seat request for next month? You will keep your current seat.",
+      [
+        { text: "No, Keep It", style: "cancel" },
+        {
+          text: "Yes, Cancel Plan",
+          style: "destructive",
+          onPress: async () => {
+            setCancellingId(enrollmentId);
+            try {
+              const response = await studentApi.cancelEnrollment(enrollmentId);
+              if (response.data.success) {
+                fetchDashboard();
+                Toast.show({
+                  type: "success",
+                  text1: "Cancelled",
+                  text2: "Your request for next month has been withdrawn.",
+                });
+              }
+            } catch (error) {
+              Toast.show({
+                type: "error",
+                text1: "Error",
+                text2: error.response?.data?.message || "Failed to cancel.",
+              });
+            } finally {
+              setCancellingId(null);
             }
           },
         },
@@ -257,7 +298,6 @@ export default function HomeScreen() {
     return `${Math.max(0, Math.min(100, progress))}%`;
   };
 
-  // 📌 Determine if there's a recent renewal claim (within the last 24 hours)
   let hasRecentRenewalClaim = false;
   if (
     primary_booking?.status === "ACTIVE" &&
@@ -499,7 +539,6 @@ export default function HomeScreen() {
                       />
                     </View>
 
-                    {/* 📌 Display a clear message if they recently requested a renewal */}
                     {hasRecentRenewalClaim && (
                       <View className="mt-4 bg-purple-50 p-3 rounded-xl border border-purple-200">
                         <Text className="text-purple-800 font-m text-sm leading-5">
@@ -552,7 +591,13 @@ export default function HomeScreen() {
                       primary_booking.library_name,
                     )
                   }
-                  className="flex-1 flex-row items-center justify-center py-3.5 border-r border-borderLight"
+                  className={`flex-1 flex-row items-center justify-center py-3.5 ${
+                    ["PENDING", "PAYMENT_PENDING", "ACTIVE"].includes(
+                      primary_booking.status,
+                    )
+                      ? "border-r border-borderLight"
+                      : ""
+                  }`}
                 >
                   <Ionicons
                     name="navigate-outline"
@@ -572,11 +617,7 @@ export default function HomeScreen() {
                         params: { libraryId: primary_booking.library_id },
                       })
                     }
-                    className={`flex-1 flex-row items-center justify-center py-3.5 ${
-                      primary_booking.status === "PENDING"
-                        ? "border-r border-borderLight"
-                        : ""
-                    }`}
+                    className="flex-1 flex-row items-center justify-center py-3.5"
                   >
                     <Ionicons
                       name="chatbubbles-outline"
@@ -589,7 +630,10 @@ export default function HomeScreen() {
                   </TouchableOpacity>
                 )}
 
-                {primary_booking.status === "PENDING" && (
+                {/* 📌 Added PAYMENT_PENDING cancellation support here */}
+                {["PENDING", "PAYMENT_PENDING"].includes(
+                  primary_booking.status,
+                ) && (
                   <TouchableOpacity
                     onPress={handleCancel}
                     disabled={isCancelling}
@@ -734,7 +778,7 @@ export default function HomeScreen() {
                           <Chip label={booking.amenity} />
                           <Chip label={booking.reservation} />
                           {booking.assigned_seat && (
-                            <Chip label={booking.assigned_seat} />
+                            <Chip label={booking.assigned_seat} type="SEAT" />
                           )}
                           {booking.start_time && booking.end_time && (
                             <Chip
@@ -742,6 +786,21 @@ export default function HomeScreen() {
                             />
                           )}
                         </View>
+
+                        {/* 📌 Added Cancel Option dynamically for Future Plans */}
+                        {["PENDING", "PAYMENT_PENDING"].includes(
+                          booking.status,
+                        ) && (
+                          <Button
+                            title="Cancel Request"
+                            variant="outline"
+                            className="py-2.5 px-2 mt-4"
+                            loading={cancellingId === booking.enrollment_id}
+                            onPress={() =>
+                              handleCancelFuturePlan(booking.enrollment_id)
+                            }
+                          />
+                        )}
                       </View>
                     ))}
                   </View>
@@ -761,12 +820,6 @@ export default function HomeScreen() {
                         : "Rejected Requests"}
                     </Text>
                     {rejected_enrollments.map((booking, index) => {
-                      const startDate = new Date(booking.start_date);
-                      startDate.setHours(0, 0, 0, 0);
-                      const todayDate = new Date();
-                      todayDate.setHours(0, 0, 0, 0);
-                      const isFuture = startDate > todayDate;
-
                       return (
                         <View
                           key={`rejected-${index}`}

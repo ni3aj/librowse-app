@@ -242,6 +242,7 @@ export default function LibraryDetailScreen() {
           id: response.data.enrollment_id,
           status: "PENDING",
           inventory_id: selectedSeat.id,
+          assigned_seat: selectedSeatNumber, // Optimistically attach the selected seat
         });
         Toast.show({
           type: "success",
@@ -433,14 +434,6 @@ export default function LibraryDetailScreen() {
             >
               <Ionicons name="chevron-back" size={24} color="#fff" />
             </TouchableOpacity>
-            <View className="flex-row">
-              <TouchableOpacity className="bg-black/40 p-2.5 rounded-full mr-3">
-                <Ionicons name="heart-outline" size={24} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity className="bg-black/40 p-2.5 rounded-full">
-                <Ionicons name="share-social-outline" size={24} color="#fff" />
-              </TouchableOpacity>
-            </View>
           </View>
 
           <View className="absolute bottom-4 left-6 bg-black/70 px-3 py-1.5 rounded-full flex-row items-center">
@@ -583,7 +576,7 @@ export default function LibraryDetailScreen() {
                   >
                     <Ionicons name="star" size={14} color="#F59E0B" />
                     <Text className="text-orange-700 font-m-bold text-xs ml-1">
-                      {myReview ? "Edit Review" : "Rate"}
+                      {myReview ? "Edit Review" : "Write a Review"}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -621,6 +614,9 @@ export default function LibraryDetailScreen() {
                   {selectedSeat?.amenity?.replace("_", " ")} •{" "}
                   {selectedSeat?.shift?.replace("_", " ")} •{" "}
                   {selectedSeat?.reservation}
+                  {myEnrollment?.assigned_seat
+                    ? ` • Seat ${myEnrollment.assigned_seat}`
+                    : ""}
                 </Text>
                 <Text className="text-sm font-m text-textLight">
                   ₹{selectedSeat?.price} / month
@@ -653,11 +649,13 @@ export default function LibraryDetailScreen() {
                             : "N/A"}
                         </Text>
                       </View>
-                      <View className="bg-gray-200 px-3 py-1.5 rounded-xl">
-                        <Text className="text-xs font-m-bold text-gray-700">
-                          Starts {safeFormatDate(futureEnrollment.start_date)}
-                        </Text>
-                      </View>
+                      {futureEnrollment.status === "ACTIVE" && (
+                        <View className="bg-gray-200 px-3 py-1.5 rounded-xl">
+                          <Text className="text-xs font-m-bold text-gray-700">
+                            Starts {safeFormatDate(futureEnrollment.start_date)}
+                          </Text>
+                        </View>
+                      )}
                     </View>
 
                     <Text className="text-xs font-m-bold text-textLight uppercase tracking-wider mb-1">
@@ -667,6 +665,9 @@ export default function LibraryDetailScreen() {
                       {futureSeat?.amenity?.replace("_", " ")} •{" "}
                       {futureSeat?.shift?.replace("_", " ")} •{" "}
                       {futureSeat?.reservation}
+                      {futureEnrollment?.assigned_seat
+                        ? ` • Seat ${futureEnrollment.assigned_seat}`
+                        : ""}
                     </Text>
                     <Text className="text-sm font-m text-textLight">
                       ₹{futureSeat?.price} / month
@@ -830,8 +831,11 @@ export default function LibraryDetailScreen() {
               <Text className="text-[10px] font-m-bold text-textLight uppercase tracking-widest mb-0.5">
                 Status
               </Text>
+              {/* 📌 Dynamic seat text */}
               <Text className="text-base font-m-bold text-textDark">
-                Request Pending
+                {myEnrollment?.assigned_seat
+                  ? `Seat ${myEnrollment.assigned_seat} Pending`
+                  : "Request Pending"}
               </Text>
             </View>
             <Button
@@ -848,8 +852,11 @@ export default function LibraryDetailScreen() {
               <Text className="text-[10px] font-m-bold text-brandAccent uppercase tracking-widest mb-0.5">
                 Approved
               </Text>
+              {/* 📌 Dynamic seat text */}
               <Text className="text-base font-m-bold text-textDark">
-                Ready for Payment
+                {myEnrollment?.assigned_seat
+                  ? `Seat ${myEnrollment.assigned_seat} Ready`
+                  : "Ready for Payment"}
               </Text>
             </View>
             <Button
@@ -865,8 +872,11 @@ export default function LibraryDetailScreen() {
               <Text className="text-[10px] font-m-bold text-brand uppercase tracking-widest mb-0.5">
                 Enrolled
               </Text>
+              {/* 📌 Dynamic seat text */}
               <Text className="text-base font-m-bold text-textDark">
-                Seat is Active
+                {myEnrollment?.assigned_seat
+                  ? `Seat ${myEnrollment.assigned_seat} is Active`
+                  : "Seat is Active"}
               </Text>
             </View>
             <Button
