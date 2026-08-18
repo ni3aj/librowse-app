@@ -1,5 +1,6 @@
 import apiClient from "@/api/client";
 import PaymentModal from "@/components/student/PaymentModal";
+import ActionCard from "@/components/ui/ActionCard";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import Header from "@/components/ui/Header";
@@ -72,7 +73,6 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
 
-  // States for cancelling requests
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancellingId, setCancellingId] = useState(null);
 
@@ -81,7 +81,7 @@ export default function HomeScreen() {
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [receiptEmail, setReceiptEmail] = useState("");
   const [isSendingReceipt, setIsSendingReceipt] = useState(false);
-  const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
+  const [paymentConfig, setPaymentConfig] = useState(null);
 
   const fetchDashboard = async () => {
     if (!libraryId) {
@@ -145,7 +145,6 @@ export default function HomeScreen() {
     });
   };
 
-  // 📌 Cancels the Primary Booking
   const handleCancel = () => {
     Alert.alert(
       "Cancel Request",
@@ -184,7 +183,6 @@ export default function HomeScreen() {
     );
   };
 
-  // 📌 Cancels Future Enrollments
   const handleCancelFuturePlan = (enrollmentId) => {
     Alert.alert(
       "Cancel Upcoming Plan",
@@ -354,309 +352,307 @@ export default function HomeScreen() {
             <Text className="text-sm font-m-bold text-textLight uppercase tracking-wider mb-3 ml-1">
               Current Booking
             </Text>
-            <View className="bg-surface border border-borderLight rounded-3xl mb-6 shadow-sm shadow-black/5 overflow-hidden">
-              {/* --- DYNAMIC CARD HEADERS --- */}
-              {primary_booking.status === "PENDING" && (
-                <View className="bg-blue-50 px-5 py-3 border-b border-blue-100 flex-row distance-between items-center">
-                  <Ionicons
-                    name="time"
-                    size={18}
-                    color="#2563EB"
-                    className="mr-2"
-                  />
-                  <Text className="flex-1 text-blue-800 font-m-bold text-sm">
-                    Approval Pending
+            <ActionCard
+              className="mb-6"
+              header={{
+                bg:
+                  primary_booking.status === "PENDING"
+                    ? "bg-blue-50"
+                    : primary_booking.status === "PAYMENT_PENDING" &&
+                        !primary_booking.payment_claimed_at
+                      ? "bg-brandAccent/10"
+                      : primary_booking.status === "PAYMENT_PENDING" &&
+                          primary_booking.payment_claimed_at
+                        ? "bg-yellow-50"
+                        : primary_booking.status === "ACTIVE" &&
+                            primary_booking.days_remaining <= 5
+                          ? "bg-orange-50"
+                          : "bg-emerald-50",
+                border:
+                  primary_booking.status === "PENDING"
+                    ? "border-blue-100"
+                    : primary_booking.status === "PAYMENT_PENDING" &&
+                        !primary_booking.payment_claimed_at
+                      ? "border-brandAccent/20"
+                      : primary_booking.status === "PAYMENT_PENDING" &&
+                          primary_booking.payment_claimed_at
+                        ? "border-yellow-200"
+                        : primary_booking.status === "ACTIVE" &&
+                            primary_booking.days_remaining <= 5
+                          ? "border-orange-200"
+                          : "border-emerald-100",
+                icon:
+                  primary_booking.status === "PENDING"
+                    ? "time"
+                    : primary_booking.status === "PAYMENT_PENDING" &&
+                        !primary_booking.payment_claimed_at
+                      ? "alert-circle"
+                      : primary_booking.status === "PAYMENT_PENDING" &&
+                          primary_booking.payment_claimed_at
+                        ? "shield-checkmark"
+                        : primary_booking.status === "ACTIVE" &&
+                            primary_booking.days_remaining <= 5
+                          ? "warning"
+                          : "checkmark-circle",
+                iconColor:
+                  primary_booking.status === "PENDING"
+                    ? "#2563EB"
+                    : primary_booking.status === "PAYMENT_PENDING" &&
+                        !primary_booking.payment_claimed_at
+                      ? COLORS.brandAccent
+                      : primary_booking.status === "PAYMENT_PENDING" &&
+                          primary_booking.payment_claimed_at
+                        ? "#CA8A04"
+                        : primary_booking.status === "ACTIVE" &&
+                            primary_booking.days_remaining <= 5
+                          ? "#EA580C"
+                          : "#059669",
+                title:
+                  primary_booking.status === "PENDING"
+                    ? "Approval Pending"
+                    : primary_booking.status === "PAYMENT_PENDING" &&
+                        !primary_booking.payment_claimed_at
+                      ? "Payment Pending"
+                      : primary_booking.status === "PAYMENT_PENDING" &&
+                          primary_booking.payment_claimed_at
+                        ? "Payment Verification Pending"
+                        : primary_booking.status === "ACTIVE" &&
+                            primary_booking.days_remaining <= 5
+                          ? `Expiring in ${primary_booking.days_remaining} days!`
+                          : "Seat Active",
+                textColor:
+                  primary_booking.status === "PENDING"
+                    ? "text-blue-800"
+                    : primary_booking.status === "PAYMENT_PENDING" &&
+                        !primary_booking.payment_claimed_at
+                      ? "text-brandAccent"
+                      : primary_booking.status === "PAYMENT_PENDING" &&
+                          primary_booking.payment_claimed_at
+                        ? "text-yellow-800"
+                        : primary_booking.status === "ACTIVE" &&
+                            primary_booking.days_remaining <= 5
+                          ? "text-orange-800"
+                          : "text-emerald-800",
+                subtitle:
+                  ["PENDING", "PAYMENT_PENDING"].includes(
+                    primary_booking.status,
+                  ) && !primary_booking.payment_claimed_at
+                    ? `Since ${formatCleanDate(primary_booking.updated_at)}`
+                    : null,
+                rightElement: ["ACTIVE", "PAYMENT_PENDING"].includes(
+                  primary_booking.status,
+                ) ? (
+                  <Text className="text-base font-m-bold text-dark">
+                    {formatPrice(primary_booking.price)}
                   </Text>
-                  <Text className="text-textLight font-m-semi text-xs">
-                    Since {formatCleanDate(primary_booking.updated_at)}
+                ) : null,
+              }}
+              footer={
+                <>
+                  <TouchableOpacity
+                    onPress={() =>
+                      openMaps(
+                        primary_booking.latitude,
+                        primary_booking.longitude,
+                        primary_booking.library_name,
+                      )
+                    }
+                    className={`flex-1 flex-row items-center justify-center py-3.5 ${
+                      ["PENDING", "PAYMENT_PENDING", "ACTIVE"].includes(
+                        primary_booking.status,
+                      )
+                        ? "border-r border-borderLight"
+                        : ""
+                    }`}
+                  >
+                    <Ionicons
+                      name="navigate-outline"
+                      size={18}
+                      color={COLORS.textDark}
+                    />
+                    <Text className="text-sm font-m-bold text-textDark ml-2">
+                      Locate
+                    </Text>
+                  </TouchableOpacity>
+
+                  {primary_booking.status === "ACTIVE" && (
+                    <TouchableOpacity
+                      onPress={() =>
+                        router.push({
+                          pathname: "/activities",
+                          params: { libraryId: primary_booking.library_id },
+                        })
+                      }
+                      className="flex-1 flex-row items-center justify-center py-3.5"
+                    >
+                      <Ionicons
+                        name="chatbubbles-outline"
+                        size={18}
+                        color={COLORS.textDark}
+                      />
+                      <Text className="text-sm font-m-bold text-textDark ml-2">
+                        Chat
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {["PENDING", "PAYMENT_PENDING"].includes(
+                    primary_booking.status,
+                  ) && (
+                    <TouchableOpacity
+                      onPress={handleCancel}
+                      disabled={isCancelling}
+                      className="flex-1 flex-row items-center justify-center py-3.5"
+                    >
+                      {isCancelling ? (
+                        <ActivityIndicator size="small" color="#DC2626" />
+                      ) : (
+                        <>
+                          <Ionicons
+                            name="close-circle-outline"
+                            size={18}
+                            color="#DC2626"
+                          />
+                          <Text className="text-sm font-m-bold text-red-600 ml-1">
+                            Cancel
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </>
+              }
+            >
+              <View className="flex-row justify-between items-start mb-4">
+                <View className="flex-1 pr-4">
+                  <TouchableOpacity
+                    onPress={() =>
+                      router.push(`/library/${primary_booking.library_id}`)
+                    }
+                  >
+                    <Text className="text-xl font-m-extra text-textDark leading-6 mb-0.5">
+                      {primary_booking.library_name}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <View className="flex-row flex-wrap gap-1 mt-1">
+                    <Chip label={primary_booking.shift} />
+                    <Chip label={primary_booking.amenity} />
+                    <Chip label={primary_booking.reservation} />
+                    {primary_booking.start_time && primary_booking.end_time && (
+                      <Chip
+                        label={`${formatTime(primary_booking.start_time)} - ${formatTime(primary_booking.end_time)}`}
+                      />
+                    )}
+                  </View>
+                </View>
+
+                {primary_booking.assigned_seat && (
+                  <View className="bg-brand/10 border border-brand/20 w-20 h-20 rounded-2xl items-center justify-center">
+                    <Text className="text-[10px] font-m-bold text-brand uppercase mb-0.5">
+                      Seat
+                    </Text>
+                    <Text className="text-lg font-m-extra text-brand leading-5">
+                      {primary_booking.assigned_seat}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {primary_booking.status === "PENDING" && (
+                <View className="mb-2 bg-gray-50 p-3 rounded-xl border border-borderLight">
+                  <Text className="text-textLight font-m text-sm leading-5">
+                    Your request has been sent! Waiting for the library owner to
+                    approve it before you can pay.
                   </Text>
                 </View>
               )}
 
               {primary_booking.status === "PAYMENT_PENDING" &&
                 !primary_booking.payment_claimed_at && (
-                  <View className="bg-brandAccent/10 px-5 py-3 border-b border-brandAccent/20 flex-row items-center">
-                    <Ionicons
-                      name="alert-circle"
-                      size={18}
-                      color={COLORS.brandAccent}
-                      className="mr-2"
+                  <View className="mb-2">
+                    <Text className="text-textDark font-m text-sm leading-5 mb-4">
+                      Your seat is approved! Please pay{" "}
+                      <Text className="font-m-bold text-brand">
+                        ₹{parseInt(primary_booking.price)}
+                      </Text>{" "}
+                      directly to the library via Cash or UPI.
+                    </Text>
+                    <Button
+                      title="Complete Payment"
+                      variant="primary"
+                      className="py-3.5"
+                      onPress={() => setPaymentConfig(primary_booking)}
                     />
-                    <Text className="flex-1 text-brandAccent font-m-bold text-sm">
-                      Payment Pending
-                    </Text>
-                    <Text className="text-textLight font-m-semi text-xs">
-                      Since {formatCleanDate(primary_booking.updated_at)}
-                    </Text>
                   </View>
                 )}
 
               {primary_booking.status === "PAYMENT_PENDING" &&
                 primary_booking.payment_claimed_at && (
-                  <View className="bg-yellow-50 px-5 py-3 border-b border-yellow-200 flex-row items-center">
-                    <Ionicons
-                      name="shield-checkmark"
-                      size={18}
-                      color="#CA8A04"
-                      className="mr-2"
-                    />
-                    <Text className="flex-1 text-yellow-800 font-m-bold text-sm">
-                      Payment Verification Pending
-                    </Text>
-                    <Text className="text-base font-m-bold text-sm text-dark">
-                      {formatPrice(primary_booking.price)}
+                  <View className="mb-2 bg-yellow-50/50 p-3 rounded-xl border border-yellow-200">
+                    <Text className="text-yellow-800 font-m text-sm leading-5">
+                      You notified the owner. Your seat will activate
+                      automatically once they confirm receipt of your payment.
                     </Text>
                   </View>
                 )}
 
-              {primary_booking.status === "ACTIVE" &&
-                primary_booking.days_remaining > 5 && (
-                  <View className="bg-emerald-50 px-5 py-3 border-b border-emerald-100 flex-row items-center">
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={18}
-                      color="#059669"
-                      className="mr-2"
-                    />
-                    <Text className="flex-1 text-emerald-800 font-m-bold text-sm">
-                      Seat Active
-                    </Text>
-                    <Text className="text-base font-m-bold text-sm text-dark">
-                      {formatPrice(primary_booking.price)}
-                    </Text>
-                  </View>
-                )}
-
-              {primary_booking.status === "ACTIVE" &&
-                primary_booking.days_remaining <= 5 && (
-                  <View className="bg-orange-50 px-5 py-3 border-b border-orange-200 flex-row items-center">
-                    <Ionicons
-                      name="warning"
-                      size={18}
-                      color="#EA580C"
-                      className="mr-2"
-                    />
-                    <Text className="text-orange-800 font-m-bold text-sm">
-                      Expiring in {primary_booking.days_remaining} days!
-                    </Text>
-                  </View>
-                )}
-
-              {/* --- CARD BODY --- */}
-              <View className="p-5">
-                <View className="flex-row justify-between items-start mb-4">
-                  <View className="flex-1 pr-4">
-                    <TouchableOpacity
-                      onPress={() =>
-                        router.push(`/library/${primary_booking.library_id}`)
-                      }
-                    >
-                      <Text className="text-xl font-m-extra text-textDark leading-6 mb-0.5">
-                        {primary_booking.library_name}
-                      </Text>
-                    </TouchableOpacity>
-
-                    <View className="flex-row flex-wrap gap-1 mt-1">
-                      <Chip label={primary_booking.shift} />
-                      <Chip label={primary_booking.amenity} />
-                      <Chip label={primary_booking.reservation} />
-                      {primary_booking.start_time &&
-                        primary_booking.end_time && (
-                          <Chip
-                            label={`${formatTime(primary_booking.start_time)} - ${formatTime(primary_booking.end_time)}`}
-                          />
-                        )}
-                    </View>
-                  </View>
-
-                  {primary_booking.assigned_seat && (
-                    <View className="bg-brand/10 border border-brand/20 w-14 h-14 rounded-2xl items-center justify-center">
-                      <Text className="text-[10px] font-m-bold text-brand uppercase mb-0.5">
-                        Seat
-                      </Text>
-                      <Text className="text-lg font-m-extra text-brand leading-5">
-                        {primary_booking.assigned_seat}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* --- DYNAMIC CARD MESSAGES & BUTTONS --- */}
-                {primary_booking.status === "PENDING" && (
-                  <View className="mt-1 bg-gray-50 p-3 rounded-xl border border-borderLight">
-                    <Text className="text-textLight font-m text-sm leading-5">
-                      Your request has been sent! Waiting for the library owner
-                      to approve it before you can pay.
-                    </Text>
-                  </View>
-                )}
-
-                {primary_booking.status === "PAYMENT_PENDING" &&
-                  !primary_booking.payment_claimed_at && (
-                    <View className="mt-2">
-                      <Text className="text-textDark font-m text-sm leading-5 mb-4">
-                        Your seat is approved! Please pay{" "}
-                        <Text className="font-m-bold text-brand">
-                          ₹{parseInt(primary_booking.price)}
-                        </Text>{" "}
-                        directly to the library via Cash or UPI.
-                      </Text>
-                      <Button
-                        title="Complete Payment"
-                        variant="primary"
-                        className="py-3.5"
-                        onPress={() => setIsPaymentModalVisible(true)}
-                      />
-                    </View>
-                  )}
-
-                {primary_booking.status === "PAYMENT_PENDING" &&
-                  primary_booking.payment_claimed_at && (
-                    <View className="mt-1 bg-gray-50 p-3 rounded-xl border border-borderLight">
-                      <Text className="text-textLight font-m text-sm leading-5">
-                        You notified the owner. Your seat will activate
-                        automatically once they confirm receipt of your payment.
-                      </Text>
-                    </View>
-                  )}
-
-                {primary_booking.status === "ACTIVE" && (
-                  <View>
-                    <View className="flex-row justify-between items-end mb-2">
-                      <Text className="text-xs font-m text-textLight">
-                        Started {formatCleanDate(primary_booking.start_date)}
-                      </Text>
-                      <Text className="text-xs font-m-bold text-brand">
-                        {primary_booking.days_remaining > 0
-                          ? `${primary_booking.days_remaining} Days Left`
-                          : "Starts Today"}
-                      </Text>
-                    </View>
-                    <View className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden border border-borderLight">
-                      <View
-                        className="h-full bg-brand rounded-full"
-                        style={{ width: getProgressWidth() }}
-                      />
-                    </View>
-
-                    {hasRecentRenewalClaim && (
-                      <View className="mt-4 bg-purple-50 p-3 rounded-xl border border-purple-200">
-                        <Text className="text-purple-800 font-m text-sm leading-5">
-                          Renewal requested! Your seat will be extended by 30
-                          days once the owner confirms your payment.
-                        </Text>
-                      </View>
-                    )}
-
-                    <View className="flex-row gap-3 mt-5">
-                      <Button
-                        title="Get Receipt"
-                        variant="outline"
-                        icon={
-                          <Ionicons
-                            name="mail-outline"
-                            size={18}
-                            color={COLORS.brand}
-                          />
-                        }
-                        className="flex-1 py-3.5"
-                        onPress={openReceiptModal}
-                      />
-
-                      {primary_booking.days_remaining <= 5 && (
-                        <Button
-                          title={
-                            hasRecentRenewalClaim ? "Pending" : "Renew Seat"
-                          }
-                          variant={
-                            hasRecentRenewalClaim ? "outline" : "primary"
-                          }
-                          disabled={hasRecentRenewalClaim}
-                          className="flex-1 py-3.5"
-                          onPress={() => setIsPaymentModalVisible(true)}
-                        />
-                      )}
-                    </View>
-                  </View>
-                )}
-              </View>
-
-              {/* --- CARD FOOTER (ALWAYS VISIBLE) --- */}
-              <View className="flex-row border-t border-borderLight bg-gray-50/50">
-                <TouchableOpacity
-                  onPress={() =>
-                    openMaps(
-                      primary_booking.latitude,
-                      primary_booking.longitude,
-                      primary_booking.library_name,
-                    )
-                  }
-                  className={`flex-1 flex-row items-center justify-center py-3.5 ${
-                    ["PENDING", "PAYMENT_PENDING", "ACTIVE"].includes(
-                      primary_booking.status,
-                    )
-                      ? "border-r border-borderLight"
-                      : ""
-                  }`}
-                >
-                  <Ionicons
-                    name="navigate-outline"
-                    size={18}
-                    color={COLORS.textDark}
-                  />
-                  <Text className="text-sm font-m-bold text-textDark ml-2">
-                    Locate
+              {primary_booking.status === "ACTIVE" && hasRecentRenewalClaim && (
+                <View className="mb-4 bg-purple-50 p-3 rounded-xl border border-purple-200">
+                  <Text className="text-purple-800 font-m text-sm leading-5">
+                    Renewal requested! Your seat will be extended by 30 days
+                    once the owner confirms your payment.
                   </Text>
-                </TouchableOpacity>
+                </View>
+              )}
 
-                {primary_booking.status === "ACTIVE" && (
-                  <TouchableOpacity
-                    onPress={() =>
-                      router.push({
-                        pathname: "/activities",
-                        params: { libraryId: primary_booking.library_id },
-                      })
-                    }
-                    className="flex-1 flex-row items-center justify-center py-3.5"
-                  >
-                    <Ionicons
-                      name="chatbubbles-outline"
-                      size={18}
-                      color={COLORS.textDark}
-                    />
-                    <Text className="text-sm font-m-bold text-textDark ml-2">
-                      Chat
+              {primary_booking.status === "ACTIVE" && (
+                <View>
+                  <View className="flex-row justify-between items-end mb-2">
+                    <Text className="text-xs font-m text-textLight">
+                      Started {formatCleanDate(primary_booking.start_date)}
                     </Text>
-                  </TouchableOpacity>
-                )}
+                    <Text className="text-xs font-m-bold text-brand">
+                      {primary_booking.days_remaining > 0
+                        ? `${primary_booking.days_remaining} Days Left`
+                        : "Starts Today"}
+                    </Text>
+                  </View>
+                  <View className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden border border-borderLight">
+                    <View
+                      className="h-full bg-brand rounded-full"
+                      style={{ width: getProgressWidth() }}
+                    />
+                  </View>
 
-                {/* 📌 Added PAYMENT_PENDING cancellation support here */}
-                {["PENDING", "PAYMENT_PENDING"].includes(
-                  primary_booking.status,
-                ) && (
-                  <TouchableOpacity
-                    onPress={handleCancel}
-                    disabled={isCancelling}
-                    className="flex-1 flex-row items-center justify-center py-3.5"
-                  >
-                    {isCancelling ? (
-                      <ActivityIndicator size="small" color="#DC2626" />
-                    ) : (
-                      <>
+                  <View className="flex-row gap-3 mt-5">
+                    <Button
+                      title="Get Receipt"
+                      variant="outline"
+                      icon={
                         <Ionicons
-                          name="close-circle-outline"
+                          name="mail-outline"
                           size={18}
-                          color="#DC2626"
+                          color={COLORS.brand}
                         />
-                        <Text className="text-sm font-m-bold text-red-600 ml-1">
-                          Cancel
-                        </Text>
-                      </>
+                      }
+                      className="flex-1 py-3.5"
+                      onPress={openReceiptModal}
+                    />
+
+                    {primary_booking.days_remaining <= 5 && (
+                      <Button
+                        title={hasRecentRenewalClaim ? "Pending" : "Renew Seat"}
+                        variant={hasRecentRenewalClaim ? "outline" : "primary"}
+                        disabled={hasRecentRenewalClaim}
+                        className="flex-1 py-3.5"
+                        onPress={() => setPaymentConfig(primary_booking)}
+                      />
                     )}
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
+                  </View>
+                </View>
+              )}
+            </ActionCard>
 
             {needs_review && (
               <TouchableOpacity
@@ -742,70 +738,127 @@ export default function HomeScreen() {
 
             {isHistoryExpanded && (
               <View>
+                {/* 📌 FUTURE ENROLLMENTS */}
                 {future_enrollments.length > 0 && (
                   <View className="mb-2">
                     <Text className="text-xs font-m-bold text-textLight mb-2 px-1">
                       Future Enrollment
                     </Text>
-                    {future_enrollments.map((booking, index) => (
-                      <View
-                        key={`future-${index}`}
-                        className="bg-white border border-borderLight rounded-2xl px-4 pt-4 pb-3 mb-3"
-                      >
-                        <View className="flex-row justify-between items-center mb-1">
-                          <Text
-                            className="font-m-bold text-textDark text-base flex-1"
-                            numberOfLines={1}
-                          >
-                            {booking.library_name}
-                          </Text>
-                          <Text className="text-[10px] font-m-bold uppercase px-2 py-0.5 rounded border text-blue-600 bg-blue-50 border-blue-200">
-                            UPCOMING
-                          </Text>
-                          <Text className="text-[10px] ml-1 font-m-bold uppercase px-2 py-0.5 rounded border text-textDark bg-surface border-borderLight">
-                            {formatPrice(booking.price)}
-                          </Text>
-                        </View>
+                    {future_enrollments.map((booking, index) => {
+                      const hasStudentClaimed = !!booking.payment_claimed_at;
 
-                        <View className="flex-row justify-between items-center mb-3">
-                          <Text className="text-xs font-m text-textLight">
-                            Starts {formatCleanDate(booking.start_date)}
-                          </Text>
-                        </View>
+                      return (
+                        <ActionCard
+                          key={`future-${index}`}
+                          className="mb-3"
+                          header={{
+                            bg: "bg-indigo-50",
+                            border: "border-indigo-100",
+                            icon: "calendar",
+                            iconColor: "#4F46E5",
+                            title:
+                              booking.status === "PAYMENT_PENDING"
+                                ? hasStudentClaimed
+                                  ? "Payment Verification Pending"
+                                  : "Payment Pending"
+                                : "Upcoming Plan",
+                            textColor: "text-indigo-800",
+                            rightElement: (
+                              <Text className="text-base font-m-bold text-dark">
+                                {formatPrice(booking.price)}
+                              </Text>
+                            ),
+                          }}
+                          footer={
+                            <>
+                              {["PENDING", "PAYMENT_PENDING"].includes(
+                                booking.status,
+                              ) && (
+                                <TouchableOpacity
+                                  onPress={() =>
+                                    handleCancelFuturePlan(
+                                      booking.enrollment_id,
+                                    )
+                                  }
+                                  disabled={
+                                    cancellingId === booking.enrollment_id
+                                  }
+                                  className={`flex-1 flex-row items-center justify-center py-3.5 ${
+                                    booking.status === "PAYMENT_PENDING" &&
+                                    !hasStudentClaimed
+                                      ? "border-r border-borderLight"
+                                      : ""
+                                  }`}
+                                >
+                                  {cancellingId === booking.enrollment_id ? (
+                                    <ActivityIndicator
+                                      size="small"
+                                      color="#DC2626"
+                                    />
+                                  ) : (
+                                    <>
+                                      <Ionicons
+                                        name="close-circle-outline"
+                                        size={18}
+                                        color="#DC2626"
+                                      />
+                                      <Text className="text-sm font-m-bold text-red-600 ml-1">
+                                        Cancel Request
+                                      </Text>
+                                    </>
+                                  )}
+                                </TouchableOpacity>
+                              )}
 
-                        <View className="flex-row flex-wrap gap-1 mt-1">
-                          <Chip label={booking.shift} />
-                          <Chip label={booking.amenity} />
-                          <Chip label={booking.reservation} />
-                          {booking.assigned_seat && (
-                            <Chip label={booking.assigned_seat} type="SEAT" />
-                          )}
-                          {booking.start_time && booking.end_time && (
-                            <Chip
-                              label={`${formatTime(booking.start_time)} - ${formatTime(booking.end_time)}`}
-                            />
-                          )}
-                        </View>
+                              {booking.status === "PAYMENT_PENDING" &&
+                                !hasStudentClaimed && (
+                                  <TouchableOpacity
+                                    onPress={() => setPaymentConfig(booking)}
+                                    className="flex-1 flex-row items-center justify-center py-3.5 bg-brand"
+                                  >
+                                    <Text className="text-sm font-m-bold text-white">
+                                      Pay Now
+                                    </Text>
+                                  </TouchableOpacity>
+                                )}
+                            </>
+                          }
+                        >
+                          <View className="flex-row justify-between items-start mb-2">
+                            <View className="flex-1 pr-4">
+                              <Text className="text-lg font-m-extra text-textDark leading-6 mb-0.5">
+                                {booking.library_name}
+                              </Text>
+                              <Text className="text-xs font-m text-textLight mb-1">
+                                Starts {formatCleanDate(booking.start_date)}
+                              </Text>
 
-                        {/* 📌 Added Cancel Option dynamically for Future Plans */}
-                        {["PENDING", "PAYMENT_PENDING"].includes(
-                          booking.status,
-                        ) && (
-                          <Button
-                            title="Cancel Request"
-                            variant="outline"
-                            className="py-2.5 px-2 mt-4"
-                            loading={cancellingId === booking.enrollment_id}
-                            onPress={() =>
-                              handleCancelFuturePlan(booking.enrollment_id)
-                            }
-                          />
-                        )}
-                      </View>
-                    ))}
+                              <View className="flex-row flex-wrap gap-1 mt-1">
+                                <Chip label={booking.shift} />
+                                <Chip label={booking.amenity} />
+                                <Chip label={booking.reservation} />
+                                {booking.assigned_seat && (
+                                  <Chip
+                                    label={booking.assigned_seat}
+                                    type="SEAT"
+                                  />
+                                )}
+                                {booking.start_time && booking.end_time && (
+                                  <Chip
+                                    type="TIME"
+                                    label={`${formatTime(booking.start_time)} - ${formatTime(booking.end_time)}`}
+                                  />
+                                )}
+                              </View>
+                            </View>
+                          </View>
+                        </ActionCard>
+                      );
+                    })}
                   </View>
                 )}
 
+                {/* 📌 REJECTED ENROLLMENTS */}
                 {rejected_enrollments.length > 0 && (
                   <View className="mb-4">
                     <Text className="text-xs font-m-bold text-textLight mb-2 px-1">
@@ -819,115 +872,104 @@ export default function HomeScreen() {
                         ? "Rejected Future Requests"
                         : "Rejected Requests"}
                     </Text>
-                    {rejected_enrollments.map((booking, index) => {
-                      return (
-                        <View
-                          key={`rejected-${index}`}
-                          className="bg-white border border-red-100 rounded-2xl p-4 mb-3 opacity-80"
-                        >
-                          <View className="flex-row justify-between items-center mb-1">
-                            <Text
-                              className="font-m-bold text-textDark text-base flex-1"
-                              numberOfLines={1}
-                            >
+                    {rejected_enrollments.map((booking, index) => (
+                      <ActionCard
+                        key={`rejected-${index}`}
+                        className="mb-3 opacity-80"
+                        header={{
+                          bg: "bg-red-50",
+                          border: "border-red-100",
+                          icon: "close-circle",
+                          iconColor: "#DC2626",
+                          title: "Request Rejected",
+                          textColor: "text-red-800",
+                        }}
+                      >
+                        <View className="flex-row justify-between items-start mb-2">
+                          <View className="flex-1 pr-4">
+                            <Text className="text-lg font-m-extra text-textDark leading-6 mb-0.5">
                               {booking.library_name}
                             </Text>
-                            <Text className="text-[10px] font-m-bold uppercase px-2 py-0.5 rounded border text-red-600 bg-red-50 border-red-200">
-                              REJECTED
-                            </Text>
-                          </View>
-
-                          <View className="flex-row justify-between items-center mb-4">
-                            <Text className="text-xs font-m text-textLight flex-1">
+                            <Text className="text-xs font-m text-textLight mb-1">
                               Was going to start on{" "}
                               {formatCleanDate(booking.start_date)}
                             </Text>
-                          </View>
 
-                          <View className="flex-row flex-wrap gap-2 mb-3">
-                            <Chip label={booking.shift} />
-                            <Chip label={booking.amenity} />
-                            <Chip label={booking.reservation} />
-                            {booking.assigned_seat && (
-                              <Chip label={booking.assigned_seat} />
-                            )}
-                            {booking.start_time && booking.end_time && (
-                              <Chip
-                                label={`${formatTime(booking.start_time)} - ${formatTime(booking.end_time)}`}
-                              />
-                            )}
-                          </View>
-
-                          <View className="flex-row pt-2 border-t border-red-50">
-                            <Text className="flex-1 text-xs font-m text-red-600 mt-1">
-                              Rejected on{" "}
-                              {formatCleanDate(booking.updated_at, true)}
-                            </Text>
-                            <Text className="text-sm font-m-bold text-textDark">
-                              {formatPrice(booking.price)}
-                            </Text>
+                            <View className="flex-row flex-wrap gap-1 mt-1">
+                              <Chip label={booking.shift} />
+                              <Chip label={booking.amenity} />
+                              <Chip label={booking.reservation} />
+                              {booking.assigned_seat && (
+                                <Chip
+                                  label={booking.assigned_seat}
+                                  type="SEAT"
+                                />
+                              )}
+                            </View>
                           </View>
                         </View>
-                      );
-                    })}
+
+                        <View className="flex-row pt-2 border-t border-borderLight mt-2">
+                          <Text className="flex-1 text-xs font-m text-red-600 mt-1">
+                            Rejected on{" "}
+                            {formatCleanDate(booking.updated_at, true)}
+                          </Text>
+                        </View>
+                      </ActionCard>
+                    ))}
                   </View>
                 )}
 
+                {/* 📌 HISTORY BOOKINGS */}
                 {history_bookings.length > 0 && (
                   <View className="mb-4">
                     <Text className="text-xs font-m-bold text-textLight mb-2 px-1">
                       Past Bookings
                     </Text>
                     {history_bookings.map((booking, index) => (
-                      <View
+                      <ActionCard
                         key={`history-${index}`}
-                        className="bg-white border border-borderLight rounded-2xl p-4 mb-3 opacity-70"
+                        className="mb-3 opacity-70"
+                        header={{
+                          bg: "bg-gray-50",
+                          border: "border-gray-200",
+                          icon:
+                            booking.status === "CANCELLED"
+                              ? "close-circle"
+                              : "time",
+                          iconColor: "#6B7280",
+                          title:
+                            booking.status === "EXPIRED"
+                              ? "Expired"
+                              : "Cancelled",
+                          textColor: "text-gray-800",
+                        }}
                       >
-                        <View className="flex-row justify-between items-center mb-1">
-                          <Text
-                            className="font-m-bold text-textDark text-base flex-1"
-                            numberOfLines={1}
-                          >
-                            {booking.library_name}
-                          </Text>
-                          <Text className="text-[10px] font-m-bold uppercase px-2 py-0.5 rounded border text-textLight bg-gray-50 border-borderLight">
-                            {booking.status === "EXPIRED"
-                              ? "EXPIRED"
-                              : booking.status}
-                          </Text>
-                        </View>
+                        <View className="flex-row justify-between items-start mb-2">
+                          <View className="flex-1 pr-4">
+                            <Text className="text-lg font-m-extra text-textDark leading-6 mb-0.5">
+                              {booking.library_name}
+                            </Text>
+                            <Text className="text-xs font-m text-textLight mb-1">
+                              {booking.status === "EXPIRED"
+                                ? `Ended ${booking.end_date ? formatCleanDate(booking.end_date) : "N/A"}`
+                                : `Cancelled on ${booking.updated_at ? formatCleanDate(booking.updated_at, true) : "N/A"}`}
+                            </Text>
 
-                        <View className="flex-row justify-between items-center mt-1">
-                          <Text
-                            className="text-[12px] font-m text-textLight flex-1 pr-2"
-                            numberOfLines={1}
-                          >
-                            {booking.amenity} / {booking.shift} /{" "}
-                            {booking.reservation}
-                            {booking.assigned_seat &&
-                              ` (${booking.assigned_seat})`}
-                          </Text>
+                            <View className="flex-row flex-wrap gap-1 mt-1">
+                              <Chip label={booking.shift} />
+                              <Chip label={booking.amenity} />
+                              <Chip label={booking.reservation} />
+                              {booking.assigned_seat && (
+                                <Chip
+                                  label={booking.assigned_seat}
+                                  type="SEAT"
+                                />
+                              )}
+                            </View>
+                          </View>
                         </View>
-
-                        <Text className="text-xs font-m text-textLight mt-1">
-                          {booking.status === "EXPIRED" && (
-                            <>
-                              Ended{" "}
-                              {booking.end_date
-                                ? formatCleanDate(booking.end_date)
-                                : "N/A"}
-                            </>
-                          )}
-                          {booking.status === "CANCELLED" && (
-                            <>
-                              Cancelled on{" "}
-                              {booking.updated_at
-                                ? formatCleanDate(booking.updated_at, true)
-                                : "N/A"}
-                            </>
-                          )}
-                        </Text>
-                      </View>
+                      </ActionCard>
                     ))}
                   </View>
                 )}
@@ -983,13 +1025,17 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
+
       <PaymentModal
-        visible={isPaymentModalVisible}
-        onClose={() => setIsPaymentModalVisible(false)}
-        price={primary_booking?.price}
-        ownerPhone={primary_booking?.owner_phone}
-        enrollmentId={primary_booking?.enrollment_id}
-        onSuccess={fetchDashboard}
+        visible={!!paymentConfig}
+        onClose={() => setPaymentConfig(null)}
+        price={paymentConfig?.price}
+        ownerPhone={paymentConfig?.owner_phone || primary_booking?.owner_phone}
+        enrollmentId={paymentConfig?.enrollment_id}
+        onSuccess={() => {
+          setPaymentConfig(null);
+          fetchDashboard();
+        }}
       />
     </View>
   );

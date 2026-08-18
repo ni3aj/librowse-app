@@ -57,6 +57,12 @@ export default function Chip({ label, type }) {
         icon: "bed-outline",
         variant: "purple",
       };
+    } else if (type === "TIME") {
+      config = {
+        display: label.replace("_", " "),
+        icon: "time-outline",
+        variant: "purple",
+      };
     } else {
       config = {
         display: label.replace("_", " "),
