@@ -1,4 +1,5 @@
 import apiClient from "@/api/client";
+import ActionCard from "@/components/ui/ActionCard";
 import Chip from "@/components/ui/Chip";
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
@@ -34,14 +35,14 @@ const STATUS_CONFIG = {
     dot: "bg-amber-300",
   },
   PAYMENT_CLAIMED: {
-    label: "Confirm Payment Pending",
+    label: "Verification Pending",
     bg: "bg-yellow-500",
     dot: "bg-yellow-300",
   },
   PENDING: {
     label: "Pending Approval",
-    bg: "bg-orange-500",
-    dot: "bg-orange-400",
+    bg: "bg-blue-500",
+    dot: "bg-blue-400",
   },
   SUCCESSFUL: { label: "Paid", bg: "bg-emerald-500", dot: "bg-emerald-400" },
   FAILED: { label: "Failed", bg: "bg-red-500", dot: "bg-red-400" },
@@ -131,92 +132,6 @@ function InfoRow({ emoji, label, value, mono = false }) {
   );
 }
 
-function EnrollmentCard({
-  enrollment,
-  isFuture = false,
-  isRejected = false,
-  isCancelled = false,
-  isOwner = false,
-}) {
-  const isClaimed =
-    enrollment.status === "PAYMENT_PENDING" && !!enrollment.payment_claimed_at;
-  const displayStatus = isClaimed ? "PAYMENT_CLAIMED" : enrollment.status;
-  const headerBg = isClaimed ? "bg-yellow-50" : "bg-background";
-  const borderCl = isClaimed ? "border-yellow-200" : "border-borderLight";
-  const cardBg = isClaimed ? "bg-yellow-50/20" : "bg-white";
-
-  let titleCl = "text-emerald-600";
-  let title = "Current Plan";
-
-  if (isRejected) {
-    titleCl = "text-gray-600";
-    title = "Rejected Request";
-  } else if (isCancelled) {
-    titleCl = "text-gray-600";
-    title = "Cancelled Request";
-  } else if (isFuture) {
-    titleCl = "text-red-500";
-    title = "Upcoming Plan";
-  } else if (isClaimed) {
-    titleCl = "text-yellow-700";
-  }
-
-  return (
-    <View
-      className={`rounded-2xl overflow-hidden border mb-4 ${cardBg} ${borderCl}`}
-    >
-      <View
-        className={`flex-row items-center justify-between px-4 py-3 border-b ${headerBg} ${borderCl}`}
-      >
-        <View className="flex-row items-center gap-2">
-          <Text className={`text-sm font-m-bold ${titleCl}`}>{title}</Text>
-        </View>
-        <StatusBadge status={displayStatus} />
-      </View>
-
-      <View className="px-4 py-4 pb-4">
-        {!["PENDING", "PAYMENT_PENDING", "CANCELLED"].includes(
-          enrollment.status,
-        ) && (
-          <View className="flex-row items-center gap-1.5 mb-3">
-            <Text className="text-xs">📅</Text>
-            <Text className="text-xs font-m-semi text-gray-500">
-              {formatCleanDate(enrollment.start_date)}
-              {enrollment.end_date &&
-                ` → ${formatCleanDate(enrollment.end_date)}`}
-            </Text>
-          </View>
-        )}
-
-        <View className="flex-row flex-wrap mb-1 mt-2 gap-1">
-          <Chip label={enrollment.shift} />
-          <Chip label={enrollment.amenity} />
-          <Chip label={enrollment.reservation} />
-          <Chip label={enrollment.assigned_seat} type="SEAT" />
-        </View>
-
-        <View className="h-px bg-gray-100 my-3" />
-
-        <View className="flex-row items-center justify-between">
-          <Text className={`text-3xl font-black text-textDark/80`}>
-            {fmtCurrency(enrollment.price)}
-          </Text>
-          {isOwner && (
-            <View className="items-end">
-              <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">
-                Requested
-              </Text>
-              <Text className="text-xs font-m-semi text-gray-500 mt-0.5">
-                {formatCleanDate(enrollment.requested_on)}
-              </Text>
-            </View>
-          )}
-        </View>
-      </View>
-    </View>
-  );
-}
-
 function PaymentCard({ payment }) {
   return (
     <View className="bg-white rounded-2xl border border-pink-100 mb-3 overflow-hidden">
@@ -285,7 +200,6 @@ export default function UserProfileScreen() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // States to control collapsible sections
   const [isFutureExpanded, setIsFutureExpanded] = useState(false);
   const [isRejectedExpanded, setIsRejectedExpanded] = useState(false);
   const [isCancelledExpanded, setIsCancelledExpanded] = useState(false);
@@ -329,6 +243,77 @@ export default function UserProfileScreen() {
     } else {
       Toast.show({ type: "info", text1: "Location Unavailable" });
     }
+  };
+
+  // 📌 Helper to configure the ActionCard header globally
+  const getHeaderConfig = (booking, defaultTitle) => {
+    const isClaimed = !!booking.payment_claimed_at;
+    let config = {
+      title: defaultTitle,
+      textColor: "text-gray-800",
+      bg: "bg-gray-50",
+      border: "border-gray-200",
+      icon: "information-circle",
+      iconColor: "#6B7280",
+    };
+
+    if (booking.status === "ACTIVE") {
+      config = {
+        title: "Active Subscription",
+        textColor: "text-emerald-800",
+        bg: "bg-emerald-50",
+        border: "border-emerald-100",
+        icon: "checkmark-circle",
+        iconColor: "#059669",
+      };
+    } else if (booking.status === "PENDING") {
+      config = {
+        title: "Approval Pending",
+        textColor: "text-blue-800",
+        bg: "bg-blue-50",
+        border: "border-blue-100",
+        icon: "time",
+        iconColor: "#2563EB",
+      };
+    } else if (booking.status === "PAYMENT_PENDING" && !isClaimed) {
+      config = {
+        title: "Payment Pending",
+        textColor: "text-brandAccent",
+        bg: "bg-brandAccent/10",
+        border: "border-brandAccent/20",
+        icon: "alert-circle",
+        iconColor: COLORS.brandAccent,
+      };
+    } else if (booking.status === "PAYMENT_PENDING" && isClaimed) {
+      config = {
+        title: "Verification Pending",
+        textColor: "text-yellow-800",
+        bg: "bg-yellow-50",
+        border: "border-yellow-200",
+        icon: "shield-checkmark",
+        iconColor: "#CA8A04",
+      };
+    } else if (booking.status === "REJECTED") {
+      config = {
+        title: "Request Rejected",
+        textColor: "text-red-800",
+        bg: "bg-red-50",
+        border: "border-red-100",
+        icon: "close-circle",
+        iconColor: "#DC2626",
+      };
+    } else if (booking.status === "CANCELLED") {
+      config = {
+        title: "Request Cancelled",
+        textColor: "text-gray-800",
+        bg: "bg-gray-100",
+        border: "border-gray-200",
+        icon: "close-circle",
+        iconColor: "#4B5563",
+      };
+    }
+
+    return config;
   };
 
   if (loading) {
@@ -487,18 +472,50 @@ export default function UserProfileScreen() {
 
         {canViewSensitiveData && (
           <>
-            {/* Current Enrollment (Always expanded) */}
+            {/* Current Enrollment */}
             {enrollment && (
               <>
                 <SectionLabel title="Current Enrollment" />
-                <EnrollmentCard
-                  enrollment={enrollment}
-                  isOwner={isViewerOwner}
-                />
+                <ActionCard
+                  header={{
+                    ...getHeaderConfig(enrollment, "Current Plan"),
+                    rightElement: (
+                      <Text className="text-base font-m-bold text-dark">
+                        {fmtCurrency(enrollment.price)}
+                      </Text>
+                    ),
+                  }}
+                >
+                  <View className="flex-row flex-wrap mb-1 gap-1">
+                    <Chip label={enrollment.shift} />
+                    <Chip label={enrollment.amenity} />
+                    <Chip label={enrollment.reservation} />
+                    {enrollment.assigned_seat && (
+                      <Chip label={enrollment.assigned_seat} type="SEAT" />
+                    )}
+                  </View>
+                  <View className="flex-row items-center gap-1.5 mt-3">
+                    <Ionicons
+                      name="calendar-outline"
+                      size={14}
+                      color={COLORS.textLight}
+                    />
+                    <Text className="text-xs font-m-semi text-gray-500">
+                      {formatCleanDate(enrollment.start_date)}
+                      {enrollment.end_date &&
+                        ` → ${formatCleanDate(enrollment.end_date)}`}
+                    </Text>
+                  </View>
+                  {isViewerOwner && (
+                    <Text className="text-[10px] text-textLight mt-2">
+                      Requested: {formatCleanDate(enrollment.requested_on)}
+                    </Text>
+                  )}
+                </ActionCard>
               </>
             )}
 
-            {/* Upcoming Enrollment (Collapsible) */}
+            {/* Upcoming Enrollment */}
             {futureEnrollment && (
               <>
                 <SectionLabel
@@ -508,16 +525,50 @@ export default function UserProfileScreen() {
                   onPress={() => setIsFutureExpanded(!isFutureExpanded)}
                 />
                 {isFutureExpanded && (
-                  <EnrollmentCard
-                    enrollment={futureEnrollment}
-                    isFuture={true}
-                    isOwner={isViewerOwner}
-                  />
+                  <ActionCard
+                    header={{
+                      ...getHeaderConfig(futureEnrollment, "Upcoming Plan"),
+                      bg: "bg-indigo-50",
+                      border: "border-indigo-100",
+                      textColor: "text-indigo-800",
+                      icon: "calendar",
+                      iconColor: "#4F46E5",
+                      rightElement: (
+                        <Text className="text-base font-m-bold text-dark">
+                          {fmtCurrency(futureEnrollment.price)}
+                        </Text>
+                      ),
+                    }}
+                  >
+                    <View className="flex-row flex-wrap mb-1 gap-1">
+                      <Chip label={futureEnrollment.shift} />
+                      <Chip label={futureEnrollment.amenity} />
+                      <Chip label={futureEnrollment.reservation} />
+                      {futureEnrollment.assigned_seat && (
+                        <Chip
+                          label={futureEnrollment.assigned_seat}
+                          type="SEAT"
+                        />
+                      )}
+                    </View>
+                    <View className="flex-row items-center gap-1.5 mt-3">
+                      <Ionicons
+                        name="calendar-outline"
+                        size={14}
+                        color={COLORS.textLight}
+                      />
+                      <Text className="text-xs font-m-semi text-gray-500">
+                        {formatCleanDate(futureEnrollment.start_date)}
+                        {futureEnrollment.end_date &&
+                          ` → ${formatCleanDate(futureEnrollment.end_date)}`}
+                      </Text>
+                    </View>
+                  </ActionCard>
                 )}
               </>
             )}
 
-            {/* Rejected Requests (Collapsible) */}
+            {/* Rejected Requests */}
             {rejectedEnrollments.length > 0 && (
               <>
                 <SectionLabel
@@ -529,17 +580,25 @@ export default function UserProfileScreen() {
                 />
                 {isRejectedExpanded &&
                   rejectedEnrollments.map((rejEnrollment, idx) => (
-                    <EnrollmentCard
+                    <ActionCard
                       key={`rej-${idx}`}
-                      enrollment={rejEnrollment}
-                      isRejected={true}
-                      isOwner={isViewerOwner}
-                    />
+                      header={getHeaderConfig(rejEnrollment, "Rejected Plan")}
+                    >
+                      <View className="flex-row flex-wrap mb-1 gap-1">
+                        <Chip label={rejEnrollment.shift} />
+                        <Chip label={rejEnrollment.amenity} />
+                        <Chip label={rejEnrollment.reservation} />
+                      </View>
+                      <Text className="text-xs font-m text-red-600 mt-3">
+                        Rejected on{" "}
+                        {formatCleanDate(rejEnrollment.updated_at, true)}
+                      </Text>
+                    </ActionCard>
                   ))}
               </>
             )}
 
-            {/* Cancelled Requests (Collapsible) */}
+            {/* Cancelled Requests */}
             {cancelledEnrollments.length > 0 && (
               <>
                 <SectionLabel
@@ -551,16 +610,25 @@ export default function UserProfileScreen() {
                 />
                 {isCancelledExpanded &&
                   cancelledEnrollments.map((cancEnrollment, idx) => (
-                    <EnrollmentCard
+                    <ActionCard
                       key={`canc-${idx}`}
-                      enrollment={cancEnrollment}
-                      isCancelled={true}
-                      isOwner={isViewerOwner}
-                    />
+                      header={getHeaderConfig(cancEnrollment, "Cancelled Plan")}
+                    >
+                      <View className="flex-row flex-wrap mb-1 gap-1">
+                        <Chip label={cancEnrollment.shift} />
+                        <Chip label={cancEnrollment.amenity} />
+                        <Chip label={cancEnrollment.reservation} />
+                      </View>
+                      <Text className="text-xs font-m text-gray-500 mt-3">
+                        Cancelled on{" "}
+                        {formatCleanDate(cancEnrollment.updated_at, true)}
+                      </Text>
+                    </ActionCard>
                   ))}
               </>
             )}
 
+            {/* Payment History */}
             <SectionLabel
               title="Payment History"
               count={payments.length}
