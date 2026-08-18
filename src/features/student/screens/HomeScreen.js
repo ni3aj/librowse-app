@@ -11,18 +11,18 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Linking,
-  Modal,
-  Platform,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Image,
+    Linking,
+    Modal,
+    Platform,
+    RefreshControl,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { studentApi } from "../../shared/api";
@@ -328,7 +328,7 @@ export default function HomeScreen() {
       >
         {!primary_booking ? (
           <View className="items-center justify-center mb-4">
-            <View className="bg-surface p-8 rounded-[32px] w-full items-center border border-borderLight shadow-sm shadow-black/5">
+            <View className="bg-surface p-8 rounded-[32px] w-full items-center border border-borderLight  shadow-black/5">
               <View className="w-20 h-20 bg-white rounded-full items-center justify-center mb-6">
                 <Text className="text-4xl">📚</Text>
               </View>

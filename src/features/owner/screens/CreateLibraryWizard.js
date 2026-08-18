@@ -10,12 +10,12 @@ import * as Location from "expo-location";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Modal,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Modal,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import Toast from "react-native-toast-message";
@@ -325,7 +325,7 @@ export default function CreateLibraryWizard() {
         presentationStyle="pageSheet"
       >
         <View className="flex-1 bg-background">
-          <View className="pt-12 pb-4 px-6 flex-row justify-between items-center bg-surface z-10 shadow-sm">
+          <View className="pt-12 pb-4 px-6 flex-row justify-between items-center bg-surface z-10 ">
             <Text className="text-xl font-m-bold text-textDark">
               Place Library Pin
             </Text>

@@ -10,14 +10,14 @@ import * as ImagePicker from "expo-image-picker";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Modal,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Image,
+    Modal,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import Toast from "react-native-toast-message";
 
@@ -226,7 +226,7 @@ export default function OwnerProfileScreen() {
             >
               <Image
                 source={{ uri: profilePhotoUrl }}
-                className="w-28 h-28 rounded-full border-4 border-white bg-gray-100 shadow-sm"
+                className="w-28 h-28 rounded-full border-4 border-white bg-gray-100 "
               />
             </TouchableOpacity>
 
@@ -234,7 +234,7 @@ export default function OwnerProfileScreen() {
               activeOpacity={0.9}
               onPress={handlePickImage}
               disabled={isUploading}
-              className="absolute bottom-0 right-0 bg-brand w-9 h-9 rounded-full items-center justify-center border-2 border-white shadow-sm"
+              className="absolute bottom-0 right-0 bg-brand w-9 h-9 rounded-full items-center justify-center border-2 border-white "
             >
               {isUploading ? (
                 <ActivityIndicator size="small" color="#fff" />

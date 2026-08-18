@@ -23,7 +23,7 @@ export default function GradientCardWidget({
     <TouchableOpacity
       activeOpacity={0.9}
       onPress={handlePress}
-      className="mx-6 my-3 shadow-sm"
+      className="mx-6 my-3 "
     >
       <LinearGradient
         colors={gradientColors || ["#4F46E5", "#3B82F6"]}
@@ -42,7 +42,7 @@ export default function GradientCardWidget({
           {badge && (
             <View
               style={{ backgroundColor: badge.backgroundColor }}
-              className="px-3 py-1.5 rounded-full shadow-sm"
+              className="px-3 py-1.5 rounded-full "
             >
               <Text
                 style={{ color: badge.textColor }}

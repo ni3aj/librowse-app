@@ -31,7 +31,7 @@ export default function ActionCard({
 }) {
   return (
     <View
-      className={`bg-gray-50 border border-borderLight rounded-3xl shadow-sm shadow-black/5 overflow-hidden ${className}`}
+      className={`bg-gray-50 border border-borderLight rounded-3xl  shadow-black/5 overflow-hidden ${className}`}
     >
       {header && (
         <View

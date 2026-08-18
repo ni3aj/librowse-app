@@ -5,28 +5,28 @@ import { useAuthStore } from "@/store/authStore";
 import { useLibraryStore } from "@/store/libraryStore";
 import { formatCleanDate } from "@/utils/dateFormatter";
 import {
-  clearLocalActivities,
-  getLastSyncTime,
-  getLocalActivities,
-  initDB,
-  resetDatabaseSchema,
-  saveActivitiesToLocal,
+    clearLocalActivities,
+    getLastSyncTime,
+    getLocalActivities,
+    initDB,
+    resetDatabaseSchema,
+    saveActivitiesToLocal,
 } from "@/utils/db";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    Switch,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import Toast from "react-native-toast-message";
 
@@ -370,7 +370,7 @@ export default function ActivitiesScreen() {
       return (
         <View className="flex-row items-center justify-center my-4 px-6">
           <View className="flex-1 h-[1px] bg-borderLight" />
-          <View className="bg-surface border border-borderLight px-3 py-1 rounded-lg mx-3 shadow-sm shadow-black/5">
+          <View className="bg-surface border border-borderLight px-3 py-1 rounded-lg mx-3  shadow-black/5">
             <Text className="text-textLight text-[10px] font-m-bold uppercase tracking-widest">
               {item.label}
             </Text>
