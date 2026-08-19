@@ -1,7 +1,9 @@
 import apiClient from "@/api/client";
 import PaymentModal from "@/components/student/PaymentModal";
 import WriteReviewModal from "@/components/student/WriteReviewModal";
+import ActionCard from "@/components/ui/ActionCard";
 import Button from "@/components/ui/Button";
+import Chip from "@/components/ui/Chip";
 import { COLORS } from "@/constants/theme";
 import { useAuthStore } from "@/store/authStore";
 import { formatCleanDate } from "@/utils/dateFormatter";
@@ -210,21 +212,6 @@ export default function LibraryDetailScreen() {
     }
   };
 
-  const safeFormatDate = (dateStr) => {
-    if (!dateStr) return "Next Cycle";
-    try {
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return "Next Cycle";
-      return d.toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-    } catch (e) {
-      return "Next Cycle";
-    }
-  };
-
   const handleBooking = async () => {
     if (!selectedSeat) return;
     setIsBooking(true);
@@ -242,7 +229,7 @@ export default function LibraryDetailScreen() {
           id: response.data.enrollment_id,
           status: "PENDING",
           inventory_id: selectedSeat.id,
-          assigned_seat: selectedSeatNumber, // Optimistically attach the selected seat
+          assigned_seat: selectedSeatNumber,
         });
         Toast.show({
           type: "success",
@@ -380,6 +367,57 @@ export default function LibraryDetailScreen() {
       label: amenityId.replace(/_/g, " "),
       icon: "checkmark-circle-outline",
     };
+  };
+
+  const getHeaderConfig = (booking, defaultTitle) => {
+    const isClaimed = !!booking?.payment_claimed_at;
+    let config = {
+      title: defaultTitle,
+      textColor: "text-gray-800",
+      bg: "bg-gray-50",
+      border: "border-gray-200",
+      icon: "information-circle",
+      iconColor: "#6B7280",
+    };
+
+    if (booking?.status === "ACTIVE") {
+      config = {
+        title: "Active Subscription",
+        textColor: "text-emerald-800",
+        bg: "bg-emerald-50",
+        border: "border-emerald-100",
+        icon: "checkmark-circle",
+        iconColor: "#059669",
+      };
+    } else if (booking?.status === "PENDING") {
+      config = {
+        title: "Approval Pending",
+        textColor: "text-blue-800",
+        bg: "bg-blue-50",
+        border: "border-blue-100",
+        icon: "time",
+        iconColor: "#2563EB",
+      };
+    } else if (booking?.status === "PAYMENT_PENDING" && !isClaimed) {
+      config = {
+        title: "Payment Pending",
+        textColor: "text-brandAccent",
+        bg: "bg-brandAccent/10",
+        border: "border-brandAccent/20",
+        icon: "alert-circle",
+        iconColor: COLORS.brandAccent,
+      };
+    } else if (booking?.status === "PAYMENT_PENDING" && isClaimed) {
+      config = {
+        title: "Payment Verification Pending",
+        textColor: "text-yellow-800",
+        bg: "bg-yellow-50",
+        border: "border-yellow-200",
+        icon: "shield-checkmark",
+        iconColor: "#CA8A04",
+      };
+    }
+    return config;
   };
 
   if (loading) {
@@ -556,72 +594,65 @@ export default function LibraryDetailScreen() {
 
           {myEnrollment ? (
             <View className="mt-6">
-              <View className="flex-row justify-between items-center mb-4">
-                <View className="flex-row items-center">
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={24}
-                    color={COLORS.brand}
-                    className="mr-2"
-                  />
-                  <Text className="text-xl font-m-bold text-textDark">
-                    Your Enrollment
-                  </Text>
-                </View>
-
-                {myEnrollment.status === "ACTIVE" && (
-                  <TouchableOpacity
-                    onPress={() => setIsReviewModalVisible(true)}
-                    className="flex-row items-center bg-orange-50 px-3 py-1.5 rounded-full border border-orange-200"
-                  >
-                    <Ionicons name="star" size={14} color="#F59E0B" />
-                    <Text className="text-orange-700 font-m-bold text-xs ml-1">
-                      {myReview ? "Edit Review" : "Write a Review"}
-                    </Text>
-                  </TouchableOpacity>
-                )}
+              <View className="flex-row items-center mb-4 ml-1">
+                <Ionicons
+                  name="checkmark-circle"
+                  size={24}
+                  color={COLORS.brand}
+                  className="mr-2"
+                />
+                <Text className="text-xl font-m-bold text-textDark">
+                  Your Enrollment
+                </Text>
               </View>
 
-              <View className="bg-white rounded-3xl p-5 mb-2 border border-borderLight">
-                <View className="flex-row justify-between items-start mb-4">
-                  <View>
-                    <Text className="text-xs font-m-bold text-textLight uppercase tracking-wider mb-1">
-                      Status
+              <ActionCard
+                header={{
+                  ...getHeaderConfig(myEnrollment, "Current Plan"),
+                  rightElement: (
+                    <Text className="text-base font-m-bold text-dark">
+                      ₹{selectedSeat?.price}
                     </Text>
-                    <Text className="text-lg font-m-extra text-brand">
-                      {myEnrollment.status
-                        ? String(myEnrollment.status).replace("_", " ")
-                        : "N/A"}
-                    </Text>
-                  </View>
-
-                  {myEnrollment.end_date && (
-                    <View className="items-end">
-                      <Text className="text-xs font-m-bold text-textLight uppercase tracking-wider mb-1 text-right">
-                        Expires on
+                  ),
+                }}
+                footer={
+                  myEnrollment.status === "ACTIVE" ? (
+                    <TouchableOpacity
+                      onPress={() => setIsReviewModalVisible(true)}
+                      className="flex-1 flex-row items-center justify-center py-3.5"
+                    >
+                      <Ionicons name="star" size={18} color="#F59E0B" />
+                      <Text className="text-sm font-m-bold text-orange-600 ml-2">
+                        {myReview ? "Edit Review" : "Write a Review"}
                       </Text>
-                      <Text className="text-sm font-m-extra text-textDark text-right">
-                        {formatCleanDate(myEnrollment.end_date)}
-                      </Text>
-                    </View>
+                    </TouchableOpacity>
+                  ) : null
+                }
+              >
+                <View className="flex-row flex-wrap gap-1">
+                  <Chip label={selectedSeat?.shift} />
+                  <Chip label={selectedSeat?.amenity} />
+                  <Chip label={selectedSeat?.reservation} />
+                  {myEnrollment?.assigned_seat && (
+                    <Chip label={myEnrollment.assigned_seat} type="SEAT" />
                   )}
                 </View>
 
-                <Text className="text-xs font-m-bold text-textLight uppercase tracking-wider mb-1">
-                  Current Plan
-                </Text>
-                <Text className="text-base font-m-bold text-textDark mb-1">
-                  {selectedSeat?.amenity?.replace("_", " ")} •{" "}
-                  {selectedSeat?.shift?.replace("_", " ")} •{" "}
-                  {selectedSeat?.reservation}
-                  {myEnrollment?.assigned_seat
-                    ? ` • Seat ${myEnrollment.assigned_seat}`
-                    : ""}
-                </Text>
-                <Text className="text-sm font-m text-textLight">
-                  ₹{selectedSeat?.price} / month
-                </Text>
-              </View>
+                <View className="flex-row items-center gap-1.5 mt-3">
+                  <Ionicons
+                    name="calendar-outline"
+                    size={14}
+                    color={COLORS.textLight}
+                  />
+                  <Text className="text-xs font-m-semi text-gray-500">
+                    {myEnrollment.start_date
+                      ? formatCleanDate(myEnrollment.start_date)
+                      : "N/A"}
+                    {myEnrollment.end_date &&
+                      ` → ${formatCleanDate(myEnrollment.end_date)}`}
+                  </Text>
+                </View>
+              </ActionCard>
 
               {futureEnrollment && (
                 <View className="mb-2 mt-4">
@@ -637,51 +668,67 @@ export default function LibraryDetailScreen() {
                     </Text>
                   </View>
 
-                  <View className="bg-surface rounded-3xl p-5 border border-borderLight opacity-90">
-                    <View className="flex-row justify-between items-start mb-4">
-                      <View>
-                        <Text className="text-xs font-m-bold text-textLight uppercase tracking-wider mb-1">
-                          Status
+                  <ActionCard
+                    header={{
+                      ...getHeaderConfig(futureEnrollment, "Upcoming Plan"),
+                      bg: "bg-indigo-50",
+                      border: "border-indigo-100",
+                      icon: "calendar",
+                      iconColor: "#4F46E5",
+                      textColor: "text-indigo-800",
+                      rightElement: (
+                        <Text className="text-base font-m-bold text-dark">
+                          ₹{futureSeat?.price}
                         </Text>
-                        <Text className="text-lg font-m-extra text-textDark">
-                          {futureEnrollment.status
-                            ? String(futureEnrollment.status).replace("_", " ")
-                            : "N/A"}
-                        </Text>
-                      </View>
-                      {futureEnrollment.status === "ACTIVE" && (
-                        <View className="bg-gray-200 px-3 py-1.5 rounded-xl">
-                          <Text className="text-xs font-m-bold text-gray-700">
-                            Starts {safeFormatDate(futureEnrollment.start_date)}
-                          </Text>
-                        </View>
+                      ),
+                    }}
+                    footer={
+                      futureEnrollment.status !== "ACTIVE" && (
+                        <TouchableOpacity
+                          onPress={handleCancelFuturePlan}
+                          disabled={isCancelling}
+                          className="flex-1 flex-row items-center justify-center py-3.5"
+                        >
+                          {isCancelling ? (
+                            <ActivityIndicator size="small" color="#DC2626" />
+                          ) : (
+                            <>
+                              <Ionicons
+                                name="close-circle-outline"
+                                size={18}
+                                color="#DC2626"
+                              />
+                              <Text className="text-sm font-m-bold text-red-600 ml-1">
+                                Cancel Request
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      )
+                    }
+                  >
+                    <View className="flex-row flex-wrap gap-1">
+                      <Chip label={futureSeat?.shift} />
+                      <Chip label={futureSeat?.amenity} />
+                      <Chip label={futureSeat?.reservation} />
+                      {futureEnrollment?.assigned_seat && (
+                        <Chip
+                          label={futureEnrollment.assigned_seat}
+                          type="SEAT"
+                        />
                       )}
                     </View>
-
-                    <Text className="text-xs font-m-bold text-textLight uppercase tracking-wider mb-1">
-                      Next Plan
-                    </Text>
-                    <Text className="text-base font-m-bold text-textDark mb-1">
-                      {futureSeat?.amenity?.replace("_", " ")} •{" "}
-                      {futureSeat?.shift?.replace("_", " ")} •{" "}
-                      {futureSeat?.reservation}
-                      {futureEnrollment?.assigned_seat
-                        ? ` • Seat ${futureEnrollment.assigned_seat}`
-                        : ""}
-                    </Text>
-                    <Text className="text-sm font-m text-textLight">
-                      ₹{futureSeat?.price} / month
-                    </Text>
-                    {futureEnrollment.status !== "ACTIVE" && (
-                      <Button
-                        title="Cancel Request"
-                        variant="outline"
-                        className="py-2 px-2 mt-4"
-                        loading={isCancelling}
-                        onPress={handleCancelFuturePlan}
+                    <View className="flex-row items-center gap-1.5 mt-3">
+                      <Ionicons
+                        name="calendar-outline"
+                        size={14}
+                        color={COLORS.textLight}
                       />
-                    )}
-                  </View>
+                      <Text className="text-xs font-m-semi text-gray-500">
+                        Starts {formatCleanDate(futureEnrollment.start_date)}
+                      </Text>
+                    </View>
+                  </ActionCard>
                 </View>
               )}
             </View>
@@ -823,7 +870,6 @@ export default function LibraryDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* --- BOTTOM ACTIONS / BOOKING BAR --- */}
       <View className="absolute bottom-0 w-full bg-white border-t border-borderLight px-6 py-4 pb-4 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.1)]">
         {myEnrollment?.status === "PENDING" ? (
           <View className="flex-row justify-between items-center">
@@ -831,7 +877,6 @@ export default function LibraryDetailScreen() {
               <Text className="text-[10px] font-m-bold text-textLight uppercase tracking-widest mb-0.5">
                 Status
               </Text>
-              {/* 📌 Dynamic seat text */}
               <Text className="text-base font-m-bold text-textDark">
                 {myEnrollment?.assigned_seat
                   ? `Seat ${myEnrollment.assigned_seat} Pending`
@@ -852,7 +897,6 @@ export default function LibraryDetailScreen() {
               <Text className="text-[10px] font-m-bold text-brandAccent uppercase tracking-widest mb-0.5">
                 Approved
               </Text>
-              {/* 📌 Dynamic seat text */}
               <Text className="text-base font-m-bold text-textDark">
                 {myEnrollment?.assigned_seat
                   ? `Seat ${myEnrollment.assigned_seat} Ready`
@@ -872,7 +916,6 @@ export default function LibraryDetailScreen() {
               <Text className="text-[10px] font-m-bold text-brand uppercase tracking-widest mb-0.5">
                 Enrolled
               </Text>
-              {/* 📌 Dynamic seat text */}
               <Text className="text-base font-m-bold text-textDark">
                 {myEnrollment?.assigned_seat
                   ? `Seat ${myEnrollment.assigned_seat} is Active`
