@@ -597,11 +597,11 @@ export default function LibraryDetailScreen() {
               <View className="flex-row items-center mb-4 ml-1">
                 <Ionicons
                   name="checkmark-circle"
-                  size={24}
+                  size={20}
                   color={COLORS.brand}
                   className="mr-2"
                 />
-                <Text className="text-xl font-m-bold text-textDark">
+                <Text className="text-lg font-m-bold text-textDark">
                   Your Enrollment
                 </Text>
               </View>
@@ -659,11 +659,11 @@ export default function LibraryDetailScreen() {
                   <View className="flex-row items-center mb-4 ml-1">
                     <Ionicons
                       name="calendar"
-                      size={24}
-                      color={COLORS.textDark}
+                      size={20}
+                      color={COLORS.brand}
                       className="mr-2"
                     />
-                    <Text className="text-xl font-m-bold text-textDark">
+                    <Text className="text-lg font-m-bold text-textDark">
                       Upcoming Plan
                     </Text>
                   </View>
@@ -725,7 +725,23 @@ export default function LibraryDetailScreen() {
                         color={COLORS.textLight}
                       />
                       <Text className="text-xs font-m-semi text-gray-500">
-                        Starts {formatCleanDate(futureEnrollment.start_date)}
+                        {futureEnrollment.status === "PAYMENT_PENDING" && (
+                          <>
+                            Pending since{" "}
+                            {formatCleanDate(
+                              futureEnrollment.payment_claimed_at ??
+                                futureEnrollment.updated_at,
+                              true,
+                            )}
+                          </>
+                        )}
+
+                        {futureEnrollment.status === "ACTIVE" && (
+                          <>
+                            Starts{" "}
+                            {formatCleanDate(futureEnrollment.start_date)}
+                          </>
+                        )}
                       </Text>
                     </View>
                   </ActionCard>

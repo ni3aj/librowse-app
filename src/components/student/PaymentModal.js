@@ -64,7 +64,6 @@ export default function PaymentModal({
             </TouchableOpacity>
           </View>
 
-          {/* Payment Mode Selector */}
           <View className="flex-row bg-surface p-1 rounded-xl mb-6 border border-borderLight">
             <TouchableOpacity
               onPress={() => setSelectedPaymentMode("ONLINE")}
