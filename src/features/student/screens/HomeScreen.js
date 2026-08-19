@@ -11,18 +11,18 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Linking,
-    Modal,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { studentApi } from "../../shared/api";
@@ -296,16 +296,10 @@ export default function HomeScreen() {
     return `${Math.max(0, Math.min(100, progress))}%`;
   };
 
-  let hasRecentRenewalClaim = false;
-  if (
+  // 📌 FIX: Removed the 24-hour limit. If they claimed payment, it stays claimed permanently until owner action.
+  const hasRecentRenewalClaim =
     primary_booking?.status === "ACTIVE" &&
-    primary_booking?.payment_claimed_at
-  ) {
-    const hoursSinceClaim =
-      (new Date() - new Date(primary_booking.payment_claimed_at)) /
-      (1000 * 60 * 60);
-    hasRecentRenewalClaim = hoursSinceClaim < 24;
-  }
+    !!primary_booking?.payment_claimed_at;
 
   return (
     <View className="flex-1 bg-background">
@@ -328,7 +322,7 @@ export default function HomeScreen() {
       >
         {!primary_booking ? (
           <View className="items-center justify-center mb-4">
-            <View className="bg-surface p-8 rounded-[32px] w-full items-center border border-borderLight  shadow-black/5">
+            <View className="bg-surface p-8 rounded-[32px] w-full items-center border border-borderLight shadow-sm shadow-black/5">
               <View className="w-20 h-20 bg-white rounded-full items-center justify-center mb-6">
                 <Text className="text-4xl">📚</Text>
               </View>
@@ -845,7 +839,6 @@ export default function HomeScreen() {
                                 )}
                                 {booking.start_time && booking.end_time && (
                                   <Chip
-                                    type="TIME"
                                     label={`${formatTime(booking.start_time)} - ${formatTime(booking.end_time)}`}
                                   />
                                 )}
@@ -903,6 +896,11 @@ export default function HomeScreen() {
                                 <Chip
                                   label={booking.assigned_seat}
                                   type="SEAT"
+                                />
+                              )}
+                              {booking.start_time && booking.end_time && (
+                                <Chip
+                                  label={`${formatTime(booking.start_time)} - ${formatTime(booking.end_time)}`}
                                 />
                               )}
                             </View>
