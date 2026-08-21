@@ -535,6 +535,7 @@ export default function HomeScreen() {
                     <Chip label={primary_booking.reservation} />
                     {primary_booking.start_time && primary_booking.end_time && (
                       <Chip
+                        type="TIME"
                         label={`${formatTime(primary_booking.start_time)} - ${formatTime(primary_booking.end_time)}`}
                       />
                     )}
@@ -839,6 +840,7 @@ export default function HomeScreen() {
                                 )}
                                 {booking.start_time && booking.end_time && (
                                   <Chip
+                                    type="TIME"
                                     label={`${formatTime(booking.start_time)} - ${formatTime(booking.end_time)}`}
                                   />
                                 )}
@@ -900,6 +902,7 @@ export default function HomeScreen() {
                               )}
                               {booking.start_time && booking.end_time && (
                                 <Chip
+                                  type="TIME"
                                   label={`${formatTime(booking.start_time)} - ${formatTime(booking.end_time)}`}
                                 />
                               )}
