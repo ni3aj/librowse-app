@@ -56,7 +56,7 @@ export default function ResetMpinScreen() {
       if (response.data.success) {
         Toast.show({
           type: "success",
-          text1: "Success!",
+          text1: "Success",
           text2: "Your MPIN has been updated.",
         });
         router.back();

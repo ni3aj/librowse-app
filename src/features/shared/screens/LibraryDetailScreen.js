@@ -621,8 +621,8 @@ export default function LibraryDetailScreen() {
                       onPress={() => setIsReviewModalVisible(true)}
                       className="flex-1 flex-row items-center justify-center py-3.5"
                     >
-                      <Ionicons name="star" size={18} color="#F59E0B" />
-                      <Text className="text-sm font-m-bold text-orange-600 ml-2">
+                      <Ionicons name="star" size={18} color={COLORS.brand} />
+                      <Text className="text-sm font-m-bold text-brand ml-2">
                         {myReview ? "Edit Review" : "Write a Review"}
                       </Text>
                     </TouchableOpacity>

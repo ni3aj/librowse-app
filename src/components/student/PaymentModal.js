@@ -26,7 +26,7 @@ export default function PaymentModal({
       if (res.data.success) {
         Toast.show({
           type: "success",
-          text1: "Owner Notified 🔔",
+          text1: "Owner Notified",
           text2: "Waiting for their confirmation.",
         });
         onClose();

@@ -43,11 +43,11 @@ export default function AboutScreen() {
 
   // Replace these with your actual hosted policy URLs
   const LINKS = {
-    privacy: "https://yourwebsite.com/privacy",
-    terms: "https://yourwebsite.com/terms",
-    refunds: "https://yourwebsite.com/refunds",
+    privacy: "https://www.librowse.in/privacy",
+    terms: "https://www.librowse.in/terms",
+    refunds: "https://www.librowse.in/refunds",
     supportEmail: "support@librowse.in",
-    website: "https://librowse.com",
+    website: "https://www.librowse.in",
   };
 
   const openLink = async (url) => {
@@ -65,10 +65,8 @@ export default function AboutScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
       >
-        {/* 1. App Identity Section */}
         <View className="items-center mt-6 mb-8 px-6">
           <View className="w-24 h-24 bg-brand/10 rounded-3xl items-center justify-center mb-4 border border-brand/20">
-            {/* If you have a logo, use Image here instead of text */}
             <Text className="text-5xl">📚</Text>
           </View>
           <Text className="text-2xl font-m-extra text-textDark">LiBrowse</Text>
@@ -77,7 +75,6 @@ export default function AboutScreen() {
           </Text>
         </View>
 
-        {/* 2. Legal & Privacy Section */}
         <View className="px-6 mb-6">
           <Text className="text-xs font-m-bold text-textLight uppercase tracking-wider mb-2 ml-2">
             Legal
@@ -107,7 +104,6 @@ export default function AboutScreen() {
           </View>
         </View>
 
-        {/* 3. Support & Contact Section */}
         <View className="px-6 mb-8">
           <Text className="text-xs font-m-bold text-textLight uppercase tracking-wider mb-2 ml-2">
             Support
@@ -142,7 +138,6 @@ export default function AboutScreen() {
           </View>
         </View>
 
-        {/* 4. Footer */}
         <View className="items-center px-6 opacity-60">
           <Text className="text-xs font-m text-textLight text-center mb-1">
             Made with ❤️ for students
