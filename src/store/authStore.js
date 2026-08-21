@@ -13,6 +13,8 @@ export const useAuthStore = create(
       userId: null,
       userName: null,
       userPhone: null,
+      is_kyc_verified: null,
+      kyc_reference_id: null,
 
       loginSuccess: (data) =>
         set({
@@ -45,6 +47,8 @@ export const useAuthStore = create(
             userId: null,
             userName: null,
             userPhone: null,
+            is_kyc_verified: null,
+            kyc_reference_id: null,
           });
           await AsyncStorage.removeItem("librowse-auth-storage");
           await AsyncStorage.removeItem("librowse-library-storage");
@@ -52,6 +56,12 @@ export const useAuthStore = create(
           console.error("Error clearing storage on logout:", error);
         }
       },
+
+      updateKycStatus: (isVerified, referenceId) =>
+        set({
+          is_kyc_verified: isVerified ?? null,
+          kyc_reference_id: referenceId ?? null,
+        }),
     }),
     {
       name: "librowse-auth-storage",

@@ -20,6 +20,7 @@ import {
 } from "react-native";
 import Toast from "react-native-toast-message";
 
+// 📌 Upgraded ProfileMenuItem to support custom right-side badges and disabled states
 const ProfileMenuItem = ({
   icon,
   title,
@@ -27,10 +28,12 @@ const ProfileMenuItem = ({
   onPress,
   isDestructive = false,
   lastItem,
+  disabled = false,
+  rightElement,
 }) => (
   <TouchableOpacity
-    activeOpacity={0.7}
-    onPress={onPress}
+    activeOpacity={disabled ? 1 : 0.7}
+    onPress={disabled ? undefined : onPress}
     className={`flex-row items-center justify-between py-4 ${!lastItem && "border-b border-borderLight"}`}
   >
     <View className="flex-row items-center flex-1">
@@ -63,9 +66,11 @@ const ProfileMenuItem = ({
         )}
       </View>
     </View>
-    {!isDestructive && (
-      <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
-    )}
+    {rightElement
+      ? rightElement
+      : !isDestructive && (
+          <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+        )}
   </TouchableOpacity>
 );
 
@@ -75,9 +80,16 @@ export default function StudentProfileScreen() {
   const [isUploading, setIsUploading] = useState(false);
   const [isPhotoViewerVisible, setIsPhotoViewerVisible] = useState(false);
 
-  // 📌 Pull from BOTH Zustand Buckets
-  const { logout } = useAuthStore();
+  // 📌 Pull KYC flags alongside logout from AuthStore
+  const { logout, is_kyc_verified, kyc_reference_id } = useAuthStore();
   const clearLibrary = useLibraryStore((state) => state.clearLibrary);
+
+  // Derive KYC Status
+  const kycStatus = is_kyc_verified
+    ? "VERIFIED"
+    : kyc_reference_id
+      ? "PENDING"
+      : "UNVERIFIED";
 
   useEffect(() => {
     fetchUserData();
@@ -163,7 +175,6 @@ export default function StudentProfileScreen() {
   };
 
   const handleLogout = () => {
-    // 📌 KEPT ALERT HERE because it is a Yes/No confirmation dialog
     Alert.alert("Logout", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
       {
@@ -171,7 +182,6 @@ export default function StudentProfileScreen() {
         style: "destructive",
         onPress: () => {
           try {
-            // 📌 Safely clear BOTH Zustand stores
             logout();
             clearLibrary();
             router.replace("/");
@@ -258,19 +268,59 @@ export default function StudentProfileScreen() {
               title="Change MPIN"
               subtitle="Update your security PIN"
               onPress={() => router.push("/auth/reset-mpin")}
-              lastItem={true}
+              lastItem={false}
             />
-            {/* <ProfileMenuItem
-              icon="shield-checkmark-outline"
-              title="KYC Status"
+            <ProfileMenuItem
+              icon={
+                kycStatus === "VERIFIED"
+                  ? "shield-checkmark-outline"
+                  : kycStatus === "PENDING"
+                    ? "time-outline"
+                    : "shield-half-outline"
+              }
+              title="KYC Verification"
               subtitle={
-                user?.is_kyc_verified ? "Verified" : "Pending Verification"
+                kycStatus === "VERIFIED"
+                  ? "KYC Verified"
+                  : kycStatus === "PENDING"
+                    ? "Under review by owner"
+                    : "Pending"
               }
-              onPress={() =>
-                Alert.alert("KYC", "Your KYC details are securely stored.")
-              }
+              onPress={() => router.push("/kyc")}
+              disabled={kycStatus === "VERIFIED"}
               lastItem={true}
-            /> */}
+              rightElement={
+                kycStatus === "VERIFIED" ? (
+                  <View className="bg-emerald-100 px-2 py-1 rounded">
+                    <Text className="text-[10px] font-m-bold text-emerald-700 uppercase tracking-wider">
+                      Verified
+                    </Text>
+                  </View>
+                ) : kycStatus === "PENDING" ? (
+                  <View className="flex-row items-center">
+                    <Text className="text-xs font-m-bold text-yellow-600 mr-1">
+                      Pending
+                    </Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={16}
+                      color="#D97706"
+                    />
+                  </View>
+                ) : (
+                  <View className="flex-row items-center">
+                    <Text className="text-xs font-m-bold text-brand mr-1">
+                      Complete
+                    </Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={16}
+                      color={COLORS.brand}
+                    />
+                  </View>
+                )
+              }
+            />
           </View>
 
           <Text className="text-xs font-m-bold text-textLight uppercase tracking-wider mb-2 ml-2">
