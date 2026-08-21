@@ -296,7 +296,6 @@ export default function HomeScreen() {
     return `${Math.max(0, Math.min(100, progress))}%`;
   };
 
-  // 📌 FIX: Removed the 24-hour limit. If they claimed payment, it stays claimed permanently until owner action.
   const hasRecentRenewalClaim =
     primary_booking?.status === "ACTIVE" &&
     !!primary_booking?.payment_claimed_at;
@@ -321,7 +320,7 @@ export default function HomeScreen() {
         }
       >
         {!primary_booking ? (
-          <View className="items-center justify-center mb-4">
+          <View className="items-center justify-center mb-4 mt-2">
             <View className="bg-surface p-8 rounded-[32px] w-full items-center border border-borderLight shadow-sm shadow-black/5">
               <View className="w-20 h-20 bg-white rounded-full items-center justify-center mb-6">
                 <Text className="text-4xl">📚</Text>
@@ -343,6 +342,26 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() =>
+                router.push(`/library/${primary_booking.library_id}`)
+              }
+              className="flex-row justify-between items-center bg-white p-4 rounded-[24px] border border-borderLight shadow-sm shadow-black/5 mb-6 mt-2"
+            >
+              <View className="flex-1 pr-4">
+                <Text className="text-[10px] font-m-bold text-brand uppercase tracking-widest mb-1">
+                  Selected Library
+                </Text>
+                <Text className="text-xl font-m-extra text-textDark">
+                  {primary_booking.library_name}
+                </Text>
+              </View>
+              <View className="w-12 h-12 bg-brand/5 rounded-2xl items-center justify-center border border-brand/10">
+                <Ionicons name="business" size={22} color={COLORS.brand} />
+              </View>
+            </TouchableOpacity>
+
             <Text className="text-sm font-m-bold text-textLight uppercase tracking-wider mb-3 ml-1">
               Current Booking
             </Text>
@@ -517,19 +536,9 @@ export default function HomeScreen() {
                 </>
               }
             >
-              <View className="flex-row justify-between items-start mb-4">
+              <View className="flex-row justify-between items-center mb-4">
                 <View className="flex-1 pr-4">
-                  <TouchableOpacity
-                    onPress={() =>
-                      router.push(`/library/${primary_booking.library_id}`)
-                    }
-                  >
-                    <Text className="text-xl font-m-extra text-textDark leading-6 mb-0.5">
-                      {primary_booking.library_name}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <View className="flex-row flex-wrap gap-1 mt-1">
+                  <View className="flex-row flex-wrap gap-1">
                     <Chip label={primary_booking.shift} />
                     <Chip label={primary_booking.amenity} />
                     <Chip label={primary_booking.reservation} />
@@ -543,7 +552,7 @@ export default function HomeScreen() {
                 </View>
 
                 {primary_booking.assigned_seat && (
-                  <View className="bg-brand/10 border border-brand/20 w-20 h-20 rounded-2xl items-center justify-center">
+                  <View className="bg-brand/10 border border-brand/20 w-16 h-16 rounded-2xl items-center justify-center ml-2">
                     <Text className="text-[10px] font-m-bold text-brand uppercase mb-0.5">
                       Seat
                     </Text>
@@ -821,14 +830,11 @@ export default function HomeScreen() {
                         >
                           <View className="flex-row justify-between items-start mb-2">
                             <View className="flex-1 pr-4">
-                              <Text className="text-lg font-m-extra text-textDark leading-6 mb-0.5">
-                                {booking.library_name}
-                              </Text>
-                              <Text className="text-xs font-m text-textLight mb-1">
+                              <Text className="text-xs font-m text-textLight mb-2">
                                 Starts {formatCleanDate(booking.start_date)}
                               </Text>
 
-                              <View className="flex-row flex-wrap gap-1 mt-1">
+                              <View className="flex-row flex-wrap gap-1">
                                 <Chip label={booking.shift} />
                                 <Chip label={booking.amenity} />
                                 <Chip label={booking.reservation} />
@@ -882,15 +888,12 @@ export default function HomeScreen() {
                       >
                         <View className="flex-row justify-between items-start mb-2">
                           <View className="flex-1 pr-4">
-                            <Text className="text-lg font-m-extra text-textDark leading-6 mb-0.5">
-                              {booking.library_name}
-                            </Text>
-                            <Text className="text-xs font-m text-textLight mb-1">
+                            <Text className="text-xs font-m text-textLight mb-2">
                               Was going to start on{" "}
                               {formatCleanDate(booking.start_date)}
                             </Text>
 
-                            <View className="flex-row flex-wrap gap-1 mt-1">
+                            <View className="flex-row flex-wrap gap-1">
                               <Chip label={booking.shift} />
                               <Chip label={booking.amenity} />
                               <Chip label={booking.reservation} />
@@ -944,20 +947,18 @@ export default function HomeScreen() {
                               ? "Expired"
                               : "Cancelled",
                           textColor: "text-gray-800",
-                        }}
-                      >
-                        <View className="flex-row justify-between items-start mb-2">
-                          <View className="flex-1 pr-4">
-                            <Text className="text-lg font-m-extra text-textDark leading-6 mb-0.5">
-                              {booking.library_name}
-                            </Text>
-                            <Text className="text-xs font-m text-textLight mb-1">
+                          rightElement: (
+                            <Text className="text-[10px] font-m text-textLight text-right">
                               {booking.status === "EXPIRED"
                                 ? `Ended ${booking.end_date ? formatCleanDate(booking.end_date) : "N/A"}`
-                                : `Cancelled on ${booking.updated_at ? formatCleanDate(booking.updated_at, true) : "N/A"}`}
+                                : `Cancelled ${booking.updated_at ? formatCleanDate(booking.updated_at, true) : "N/A"}`}
                             </Text>
-
-                            <View className="flex-row flex-wrap gap-1 mt-1">
+                          ),
+                        }}
+                      >
+                        <View className="flex-row justify-between items-start">
+                          <View className="flex-1">
+                            <View className="flex-row flex-wrap gap-1">
                               <Chip label={booking.shift} />
                               <Chip label={booking.amenity} />
                               <Chip label={booking.reservation} />
@@ -965,6 +966,12 @@ export default function HomeScreen() {
                                 <Chip
                                   label={booking.assigned_seat}
                                   type="SEAT"
+                                />
+                              )}
+                              {booking.start_time && booking.end_time && (
+                                <Chip
+                                  type="TIME"
+                                  label={`${formatTime(booking.start_time)} - ${formatTime(booking.end_time)}`}
                                 />
                               )}
                             </View>
