@@ -413,7 +413,7 @@ export default function HomeScreen() {
                         : primary_booking.status === "ACTIVE" &&
                             primary_booking.days_remaining <= 5
                           ? `Expiring in ${primary_booking.days_remaining} days!`
-                          : "Seat Active",
+                          : "Active",
                 textColor:
                   primary_booking.status === "PENDING"
                     ? "text-blue-800"

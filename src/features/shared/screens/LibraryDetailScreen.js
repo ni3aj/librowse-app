@@ -909,22 +909,39 @@ export default function LibraryDetailScreen() {
           </View>
         ) : myEnrollment?.status === "PAYMENT_PENDING" ? (
           <View className="flex-row justify-between items-center">
-            <View className="flex-1 mr-4">
-              <Text className="text-[10px] font-m-bold text-brandAccent uppercase tracking-widest mb-0.5">
-                Approved
+            <View className="flex-1 mr-2">
+              <Text
+                className={`text-[10px] font-m-bold ${myEnrollment.payment_claimed_at ? "text-yellow-600" : "text-brandAccent"} uppercase tracking-widest mb-0.5`}
+              >
+                {myEnrollment.payment_claimed_at
+                  ? "Payment Claimed"
+                  : "Approved"}
               </Text>
               <Text className="text-base font-m-bold text-textDark">
-                {myEnrollment?.assigned_seat
-                  ? `Seat ${myEnrollment.assigned_seat} Ready`
-                  : "Ready for Payment"}
+                {myEnrollment.payment_claimed_at
+                  ? "Waiting for owner to confirm"
+                  : myEnrollment?.assigned_seat
+                    ? `Seat ${myEnrollment.assigned_seat} Ready`
+                    : "Ready for Payment"}
               </Text>
             </View>
-            <Button
-              title={`Pay ₹${selectedSeat?.price}`}
-              variant="primary"
-              className="py-3 px-8"
-              onPress={() => setIsPaymentModalVisible(true)}
-            />
+            <View className="flex-row items-center">
+              <Button
+                title="Cancel"
+                variant="outline"
+                onPress={handleCancel}
+                loading={isCancelling}
+                className="py-3 px-4 mr-2"
+              />
+              {!myEnrollment.payment_claimed_at && (
+                <Button
+                  title={`Pay ₹${selectedSeat?.price}`}
+                  variant="primary"
+                  className="py-3 px-6"
+                  onPress={() => setIsPaymentModalVisible(true)}
+                />
+              )}
+            </View>
           </View>
         ) : myEnrollment?.status === "ACTIVE" ? (
           <View className="flex-row justify-between items-center">
