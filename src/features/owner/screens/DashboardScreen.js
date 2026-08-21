@@ -471,7 +471,7 @@ export default function DashboardScreen() {
                         New Requests
                       </Text>
                       <Text
-                        className="text-sm font-m-bold px-1 text-textDark mb-4"
+                        className="text-sm font-m-bold px-1 text-textDark mb-4 mt-1"
                         onPress={
                           isLocked
                             ? handleLockedClick

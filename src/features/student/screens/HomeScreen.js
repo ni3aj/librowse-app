@@ -321,7 +321,7 @@ export default function HomeScreen() {
       >
         {!primary_booking ? (
           <View className="items-center justify-center mb-4 mt-2">
-            <View className="bg-surface p-8 rounded-[32px] w-full items-center border border-borderLight shadow-sm shadow-black/5">
+            <View className="bg-surface p-8 rounded-[32px] w-full items-center border border-borderLight  shadow-black/5">
               <View className="w-20 h-20 bg-white rounded-full items-center justify-center mb-6">
                 <Text className="text-4xl">📚</Text>
               </View>
@@ -347,7 +347,7 @@ export default function HomeScreen() {
               onPress={() =>
                 router.push(`/library/${primary_booking.library_id}`)
               }
-              className="flex-row justify-between items-center bg-white p-4 rounded-[24px] border border-borderLight shadow-sm shadow-black/5 mb-6 mt-2"
+              className="flex-row justify-between items-center bg-white p-4 rounded-[24px] border border-borderLight  shadow-black/5 mb-6 mt-2"
             >
               <View className="flex-1 pr-4">
                 <Text className="text-[10px] font-m-bold text-brand uppercase tracking-widest mb-1">
@@ -452,10 +452,10 @@ export default function HomeScreen() {
                   ) && !primary_booking.payment_claimed_at
                     ? `Since ${formatCleanDate(primary_booking.updated_at)}`
                     : null,
-                rightElement: ["ACTIVE", "PAYMENT_PENDING"].includes(
+                rightElement: ["ACTIVE", "PAYMENT_PENDING", "PENDING"].includes(
                   primary_booking.status,
                 ) ? (
-                  <Text className="text-base font-m-bold text-dark">
+                  <Text className="text-base font-m-bold text-dark mr-1">
                     {formatPrice(primary_booking.price)}
                   </Text>
                 ) : null,
