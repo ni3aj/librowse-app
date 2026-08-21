@@ -1,6 +1,6 @@
 export const COLORS = {
-  brand: "#6e3482",
-  brandAccent: "#6e3482",
+  brand: "#C13383",
+  brandAccent: "#C13383",
   textDark: "#1a1423",
   textLight: "#6B7280",
   background: "#FFFFFF",
