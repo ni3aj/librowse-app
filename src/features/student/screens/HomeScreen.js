@@ -351,7 +351,7 @@ export default function HomeScreen() {
             >
               <View className="flex-1 pr-4">
                 <Text className="text-[10px] font-m-bold text-brand uppercase tracking-widest mb-1">
-                  Selected Library
+                  Library
                 </Text>
                 <Text className="text-xl font-m-extra text-textDark">
                   {primary_booking.library_name}
