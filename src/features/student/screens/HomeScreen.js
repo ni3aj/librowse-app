@@ -347,7 +347,7 @@ export default function HomeScreen() {
               Current Booking
             </Text>
             <ActionCard
-              className="mb-6"
+              className="mb-4"
               header={{
                 bg:
                   primary_booking.status === "PENDING"

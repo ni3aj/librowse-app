@@ -645,11 +645,19 @@ export default function LibraryDetailScreen() {
                     color={COLORS.textLight}
                   />
                   <Text className="text-xs font-m-semi text-gray-500">
-                    {myEnrollment.start_date
-                      ? formatCleanDate(myEnrollment.start_date)
-                      : "N/A"}
-                    {myEnrollment.end_date &&
-                      ` → ${formatCleanDate(myEnrollment.end_date)}`}
+                    {(myEnrollment.status === "PENDING" ||
+                      myEnrollment.status === "PAYMENT_PENDING") && (
+                      <>
+                        Pending since{" "}
+                        {formatCleanDate(
+                          myEnrollment.status === "PAYMENT_PENDING" &&
+                            myEnrollment.payment_claimed_at
+                            ? myEnrollment.payment_claimed_at
+                            : myEnrollment.updated_at,
+                          true,
+                        )}
+                      </>
+                    )}
                   </Text>
                 </View>
               </ActionCard>
