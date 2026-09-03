@@ -5,11 +5,12 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import Header from "@/components/ui/Header";
 import { COLORS } from "@/constants/theme";
+import { useAuthStore } from "@/store/authStore";
 import { useLibraryStore } from "@/store/libraryStore";
 import { formatCleanDate } from "@/utils/dateFormatter";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -82,6 +83,40 @@ export default function HomeScreen() {
   const [receiptEmail, setReceiptEmail] = useState("");
   const [isSendingReceipt, setIsSendingReceipt] = useState(false);
   const [paymentConfig, setPaymentConfig] = useState(null);
+  const { updateKycStatus } = useAuthStore();
+
+  const [dailyQuote, setDailyQuote] = useState({
+    text: "The secret to getting ahead is getting started.",
+    author: "Mark Twain",
+  });
+
+  useEffect(() => {
+    let isActive = true;
+
+    const fetchQuote = async () => {
+      try {
+        // Using a highly reliable, free, no-key-required API
+        const response = await fetch("https://dummyjson.com/quotes/random");
+        const data = await response.json();
+
+        if (isActive && data.quote) {
+          setDailyQuote({
+            text: data.quote,
+            author: data.author,
+          });
+        }
+      } catch (error) {
+        // Silently fail and keep the default Mark Twain quote if offline
+        console.log("Failed to fetch quote, using default.");
+      }
+    };
+
+    fetchQuote();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   const fetchDashboard = async () => {
     if (!libraryId) {
@@ -96,6 +131,10 @@ export default function HomeScreen() {
 
       if (response.data.success) {
         setDashboardData(response.data.data);
+        updateKycStatus(
+          response.data.data.user.is_kyc_verified,
+          response.data.data.user.kyc_reference_id,
+        );
         const isActive =
           response.data.data.primary_booking?.status === "ACTIVE" ||
           (response.data.data.future_enrollments || []).some(
@@ -319,6 +358,14 @@ export default function HomeScreen() {
           />
         }
       >
+        <View className="mb-4 px-1 mt-[-4]">
+          <Text className="text-sm font-m-bold text-textDark leading-5 italic">
+            "{dailyQuote.text}"
+          </Text>
+          <Text className="text-xs font-m text-brand mt-1 text-right">
+            — {dailyQuote.author}
+          </Text>
+        </View>
         {!primary_booking ? (
           <View className="items-center justify-center mb-4 mt-2">
             <View className="bg-surface p-8 rounded-[32px] w-full items-center border border-borderLight  shadow-black/5">

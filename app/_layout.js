@@ -27,6 +27,7 @@ export default function RootLayout() {
     Montserrat_600SemiBold,
     Montserrat_700Bold,
     Montserrat_800ExtraBold,
+    GardenC: require("../assets/fonts/GardensC_03_1.otf"),
   });
 
   useEffect(() => {

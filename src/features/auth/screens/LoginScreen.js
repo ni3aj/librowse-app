@@ -317,11 +317,11 @@ export default function LoginScreen() {
       <View className="flex-1 justify-center px-8 bg-background">
         <BackgroundBlobs />
         <View className="items-center mb-12">
-          <Text className="text-4xl font-m-extra text-textDark mb-2">
-            LiBrowse 📚
+          <Text className="text-brand font-logo text-5xl tracking-widest">
+            LiBrowse
           </Text>
           <Text className="text-base text-textLight">
-            Your Perfect Desk, Waiting.
+            Find your perfect study corner!
           </Text>
         </View>
 

@@ -10,6 +10,7 @@ module.exports = {
       colors: COLORS,
     },
     fontFamily: {
+      logo: ["GardenC", "Montserrat_400Regular"],
       m: ["Montserrat_400Regular"],
       "m-med": ["Montserrat_500Medium"],
       "m-semi": ["Montserrat_600SemiBold"],
